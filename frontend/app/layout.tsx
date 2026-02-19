@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Lato, Poppins } from "next/font/google";
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
+const lato = Lato({
+  variable: "--font-lato",
   subsets: ["latin"],
+  weight: ["100", "300", "400", "700", "900"],
+});
+
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "StellarStream",
-  description: "StellarStream - Next-generation streaming platform",
+  description:
+    "Non-custodial, second-by-second asset streaming protocol built on Soroban. Money as a Stream.",
 };
 
 export default function RootLayout({
@@ -19,9 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${plusJakarta.variable} antialiased`}
-      >
+      <body className={`${lato.variable} ${poppins.variable} antialiased`}>
         {children}
       </body>
     </html>

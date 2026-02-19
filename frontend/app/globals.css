@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&display=swap');
 @import "tailwindcss";
 
 :root {
   /* Stellar Glass Design System Colors */
-  --stellar-primary: #00F5FF;
-  --stellar-secondary: #8A00FF;
+  --stellar-primary: #00f5ff;
+  --stellar-secondary: #8a00ff;
   --stellar-background: #030303;
   --stellar-foreground: #ffffff;
 }
@@ -13,18 +14,123 @@
   --color-secondary: var(--stellar-secondary);
   --color-background: var(--stellar-background);
   --color-foreground: var(--stellar-foreground);
-  --font-sans: var(--font-plus-jakarta);
+  --font-heading: var(--font-lato);
+  --font-body: var(--font-poppins);
 }
 
 /* GlassCard Utility Class */
 @utility glass-card {
-  @apply backdrop-blur-md bg-white/5 border border-white/10 rounded-xl;
+  @apply backdrop-blur-lg bg-white/5 border border-white/[0.08] rounded-2xl;
 }
 
 body {
   background: var(--stellar-background);
   color: var(--stellar-foreground);
-  font-family: var(--font-plus-jakarta), sans-serif;
+  font-family: "Poppins", var(--font-poppins), sans-serif;
+}
+
+.font-heading {
+  font-family: "Lato", var(--font-lato), sans-serif;
+}
+
+.font-body {
+  font-family: "Poppins", var(--font-poppins), sans-serif;
+}
+
+.nebula-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.45;
+  will-change: transform;
+}
+
+.nebula-cyan {
+  top: -14rem;
+  left: -10rem;
+  width: 36rem;
+  height: 36rem;
+  background: radial-gradient(circle at 35% 35%, #00f5ff, transparent 72%);
+  animation: nebula-drift-1 18s ease-in-out infinite;
+}
+
+.nebula-violet {
+  right: -14rem;
+  bottom: -16rem;
+  width: 40rem;
+  height: 40rem;
+  background: radial-gradient(circle at 65% 60%, #8a00ff, transparent 72%);
+  animation: nebula-drift-2 22s ease-in-out infinite;
+}
+
+/* ── Nebula Blob Animations ── */
+@keyframes nebula-drift-1 {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  25% {
+    transform: translate(5%, -8%) scale(1.1);
+  }
+  50% {
+    transform: translate(-3%, 5%) scale(0.95);
+  }
+  75% {
+    transform: translate(8%, 3%) scale(1.05);
+  }
+}
+
+@keyframes nebula-drift-2 {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  25% {
+    transform: translate(-6%, 4%) scale(1.08);
+  }
+  50% {
+    transform: translate(4%, -6%) scale(0.92);
+  }
+  75% {
+    transform: translate(-3%, -4%) scale(1.12);
+  }
+}
+
+/* Liquid Chrome Gradient for headline */
+@utility liquid-chrome {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #00f5ff 40%,
+    #8a00ff 70%,
+    #ffffff 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: chrome-shift 6s ease-in-out infinite;
+}
+
+@keyframes chrome-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Neon Glow CTA */
+@utility neon-glow {
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.4), 0 0 40px rgba(0, 245, 255, 0.15),
+    inset 0 0 15px rgba(0, 245, 255, 0.05);
+}
+
+@utility neon-glow-hover {
+  box-shadow: 0 0 20px rgba(0, 245, 255, 0.6), 0 0 60px rgba(0, 245, 255, 0.25),
+    inset 0 0 20px rgba(0, 245, 255, 0.1);
 }
 
 /* Custom scrollbar for Stellar Glass aesthetic */
