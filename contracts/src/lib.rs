@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod math;
 mod types;
 
 use soroban_sdk::{contract, contractimpl, Env, String};
