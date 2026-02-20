@@ -16,5 +16,6 @@ pub struct Stream {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Stream(u64),
+    StreamId, // Add this to track the sequence of IDs
     Admin,
 }
