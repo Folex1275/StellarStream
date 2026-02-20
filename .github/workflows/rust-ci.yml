@@ -1,0 +1,37 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      
+      - name: Cache cargo registry and build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+        working-directory: contracts
+      
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+        working-directory: contracts
+      
+      - name: Run tests
+        run: cargo test
+        working-directory: contracts
