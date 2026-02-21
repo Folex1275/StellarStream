@@ -2,6 +2,13 @@ use soroban_sdk::{contracttype, Address, Vec};
 
 #[contracttype]
 #[derive(Clone)]
+pub struct Milestone {
+    pub timestamp: u64,
+    pub percentage: u32,
+}
+
+#[contracttype]
+#[derive(Clone)]
 pub struct Stream {
     pub sender: Address,
     pub receiver: Address,
@@ -15,6 +22,7 @@ pub struct Stream {
     pub is_paused: bool,
     pub paused_time: u64,
     pub total_paused_duration: u64,
+    pub milestones: Vec<Milestone>,
 }
 
 #[contracttype]

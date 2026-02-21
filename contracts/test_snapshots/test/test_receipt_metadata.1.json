@@ -293,6 +293,14 @@
                             },
                             {
                               "key": {
+                                "symbol": "milestones"
+                              },
+                              "val": {
+                                "vec": []
+                              }
+                            },
+                            {
+                              "key": {
                                 "symbol": "paused_time"
                               },
                               "val": {

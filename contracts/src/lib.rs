@@ -8,7 +8,7 @@ mod types;
 use errors::Error;
 use soroban_sdk::{contract, contractimpl, token, Address, Env, Vec};
 use storage::{PROPOSAL_COUNT, RECEIPT, STREAM_COUNT};
-use types::{ReceiptMetadata, Stream, StreamProposal, StreamReceipt};
+use types::{Milestone, ReceiptMetadata, Stream, StreamProposal, StreamReceipt};
 
 #[contract]
 pub struct StellarStreamContract;
@@ -126,6 +126,7 @@ impl StellarStreamContract {
             is_paused: false,
             paused_time: 0,
             total_paused_duration: 0,
+            milestones: Vec::new(&env),
         };
 
         env.storage()
@@ -146,6 +147,29 @@ impl StellarStreamContract {
         total_amount: i128,
         start_time: u64,
         end_time: u64,
+    ) -> Result<u64, Error> {
+        let milestones = Vec::new(&env);
+        Self::create_stream_with_milestones(
+            env,
+            sender,
+            receiver,
+            token,
+            total_amount,
+            start_time,
+            end_time,
+            milestones,
+        )
+    }
+
+    pub fn create_stream_with_milestones(
+        env: Env,
+        sender: Address,
+        receiver: Address,
+        token: Address,
+        total_amount: i128,
+        start_time: u64,
+        end_time: u64,
+        milestones: Vec<Milestone>,
     ) -> Result<u64, Error> {
         sender.require_auth();
 
@@ -175,6 +199,7 @@ impl StellarStreamContract {
             is_paused: false,
             paused_time: 0,
             total_paused_duration: 0,
+            milestones,
         };
 
         env.storage()
@@ -451,7 +476,27 @@ impl StellarStreamContract {
         }
 
         let duration = (stream.end_time - stream.start_time) as i128;
-        (stream.total_amount * effective_elapsed) / duration
+        let linear_unlocked = (stream.total_amount * effective_elapsed) / duration;
+
+        if stream.milestones.is_empty() {
+            return linear_unlocked;
+        }
+
+        let mut milestone_cap = 0i128;
+        for milestone in stream.milestones.iter() {
+            if effective_time >= milestone.timestamp {
+                let cap = (stream.total_amount * milestone.percentage as i128) / 100;
+                if cap > milestone_cap {
+                    milestone_cap = cap;
+                }
+            }
+        }
+
+        if linear_unlocked < milestone_cap {
+            linear_unlocked
+        } else {
+            milestone_cap
+        }
     }
 }
 
@@ -900,5 +945,109 @@ mod test {
         env.ledger().with_mut(|li| li.timestamp = 250);
         let withdrawn = client.withdraw(&stream_id, &receiver);
         assert!(withdrawn > 0);
+    }
+
+    #[test]
+    fn test_quarterly_vesting() {
+        let env = Env::default();
+        env.mock_all_auths_allowing_non_root_auth();
+        env.ledger().with_mut(|li| li.timestamp = 0);
+
+        let contract_id = env.register(StellarStreamContract, ());
+        let client = StellarStreamContractClient::new(&env, &contract_id);
+
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
+        let admin = Address::generate(&env);
+        let (token_id, _) = create_token_contract(&env, &admin);
+
+        let token_admin_client = StellarAssetClient::new(&env, &token_id);
+        token_admin_client.mint(&sender, &10000);
+
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(Milestone {
+            timestamp: 90,
+            percentage: 25,
+        });
+        milestones.push_back(Milestone {
+            timestamp: 180,
+            percentage: 50,
+        });
+        milestones.push_back(Milestone {
+            timestamp: 270,
+            percentage: 75,
+        });
+        milestones.push_back(Milestone {
+            timestamp: 360,
+            percentage: 100,
+        });
+
+        let stream_id = client.create_stream_with_milestones(
+            &sender,
+            &receiver,
+            &token_id,
+            &1000,
+            &0,
+            &360,
+            &milestones,
+        );
+
+        env.ledger().with_mut(|li| li.timestamp = 45);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert!(metadata.unlocked_balance <= 250);
+
+        env.ledger().with_mut(|li| li.timestamp = 100);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert_eq!(metadata.unlocked_balance, 250);
+
+        env.ledger().with_mut(|li| li.timestamp = 200);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert_eq!(metadata.unlocked_balance, 500);
+    }
+
+    #[test]
+    fn test_hybrid_streaming() {
+        let env = Env::default();
+        env.mock_all_auths_allowing_non_root_auth();
+        env.ledger().with_mut(|li| li.timestamp = 0);
+
+        let contract_id = env.register(StellarStreamContract, ());
+        let client = StellarStreamContractClient::new(&env, &contract_id);
+
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
+        let admin = Address::generate(&env);
+        let (token_id, _) = create_token_contract(&env, &admin);
+
+        let token_admin_client = StellarAssetClient::new(&env, &token_id);
+        token_admin_client.mint(&sender, &10000);
+
+        let mut milestones = Vec::new(&env);
+        milestones.push_back(Milestone {
+            timestamp: 100,
+            percentage: 50,
+        });
+
+        let stream_id = client.create_stream_with_milestones(
+            &sender,
+            &receiver,
+            &token_id,
+            &1000,
+            &0,
+            &200,
+            &milestones,
+        );
+
+        env.ledger().with_mut(|li| li.timestamp = 50);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert!(metadata.unlocked_balance <= 250);
+
+        env.ledger().with_mut(|li| li.timestamp = 150);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert_eq!(metadata.unlocked_balance, 500);
+
+        env.ledger().with_mut(|li| li.timestamp = 200);
+        let metadata = client.get_receipt_metadata(&stream_id);
+        assert_eq!(metadata.unlocked_balance, 1000);
     }
 }
