@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "boring-avatars": "^2.0.4",
     "framer-motion": "^12.34.2",
     "lucide-react": "^0.575.0",
     "next": "16.1.6",
