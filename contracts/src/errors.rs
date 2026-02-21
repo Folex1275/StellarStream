@@ -15,4 +15,6 @@ pub enum Error {
     AlreadyApproved = 10,
     ProposalAlreadyExecuted = 11,
     InvalidApprovalThreshold = 12,
+    NotReceiptOwner = 13,
+    StreamPaused = 14,
 }
