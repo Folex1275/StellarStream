@@ -20,4 +20,6 @@ pub enum Error {
     OracleStalePrice = 15,
     OracleFailed = 16,
     PriceOutOfBounds = 17,
+    FlashLoanNotRepaid = 18,
+    FlashLoanInProgress = 19,
 }

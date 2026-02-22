@@ -2,14 +2,15 @@
 #![allow(clippy::too_many_arguments)]
 
 mod errors;
+mod flash_loan;
 mod math;
 mod oracle;
 mod storage;
 mod types;
 
 use errors::Error;
-use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, Vec};
-use storage::{PROPOSAL_COUNT, RECEIPT, STREAM_COUNT};
+use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Bytes, Env, IntoVal, Vec};
+use storage::{FLASH_LOAN_FEE, FLASH_LOAN_LOCK, PROPOSAL_COUNT, RECEIPT, STREAM_COUNT};
 use types::{
     CurveType, DataKey, Milestone, ProposalApprovedEvent, ProposalCreatedEvent, ReceiptMetadata,
     ReceiptTransferredEvent, Stream, StreamCancelledEvent, StreamClaimEvent, StreamCreatedEvent,
@@ -840,6 +841,103 @@ impl StellarStreamContract {
             .instance()
             .get(&DataKey::Admin)
             .expect("Admin not set")
+    }
+
+    /// Set flash loan fee in basis points (100 = 1%)
+    pub fn set_flash_loan_fee(env: Env, fee_bps: u32, admin: Address) -> Result<(), Error> {
+        admin.require_auth();
+
+        // Verify admin
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .expect("Admin not set");
+
+        if stored_admin != admin {
+            return Err(Error::Unauthorized);
+        }
+
+        env.storage().instance().set(&FLASH_LOAN_FEE, &fee_bps);
+        Ok(())
+    }
+
+    /// Execute a flash loan
+    ///
+    /// # Parameters
+    /// - `receiver`: Contract that will receive and use the loan
+    /// - `token`: Token to borrow
+    /// - `amount`: Amount to borrow
+    /// - `params`: Additional parameters to pass to receiver
+    pub fn flash_loan(
+        env: Env,
+        receiver: Address,
+        token: Address,
+        amount: i128,
+        params: Bytes,
+    ) -> Result<(), Error> {
+        // Check for reentrancy
+        let is_locked: bool = env
+            .storage()
+            .instance()
+            .get(&FLASH_LOAN_LOCK)
+            .unwrap_or(false);
+        if is_locked {
+            return Err(Error::FlashLoanInProgress);
+        }
+
+        if amount <= 0 {
+            return Err(Error::InvalidAmount);
+        }
+
+        // Set reentrancy lock
+        env.storage().instance().set(&FLASH_LOAN_LOCK, &true);
+
+        // Get fee (default 0.09% = 9 bps)
+        let fee_bps: u32 = env.storage().instance().get(&FLASH_LOAN_FEE).unwrap_or(9);
+        let fee = (amount * fee_bps as i128) / 10_000;
+
+        // Get balance before
+        let token_client = token::Client::new(&env, &token);
+        let balance_before = token_client.balance(&env.current_contract_address());
+
+        // Transfer tokens to receiver
+        token_client.transfer(&env.current_contract_address(), &receiver, &amount);
+
+        // Call receiver's execute_operation
+        // The receiver must implement exec_op and return the tokens + fee
+        let initiator = env.current_contract_address();
+        env.invoke_contract::<()>(
+            &receiver,
+            &soroban_sdk::symbol_short!("exec_op"),
+            (initiator, token.clone(), amount, fee, params).into_val(&env),
+        );
+
+        // Verify repayment with fee
+        let balance_after = token_client.balance(&env.current_contract_address());
+        let expected_balance = balance_before + fee;
+
+        if balance_after < expected_balance {
+            env.storage().instance().set(&FLASH_LOAN_LOCK, &false);
+            return Err(Error::FlashLoanNotRepaid);
+        }
+
+        // Release lock
+        env.storage().instance().set(&FLASH_LOAN_LOCK, &false);
+
+        // Emit event
+        env.events().publish(
+            (symbol_short!("fl_exec"), receiver.clone()),
+            (token, amount, fee),
+        );
+
+        Ok(())
+    }
+
+    /// Get available liquidity for flash loans
+    pub fn get_flash_loan_liquidity(env: Env, token: Address) -> i128 {
+        let token_client = token::Client::new(&env, &token);
+        token_client.balance(&env.current_contract_address())
     }
 }
 
