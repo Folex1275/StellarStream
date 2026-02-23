@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import TransactionHistory from "@/components/dashboard/TransactionHistory";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Stream {
@@ -16,16 +17,6 @@ interface Stream {
   sender: string;
   recipient: string;
   ratePerSecond: number;
-}
-
-interface Transaction {
-  id: string;
-  type: "deposit" | "withdraw" | "yield_claim" | "pause" | "resume";
-  amount: number;
-  time: Date;
-  status: "confirmed" | "pending";
-  gas: string;
-  hash: string;
 }
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -44,18 +35,6 @@ const STREAM: Stream = {
   ratePerSecond: 0.03858,
 };
 
-const TX_HISTORY: Transaction[] = [
-  { id: "tx_01", hash: "0xab12…ef34", type: "deposit",     amount: 120_000, time: new Date(Date.now() - 1000*60*60*24*12), status: "confirmed", gas: "0.0018 ETH" },
-  { id: "tx_02", hash: "0xcd34…5678", type: "pause",       amount: 0,       time: new Date(Date.now() - 1000*60*60*24*11), status: "confirmed", gas: "0.0009 ETH" },
-  { id: "tx_03", hash: "0xef56…90ab", type: "resume",      amount: 0,       time: new Date(Date.now() - 1000*60*60*24*11 + 3_600_000), status: "confirmed", gas: "0.0009 ETH" },
-  { id: "tx_04", hash: "0x7890…cdef", type: "withdraw",    amount: 7_500,   time: new Date(Date.now() - 1000*60*60*24*8),  status: "confirmed", gas: "0.0022 ETH" },
-  { id: "tx_05", hash: "0xaabc…1122", type: "yield_claim", amount: 529.72,  time: new Date(Date.now() - 1000*60*60*24*10), status: "confirmed", gas: "0.0013 ETH" },
-  { id: "tx_06", hash: "0xddef…3344", type: "yield_claim", amount: 312.45,  time: new Date(Date.now() - 1000*60*60*24*5),  status: "confirmed", gas: "0.0014 ETH" },
-  { id: "tx_07", hash: "0x1122…5566", type: "withdraw",    amount: 10_000,  time: new Date(Date.now() - 1000*60*60*24*3),  status: "confirmed", gas: "0.0019 ETH" },
-  { id: "tx_08", hash: "0x3344…7788", type: "withdraw",    amount: 5_000,   time: new Date(Date.now() - 1000*60*60*6),     status: "confirmed", gas: "0.0021 ETH" },
-  { id: "tx_09", hash: "0x5566…99aa", type: "withdraw",    amount: 15_000,  time: new Date(Date.now() - 1000*60*60*1),     status: "pending",   gas: "0.0020 ETH" },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number, d = 2) =>
   n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -65,22 +44,6 @@ const fmtDate = (d: Date) =>
 
 const fmtTime = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-const timeAgo = (d: Date) => {
-  const s = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-};
-
-const TX_META = {
-  deposit:     { label: "Deposit",     icon: "↓", color: "#34d399" },
-  withdraw:    { label: "Withdraw",    icon: "↑", color: "#fb923c" },
-  yield_claim: { label: "Yield Claim", icon: "◈", color: "#a78bfa" },
-  pause:       { label: "Pause",       icon: "⏸", color: "#f87171" },
-  resume:      { label: "Resume",      icon: "▶", color: "#34d399" },
-} as const;
 
 // ─── Live Counter ─────────────────────────────────────────────────────────────
 function LiveCounter({ base, rate }: { base: number; rate: number }) {
@@ -199,7 +162,6 @@ function StreamChart({ stream }: { stream: Stream }) {
         <path d={streamD} fill="none" stroke="url(#streamLine)" strokeWidth={2.5}
           filter="url(#glow)" />
 
-        {/* Live dot */}
         <circle cx={xS(last.t)} cy={yS(last.amount)} r={5} fill="#34d399" filter="url(#glow)">
           <animate attributeName="r" values="5;9;5" dur="2s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
@@ -209,14 +171,8 @@ function StreamChart({ stream }: { stream: Stream }) {
   );
 }
 
-// ─── Reusable Card (matches existing design system) ───────────────────────────
-function Card({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+// ─── Reusable Card ────────────────────────────────────────────────────────────
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl ${className}`}>
       {children}
@@ -226,7 +182,6 @@ function Card({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function StreamDetailPage() {
-  const [filter, setFilter] = useState<"all" | Transaction["type"]>("all");
   const [streamed, setStreamed] = useState(STREAM.streamed);
 
   useEffect(() => {
@@ -238,23 +193,15 @@ export default function StreamDetailPage() {
   const remaining = STREAM.totalAmount - streamed;
   const daysLeft  = Math.ceil((STREAM.endTime.getTime() - Date.now()) / 86_400_000);
 
-  const filterTypes = ["all", "deposit", "withdraw", "yield_claim", "pause", "resume"] as const;
-  const filtered = TX_HISTORY
-    .filter((tx) => filter === "all" || tx.type === filter)
-    .sort((a, b) => b.time.getTime() - a.time.getTime());
-
   return (
     <div className="min-h-screen p-4 md:p-6 space-y-4">
 
-      {/* ── Header (matches existing StreamsPage pattern exactly) ── */}
+      {/* ── Header ── */}
       <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="flex items-center gap-3 flex-wrap">
-              <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
-                Stream Detail
-              </p>
-              {/* Live pill */}
+              <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">Stream Detail</p>
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-emerald-400 uppercase">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -263,44 +210,36 @@ export default function StreamDetailPage() {
                 Live
               </span>
             </div>
-
             <h1 className="font-heading mt-2 text-3xl md:text-5xl">{STREAM.name}</h1>
-            <p className="font-body mt-1 text-xs text-white/40 tracking-wider">
-              {STREAM.id} · {STREAM.token}
-            </p>
+            <p className="font-body mt-1 text-xs text-white/40 tracking-wider">{STREAM.id} · {STREAM.token}</p>
             <p className="font-body mt-4 text-white/72 max-w-lg">
               View full history, participants, and live streaming balance for this active payment stream.
             </p>
           </div>
-
           <div className="flex gap-2 flex-shrink-0 pt-1">
             <button className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white/60 backdrop-blur-xl transition hover:bg-white/[0.08] hover:text-white/90 font-body">
               ⏸ Pause
             </button>
             <button className="rounded-xl bg-emerald-400 px-5 py-2 text-sm font-bold text-black transition hover:bg-emerald-300 font-body">
-              ↑ Withdraw
+              → Withdraw
             </button>
           </div>
         </div>
       </section>
 
-      {/* ── Bento: Left Chart + Right Metadata ── */}
+      {/* ── Bento: Chart + Metadata ── */}
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
 
         {/* LEFT: Large Chart */}
         <Card className="p-6 md:p-8">
-          {/* Chart header */}
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             <div>
-              <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase mb-1">
-                Total Streamed
-              </p>
+              <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase mb-1">Total Streamed</p>
               <div className="font-heading text-4xl md:text-5xl text-emerald-400 leading-none tabular-nums">
                 <LiveCounter base={STREAM.streamed} rate={STREAM.ratePerSecond} />
                 <span className="font-body text-lg font-normal text-white/40 ml-2">USDC</span>
               </div>
             </div>
-
             <div className="flex gap-4 items-center mt-1">
               <div className="flex items-center gap-2 font-body text-xs text-white/40">
                 <span className="block w-6" style={{ borderTop: "2px dashed #a78bfa" }} />
@@ -313,7 +252,6 @@ export default function StreamDetailPage() {
             </div>
           </div>
 
-          {/* Stat pills */}
           <div className="flex flex-wrap gap-3 mb-6">
             {[
               { label: "Rate / sec", value: `${STREAM.ratePerSecond.toFixed(5)} USDC` },
@@ -328,12 +266,10 @@ export default function StreamDetailPage() {
             ))}
           </div>
 
-          {/* Chart */}
           <div className="h-[220px] w-full">
             <StreamChart stream={STREAM} />
           </div>
 
-          {/* Progress bar */}
           <div className="mt-6">
             <div className="flex justify-between font-body text-xs text-white/40 mb-2">
               <span>Stream Progress</span>
@@ -355,7 +291,6 @@ export default function StreamDetailPage() {
         {/* RIGHT: Metadata stack */}
         <div className="flex flex-col gap-4">
 
-          {/* Completion arc */}
           <Card className="p-6 flex items-center gap-5">
             <RadialProgress pct={pct} />
             <div>
@@ -365,7 +300,6 @@ export default function StreamDetailPage() {
             </div>
           </Card>
 
-          {/* Timeline */}
           <Card className="p-6">
             <p className="font-body text-xs tracking-widest text-white/40 uppercase mb-4">Timeline</p>
             <div className="space-y-4">
@@ -374,10 +308,7 @@ export default function StreamDetailPage() {
                 { label: "End",   date: STREAM.endTime,   color: "#a78bfa" },
               ] as const).map((item) => (
                 <div key={item.label} className="flex items-start gap-3">
-                  <div
-                    className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: item.color, boxShadow: `0 0 8px ${item.color}` }}
-                  />
+                  <div className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: item.color, boxShadow: `0 0 8px ${item.color}` }} />
                   <div>
                     <p className="font-body text-[10px] tracking-widest text-white/35 uppercase">{item.label}</p>
                     <p className="font-body text-sm font-bold text-white/85">{fmtDate(item.date)}</p>
@@ -388,7 +319,6 @@ export default function StreamDetailPage() {
             </div>
           </Card>
 
-          {/* Financials */}
           <Card className="p-6">
             <p className="font-body text-xs tracking-widest text-white/40 uppercase mb-4">Financials</p>
             <div className="space-y-3">
@@ -401,21 +331,19 @@ export default function StreamDetailPage() {
                 <div key={row.label} className="flex items-center justify-between">
                   <span className="font-body text-xs text-white/40">{row.label}</span>
                   <span className={`font-body text-sm font-bold tabular-nums ${row.color}`}>
-                    {row.value}{" "}
-                    <span className="text-white/25 font-normal text-xs">USDC</span>
+                    {row.value} <span className="text-white/25 font-normal text-xs">USDC</span>
                   </span>
                 </div>
               ))}
             </div>
           </Card>
 
-          {/* Participants */}
           <Card className="p-6">
             <p className="font-body text-xs tracking-widest text-white/40 uppercase mb-4">Participants</p>
             <div className="space-y-3">
               {[
-                { role: "Sender",    addr: STREAM.sender,    icon: "→" },
-                { role: "Recipient", addr: STREAM.recipient, icon: "←" },
+                { role: "Sender",    addr: STREAM.sender,    icon: "↑" },
+                { role: "Recipient", addr: STREAM.recipient, icon: "↓" },
               ].map((p) => (
                 <div key={p.role} className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm text-white/40">
@@ -432,112 +360,9 @@ export default function StreamDetailPage() {
         </div>
       </div>
 
-      {/* ── BOTTOM: Audit Log ── */}
-      <Card>
-        {/* Log header */}
-        <div className="flex flex-col gap-3 border-b border-white/[0.06] p-6 md:p-8 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">Transaction History</p>
-            <h2 className="font-heading mt-2 text-3xl md:text-4xl">Audit Log</h2>
-            <p className="font-body mt-2 text-white/72">
-              {TX_HISTORY.length} on-chain transactions · fully traceable settlement history.
-            </p>
-          </div>
+      {/* ── BOTTOM: Transaction History Component (#156) ── */}
+      <TransactionHistory />
 
-          {/* Filter pills */}
-          <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
-            <div className="flex flex-wrap gap-2">
-              {filterTypes.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`rounded-xl border px-3 py-1.5 font-body text-xs capitalize transition ${
-                    filter === f
-                      ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-400"
-                      : "border-white/10 bg-white/[0.03] text-white/40 hover:border-white/20 hover:text-white/70"
-                  }`}
-                >
-                  {f === "all" ? "All" : f.replace("_", " ")}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Column headers */}
-        <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_120px] gap-4 border-b border-white/[0.04] px-6 py-3 md:grid">
-          {["Type", "Amount", "Time", "Gas", "Status"].map((h) => (
-            <p key={h} className="font-body text-[10px] tracking-widest text-white/25 uppercase">{h}</p>
-          ))}
-        </div>
-
-        {/* Rows */}
-        <div className="divide-y divide-white/[0.04] max-h-[380px] overflow-y-auto">
-          {filtered.map((tx) => {
-            const meta = TX_META[tx.type];
-            return (
-              <div
-                key={tx.id}
-                className="grid grid-cols-1 gap-3 px-6 py-4 transition hover:bg-white/[0.02] md:grid-cols-[2fr_1fr_1fr_1fr_120px] md:items-center"
-              >
-                {/* Type */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base"
-                    style={{
-                      background: `${meta.color}18`,
-                      border: `1px solid ${meta.color}30`,
-                      color: meta.color,
-                    }}
-                  >
-                    {meta.icon}
-                  </div>
-                  <div>
-                    <p className="font-body text-sm font-bold text-white/85">{meta.label}</p>
-                    <p className="font-body text-xs text-white/30 tabular-nums">{tx.hash}</p>
-                  </div>
-                </div>
-
-                {/* Amount */}
-                <p
-                  className="font-body text-sm font-bold tabular-nums"
-                  style={{ color: tx.amount > 0 ? meta.color : "rgba(255,255,255,0.25)" }}
-                >
-                  {tx.amount > 0 ? `${fmt(tx.amount)} USDC` : "—"}
-                </p>
-
-                {/* Time */}
-                <div>
-                  <p className="font-body text-sm text-white/60">{timeAgo(tx.time)}</p>
-                  <p className="font-body text-xs text-white/25">{fmtDate(tx.time)}</p>
-                </div>
-
-                {/* Gas */}
-                <p className="font-body text-sm text-white/35 tabular-nums">{tx.gas}</p>
-
-                {/* Status */}
-                <div>
-                  <span
-                    className={`inline-block rounded-lg px-2.5 py-1 font-body text-[10px] font-bold tracking-wider uppercase ${
-                      tx.status === "confirmed"
-                        ? "bg-emerald-400/10 border border-emerald-400/25 text-emerald-400"
-                        : "bg-orange-400/10 border border-orange-400/25 text-orange-400"
-                    }`}
-                  >
-                    {tx.status === "confirmed" ? "✓ Confirmed" : "⏳ Pending"}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-
-          {filtered.length === 0 && (
-            <div className="px-6 py-12 text-center">
-              <p className="font-body text-sm text-white/30">No transactions match this filter.</p>
-            </div>
-          )}
-        </div>
-      </Card>
     </div>
   );
 }
