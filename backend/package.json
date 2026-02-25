@@ -22,6 +22,9 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
   "dependencies": {
     "@prisma/client": "^7.4.1",
     "@stellar/stellar-sdk": "^12.3.0",
