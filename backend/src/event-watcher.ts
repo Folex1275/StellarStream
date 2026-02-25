@@ -8,9 +8,16 @@ import { logger } from "./logger";
 import { parseContractEvent, extractEventType } from "./event-parser";
 import { scValToNative, xdr } from "@stellar/stellar-sdk";
 import { PrismaClient } from "./generated/client/client.js";
+import { PrismaClientKnownRequestError } from "./generated/client/internal/prismaNamespace.js";
 
 // @ts-expect-error Prisma Client may not be generated yet
 const prisma = new PrismaClient();
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof PrismaClientKnownRequestError && error.code === "P2002"
+  );
+}
 
 export class EventWatcher {
   private server: SorobanRpc.Server;
@@ -197,6 +204,23 @@ export class EventWatcher {
       return;
     }
 
+    try {
+      await prisma.eventLog.create({
+        data: {
+          eventId: event.id,
+          eventType: parsed.type ?? null,
+          txHash: parsed.txHash ?? null,
+          ledger: parsed.ledger ?? null,
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        logger.debug("Duplicate event skipped (idempotency)", { eventId: event.id });
+        return;
+      }
+      throw error;
+    }
+
     const eventType = extractEventType(parsed.topics);
 
     // Log the raw event to console (as per acceptance criteria)
@@ -289,7 +313,11 @@ export class EventWatcher {
           });
           logger.info("Stream successfully saved to Prisma DB", { txHash: event.txHash });
         } catch (error) {
-          logger.error("Failed to decode or save StreamCreated event", error);
+          if (isPrismaUniqueConstraintError(error)) {
+            logger.debug("Duplicate event, skipping Stream create", { eventId: event.id });
+          } else {
+            logger.error("Failed to decode or save StreamCreated event", error);
+          }
         }
         break;
 
@@ -336,7 +364,11 @@ export class EventWatcher {
             }
           }
         } catch (error) {
-          logger.error("Failed to process stream_withdrawn event", error);
+          if (isPrismaUniqueConstraintError(error)) {
+            logger.debug("Duplicate event, skipping stream_withdrawn update", { eventId: event.id });
+          } else {
+            logger.error("Failed to process stream_withdrawn event", error);
+          }
         }
         break;
 

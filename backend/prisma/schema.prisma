@@ -8,7 +8,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // Mirrors the Stream state from the Soroban smart contract
@@ -23,6 +22,17 @@ model Stream {
 
   @@index([sender])
   @@index([receiver])
+}
+
+// Deduplication: one row per Stellar event (unique event_id from RPC)
+model EventLog {
+  eventId   String   @id @map("event_id")
+  eventType String?  @map("event_type")
+  txHash    String?  @map("tx_hash")
+  ledger    Int?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("event_log")
 }
 
 // Tracks the last synced blockchain ledger sequence
