@@ -12,7 +12,8 @@
     "type-check": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:price-feed": "tsx src/services/price-feed.test.ts"
   },
   "keywords": [
     "stellar",

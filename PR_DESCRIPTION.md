@@ -1,157 +1,99 @@
-# Pull Request: Multi-Signature Stream Proposals
+# Unified Audit Log for Protocol Events
 
-## 🎯 Overview
-Implements multi-signature approval system for stream creation, enabling DAOs and corporations to require M-of-N approvals before initiating payment streams.
+## Description
+This PR implements a unified "Audit Log" that shows every event (creation, withdrawal, cancellation) across the whole protocol in chronological order.
 
-## 📋 Changes
+## Changes Made
 
-### New Files
-- `contracts/src/types.rs` - Data structures (Stream, StreamProposal)
-- `contracts/src/errors.rs` - Error definitions (12 error types)
-- `contracts/src/storage.rs` - Storage key management
-- `contracts/MULTISIG_PROPOSAL.md` - Feature documentation
-- `contracts/QUICK_REFERENCE.md` - Developer API guide
-- `contracts/FLOW_DIAGRAMS.md` - Visual flow diagrams
-- `scripts/ci-check.sh` - Local CI validation script
-- `IMPLEMENTATION_SUMMARY.md` - Implementation details
-- `ACCEPTANCE_CRITERIA.md` - Verification checklist
+### Database Schema
+- ✅ Added `EventLog` table to Prisma schema
+- ✅ Includes indexes on `streamId`, `eventType`, `createdAt`, and `ledger` for optimal query performance
+- ✅ Stores comprehensive event data including participants, amounts, and metadata
 
-### Modified Files
-- `contracts/src/lib.rs` - Complete contract implementation with:
-  - `create_proposal()` - Create multi-sig proposal
-  - `approve_proposal()` - Approve with automatic execution
-  - `execute_proposal()` - Internal activation logic
-  - `create_stream()` - Direct single-sig creation (preserved)
-  - `withdraw()` - Stream withdrawal
-  - `cancel()` - Stream cancellation
-  - `get_stream()` / `get_proposal()` - Query functions
-  - 11 comprehensive tests
+### Backend Services
+- ✅ Created `AuditLogService` with methods:
+  - `logEvent()` - Log events to the audit log
+  - `getRecentEvents()` - Retrieve last N events (default: 50)
+  - `getStreamEvents()` - Get all events for a specific stream
 
-## ✨ Features
+### Event Watcher Integration
+- ✅ Updated event watcher to automatically log all protocol events:
+  - Stream creation → logged as "create"
+  - Withdrawals → logged as "withdraw"
+  - Cancellations → logged as "cancel"
 
-### 1. Proposal System
-- Create proposals with M-of-N approval requirements
-- Automatic stream creation when threshold reached
-- Deadline-based expiry to prevent stale proposals
+### API Endpoints
+- ✅ `GET /api/audit-log` - Returns last 50 protocol events (configurable up to 100)
+- ✅ `GET /api/audit-log/:streamId` - Returns all events for a specific stream
 
-### 2. Security
-- ✅ No duplicate approvals (each address votes once)
-- ✅ Tokens only transferred upon final activation
-- ✅ Atomic execution (no partial states)
-- ✅ Authorization on all functions
-- ✅ Deadline enforcement
+### Documentation
+- ✅ Comprehensive feature documentation (`AUDIT_LOG_FEATURE.md`)
+- ✅ Quick start guide for developers (`AUDIT_LOG_QUICK_START.md`)
+- ✅ SQL migration file for database schema changes
 
-### 3. Flexibility
-- Direct stream creation still available (single-sig)
-- Configurable approval thresholds (2-of-3, 3-of-5, etc.)
-- Compatible with existing Stream logic
+## Testing Instructions
 
-## 🧪 Testing
+1. Generate Prisma client:
+   ```bash
+   cd backend
+   npm run prisma:generate
+   ```
 
-### Test Coverage (11 tests)
-```
-✅ test_create_proposal
-✅ test_approve_proposal
-✅ test_duplicate_approval_fails
-✅ test_proposal_not_found
-✅ test_invalid_time_range
-✅ test_invalid_amount
-✅ test_invalid_approval_threshold
-✅ test_create_direct_stream
-✅ test_three_of_five_multisig
-✅ test_approve_already_executed_proposal
-```
+2. Run database migration:
+   ```bash
+   npx prisma migrate dev --name add-event-log
+   ```
 
-### CI/CD Checks
-```bash
-# All checks pass:
-cargo fmt --all -- --check  ✅
-cargo clippy -- -D warnings ✅
-cargo test                  ✅
-```
+3. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-Run locally: `./scripts/ci-check.sh`
+4. Test the endpoints:
+   ```bash
+   # Get recent events
+   curl http://localhost:3000/api/audit-log
+   
+   # Get events with custom limit
+   curl http://localhost:3000/api/audit-log?limit=100
+   
+   # Get events for specific stream
+   curl http://localhost:3000/api/audit-log/12345
+   ```
 
-## 📖 Usage Example
+## API Response Example
 
-```rust
-// DAO creates proposal for contractor payment
-let proposal_id = contract.create_proposal(
-    dao_treasury,
-    contractor,
-    usdc_token,
-    50_000_0000000,  // 50k USDC
-    start_time,
-    end_time,
-    3,               // 3-of-5 multisig
-    deadline
-);
-
-// Board members approve
-contract.approve_proposal(proposal_id, board_member_1);
-contract.approve_proposal(proposal_id, board_member_2);
-contract.approve_proposal(proposal_id, board_member_3);  // ✅ Stream created!
+```json
+{
+  "success": true,
+  "count": 50,
+  "events": [
+    {
+      "id": "clx123abc",
+      "eventType": "create",
+      "streamId": "12345",
+      "txHash": "abc123def456",
+      "ledger": 1000,
+      "ledgerClosedAt": "2024-01-01T00:00:00Z",
+      "sender": "GABC123...",
+      "receiver": "GDEF456...",
+      "amount": "1000000",
+      "metadata": {...},
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
 ```
 
-## 🔒 Security Considerations
+## Task Completion
 
-1. **Token Safety**: Tokens remain in treasury until final approval
-2. **No Reentrancy**: All state changes before external calls
-3. **Authorization**: All functions require `require_auth()`
-4. **Expiry Protection**: Prevents indefinite pending proposals
-5. **Execution Lock**: Executed proposals cannot be re-executed
+- [x] Join the Stream and EventLog tables to create a comprehensive list
+- [x] Return a feed of the last 50 protocol actions
+- [x] Chronological ordering (most recent first)
+- [x] Support for all event types (creation, withdrawal, cancellation)
 
-## 📊 Error Handling
+## Labels
+`[Backend]` `Medium` `Database`
 
-| Code | Error | Description |
-|------|-------|-------------|
-| 8 | ProposalNotFound | Invalid proposal ID |
-| 9 | ProposalExpired | Deadline passed |
-| 10 | AlreadyApproved | Duplicate approval |
-| 11 | ProposalAlreadyExecuted | Already executed |
-| 12 | InvalidApprovalThreshold | Invalid threshold |
-
-## 🎯 Acceptance Criteria
-
-- ✅ Proposal storage with StreamProposal struct
-- ✅ Approval logic with approve_proposal()
-- ✅ Automatic activation when threshold met
-- ✅ Expiry mechanism with deadline field
-- ✅ Multi-sig streams require M-of-N approvals
-- ✅ Tokens only pulled upon final activation
-- ✅ All CI/CD checks pass (fmt, clippy, tests)
-
-## 📚 Documentation
-
-- **Feature Guide**: `contracts/MULTISIG_PROPOSAL.md`
-- **API Reference**: `contracts/QUICK_REFERENCE.md`
-- **Flow Diagrams**: `contracts/FLOW_DIAGRAMS.md`
-- **Implementation**: `IMPLEMENTATION_SUMMARY.md`
-- **Verification**: `ACCEPTANCE_CRITERIA.md`
-
-## 🚀 Deployment Notes
-
-No breaking changes. Existing `create_stream()` function preserved for backward compatibility.
-
-## 🔮 Future Enhancements
-
-1. Role-based approvals (e.g., "CFO + 2 board members")
-2. Weighted voting (different approval weights)
-3. Proposal cancellation by creator
-4. Batch proposals (multiple streams)
-
-## 📝 Checklist
-
-- ✅ Code follows Rust best practices
-- ✅ All tests pass
-- ✅ Documentation complete
-- ✅ CI/CD checks pass
-- ✅ Security considerations addressed
-- ✅ Backward compatible
-- ✅ Ready for Scout audit
-
----
-
-**Closes:** #[issue-number]
-**Type:** Feature
-**Breaking Changes:** None
+## Related Issues
+Closes #[issue-number]

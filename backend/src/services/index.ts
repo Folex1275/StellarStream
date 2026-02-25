@@ -6,3 +6,12 @@ export {
   toBigIntOrNull,
   toObjectOrNull,
 } from "./stream-lifecycle-service.js";
+
+export {
+  fetchTokenPrices,
+  updateTokenPrices,
+  getTokenPrice,
+  calculateUsdValue,
+  startPriceUpdateJob,
+  stopPriceUpdateJob,
+} from "./price-feed.service.js";

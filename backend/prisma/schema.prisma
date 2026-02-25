@@ -31,6 +31,15 @@ model SyncState {
   lastLedgerSequence Int @default(0)
 }
 
+// Stores current USD prices for tokens
+model TokenPrice {
+  tokenAddress String   @id
+  priceUsd     Float
+  lastUpdated  DateTime @default(now())
+
+  @@index([lastUpdated])
+}
+
 enum StreamStatus {
   ACTIVE
   PAUSED

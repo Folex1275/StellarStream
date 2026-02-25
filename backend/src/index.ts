@@ -1,6 +1,8 @@
 import express, { Express, Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import apiRouter from './api/index.js';
+import { startPriceUpdateJob } from './services/index.js';
 
 const app: Express = express();
 const PORT = process.env.PORT ?? 3000;
@@ -47,6 +49,25 @@ app.use(express.json());
 
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'StellarStream Backend is running' });
+});
+
+// Mount API routes
+app.use('/api', apiRouter);
+
+// Start price update background job
+const priceUpdateJob = startPriceUpdateJob();
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  clearInterval(priceUpdateJob);
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  clearInterval(priceUpdateJob);
+  process.exit(0);
 });
 
 app.listen(PORT, () => {

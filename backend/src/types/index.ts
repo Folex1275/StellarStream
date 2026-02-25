@@ -17,3 +17,14 @@ export interface StellarTransaction {
   timestamp: number;
   operations: unknown[];
 }
+
+export interface EnrichedStream {
+  id: string;
+  sender: string;
+  receiver: string;
+  tokenAddress: string;
+  amountPerSecond: string;
+  totalAmount: string;
+  status: string;
+  estimatedUsdValue: number | null;
+}
