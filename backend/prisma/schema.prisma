@@ -41,6 +41,26 @@ model SyncState {
   lastLedgerSequence Int @default(0)
 }
 
+// Audit log for all protocol events
+model EventLog {
+  id              String   @id @default(cuid())
+  eventType       String   // create, withdraw, cancel
+  streamId        String
+  txHash          String
+  ledger          Int
+  ledgerClosedAt  String
+  sender          String?
+  receiver        String?
+  amount          BigInt?
+  metadata        String?  // JSON string for additional event data
+  createdAt       DateTime @default(now())
+
+  @@index([streamId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([ledger])
+}
+
 enum StreamStatus {
   ACTIVE
   PAUSED

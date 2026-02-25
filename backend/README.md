@@ -8,6 +8,10 @@ Backend service for indexing and serving Stellar payment stream data.
 npm install
 ```
 
+Copy the environment file and configure:
+```bash
+cp .env.example .env
+```
 ### Environment
 
 - **REDIS_URL** – Redis connection URL (required for rate limiting). Example: `redis://localhost:6379`. With Docker Compose, use `redis://redis:6379`.
@@ -51,6 +55,9 @@ npm start
   /types      - TypeScript type definitions
 ```
 
+## Security
+
+The backend implements production-grade security features including CORS restrictions and secure HTTP headers via Helmet.js. See [SECURITY.md](./SECURITY.md) for detailed configuration and best practices.
 ## Public API (rate-limited)
 
 - **GET /health** – Health check (not rate-limited).
