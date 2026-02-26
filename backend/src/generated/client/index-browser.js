@@ -143,6 +143,25 @@ exports.Prisma.SyncStateScalarFieldEnum = {
   lastLedgerSequence: 'lastLedgerSequence'
 };
 
+exports.Prisma.AuditEventScalarFieldEnum = {
+  id: 'id',
+  eventType: 'eventType',
+  streamId: 'streamId',
+  txHash: 'txHash',
+  ledger: 'ledger',
+  ledgerClosedAt: 'ledgerClosedAt',
+  sender: 'sender',
+  receiver: 'receiver',
+  amount: 'amount',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.SyncMetadataScalarFieldEnum = {
+  id: 'id',
+  lastLedgerSequence: 'lastLedgerSequence'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -167,7 +186,9 @@ exports.StreamStatus = exports.$Enums.StreamStatus = {
 exports.Prisma.ModelName = {
   Stream: 'Stream',
   EventLog: 'EventLog',
-  SyncState: 'SyncState'
+  SyncState: 'SyncState',
+  AuditEvent: 'AuditEvent',
+  SyncMetadata: 'SyncMetadata'
 };
 
 /**

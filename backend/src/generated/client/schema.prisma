@@ -41,6 +41,35 @@ model SyncState {
   lastLedgerSequence Int @default(0)
 }
 
+// Audit log for all protocol events (full event records)
+model AuditEvent {
+  id             String   @id @default(cuid())
+  eventType      String
+  streamId       String
+  txHash         String
+  ledger         Int
+  ledgerClosedAt String
+  sender         String?
+  receiver       String?
+  amount         BigInt?
+  metadata       String?
+  createdAt      DateTime @default(now())
+
+  @@index([streamId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([ledger])
+  @@map("audit_events")
+}
+
+// Sync checkpoint for metadata indexer (singleton by id)
+model SyncMetadata {
+  id                 String @id
+  lastLedgerSequence Int    @default(0)
+
+  @@map("sync_metadata")
+}
+
 enum StreamStatus {
   ACTIVE
   PAUSED

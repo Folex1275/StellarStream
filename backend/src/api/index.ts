@@ -23,14 +23,14 @@ router.get("/audit-log", async (req: Request, res: Response) => {
 
     const events = await auditLogService.getRecentEvents(limit);
 
-    res.json({
+    return res.json({
       success: true,
       count: events.length,
       events,
     });
   } catch (error) {
     logger.error("Failed to retrieve audit log", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to retrieve audit log",
     });
@@ -54,7 +54,7 @@ router.get("/audit-log/:streamId", async (req: Request, res: Response) => {
 
     const events = await auditLogService.getStreamEvents(streamId);
 
-    res.json({
+    return res.json({
       success: true,
       streamId,
       count: events.length,
@@ -62,7 +62,7 @@ router.get("/audit-log/:streamId", async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error("Failed to retrieve stream events", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Failed to retrieve stream events",
     });

@@ -24,7 +24,8 @@ const consoleFmt = winston.format.combine(
   winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss.SSS" }),
   winston.format.errors({ stack: true }),
   winston.format.colorize({ all: true }),
-  winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
+  winston.format.printf((info: winston.Logform.TransformableInfo) => {
+    const { timestamp, level, message, stack, ...meta } = info;
     const metaStr =
       Object.keys(meta).length
         ? ` ${JSON.stringify(meta)}`

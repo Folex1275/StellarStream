@@ -7,15 +7,13 @@ import { EventWatcherConfig, WatcherState, ParsedContractEvent } from "./types";
 import { logger } from "./logger";
 import { parseContractEvent, extractEventType } from "./event-parser";
 import { scValToNative, xdr } from "@stellar/stellar-sdk";
-import { PrismaClient } from "./generated/client/client.js";
-
-// @ts-expect-error Prisma Client may not be generated yet
-const prisma = new PrismaClient();
+import { prisma } from "./lib/db.js";
+import { StreamLifecycleService } from "./services/stream-lifecycle-service.js";
+import { AuditLogService } from "./services/audit-log.service.js";
+import { toObjectOrNull, toBigIntOrNull } from "./services/stream-lifecycle-service.js";
 
 function isPrismaUniqueConstraintError(error: unknown): boolean {
-  return (
-    error instanceof PrismaClientKnownRequestError && error.code === "P2002"
-  );
+  return (error as { code?: string })?.code === "P2002";
 }
 
 export class EventWatcher {
@@ -206,12 +204,12 @@ export class EventWatcher {
     }
 
     try {
-      await prisma.eventLog.create({
+      await (prisma as unknown as { eventLog: { create: (args: { data: { eventId: string; eventType?: string; txHash?: string; ledger?: number } }) => Promise<unknown> } }).eventLog.create({
         data: {
-          eventId: event.id,
-          eventType: parsed.type ?? null,
-          txHash: parsed.txHash ?? null,
-          ledger: parsed.ledger ?? null,
+          eventId: parsed.id,
+          eventType: parsed.type ?? undefined,
+          txHash: parsed.txHash ?? undefined,
+          ledger: parsed.ledger ?? undefined,
         },
       });
     } catch (error) {

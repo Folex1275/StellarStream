@@ -49,7 +49,7 @@ export function rateLimitMiddleware(req: Request, res: Response, next: NextFunct
         });
         return;
       }
-      const secs = Math.round((rejRes as { msBeforeNext?: number }).msBeforeNext / 1000) || 1;
+      const secs = Math.round(((rejRes as { msBeforeNext?: number }).msBeforeNext ?? 1000) / 1000) || 1;
       res.set('Retry-After', String(secs));
       res.status(429).json({
         error: 'Too Many Requests',

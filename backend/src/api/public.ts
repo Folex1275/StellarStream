@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/db.js';
+import type { Prisma } from '../generated/client/client.js';
 
 const MAX_SEARCH_LIMIT = 50;
 
@@ -53,19 +54,19 @@ export async function getSearch(req: Request, res: Response): Promise<void> {
     const sender = typeof req.query.sender === 'string' ? req.query.sender.trim() : '';
     const receiver = typeof req.query.receiver === 'string' ? req.query.receiver.trim() : '';
 
-    const where: Parameters<typeof prisma.stream.findMany>[0]['where'] = {};
+    const where: Prisma.StreamWhereInput = {};
 
     if (sender) {
-      where.sender = { contains: sender, mode: 'insensitive' };
+      where.sender = { contains: sender };
     }
     if (receiver) {
-      where.receiver = { contains: receiver, mode: 'insensitive' };
+      where.receiver = { contains: receiver };
     }
     if (q) {
       where.OR = [
-        { id: { contains: q, mode: 'insensitive' } },
-        { sender: { contains: q, mode: 'insensitive' } },
-        { receiver: { contains: q, mode: 'insensitive' } },
+        { id: { contains: q } },
+        { sender: { contains: q } },
+        { receiver: { contains: q } },
       ];
     }
 
@@ -74,7 +75,7 @@ export async function getSearch(req: Request, res: Response): Promise<void> {
         where,
         take: limit,
         skip: offset,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { id: 'desc' },
       }),
       prisma.stream.count({ where }),
     ]);

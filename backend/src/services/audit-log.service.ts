@@ -3,11 +3,15 @@
  * Manages event logging for all protocol actions
  */
 
-import { PrismaClient } from "../generated/client/client.js";
+import { prisma } from "../lib/db.js";
 import { logger } from "../logger";
 
-// @ts-expect-error Prisma Client may not be generated yet
-const prisma = new PrismaClient();
+interface PrismaWithAuditEvent {
+  auditEvent: {
+    create: (args: { data: Record<string, unknown> }) => Promise<unknown>;
+    findMany: (args: { orderBy?: { createdAt: string }; take?: number; where?: { streamId: string } }) => Promise<unknown[]>;
+  };
+}
 
 export interface EventLogEntry {
   eventType: string;
@@ -41,7 +45,7 @@ export class AuditLogService {
    */
   async logEvent(entry: EventLogEntry): Promise<void> {
     try {
-      await prisma.eventLog.create({
+      await (prisma as unknown as PrismaWithAuditEvent).auditEvent.create({
         data: {
           eventType: entry.eventType,
           streamId: entry.streamId,
@@ -73,12 +77,12 @@ export class AuditLogService {
    */
   async getRecentEvents(limit: number = 50): Promise<AuditLogItem[]> {
     try {
-      const events = await prisma.eventLog.findMany({
+      const events = await (prisma as unknown as PrismaWithAuditEvent).auditEvent.findMany({
         orderBy: {
           createdAt: "desc",
         },
         take: limit,
-      });
+      }) as Array<{ id: string; eventType: string; streamId: string; txHash: string; ledger: number; ledgerClosedAt: string; sender: string | null; receiver: string | null; amount: bigint | null; metadata: string | null; createdAt: Date }>;
 
       return events.map((event) => ({
         id: event.id,
@@ -90,7 +94,7 @@ export class AuditLogService {
         sender: event.sender,
         receiver: event.receiver,
         amount: event.amount?.toString() ?? null,
-        metadata: event.metadata ? JSON.parse(event.metadata) : null,
+        metadata: event.metadata ? JSON.parse(event.metadata) as Record<string, unknown> : null,
         createdAt: event.createdAt,
       }));
     } catch (error) {
@@ -104,14 +108,14 @@ export class AuditLogService {
    */
   async getStreamEvents(streamId: string): Promise<AuditLogItem[]> {
     try {
-      const events = await prisma.eventLog.findMany({
+      const events = await (prisma as unknown as PrismaWithAuditEvent).auditEvent.findMany({
         where: {
           streamId,
         },
         orderBy: {
           createdAt: "desc",
         },
-      });
+      }) as Array<{ id: string; eventType: string; streamId: string; txHash: string; ledger: number; ledgerClosedAt: string; sender: string | null; receiver: string | null; amount: bigint | null; metadata: string | null; createdAt: Date }>;
 
       return events.map((event) => ({
         id: event.id,
@@ -123,7 +127,7 @@ export class AuditLogService {
         sender: event.sender,
         receiver: event.receiver,
         amount: event.amount?.toString() ?? null,
-        metadata: event.metadata ? JSON.parse(event.metadata) : null,
+        metadata: event.metadata ? JSON.parse(event.metadata) as Record<string, unknown> : null,
         createdAt: event.createdAt,
       }));
     } catch (error) {

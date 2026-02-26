@@ -28,6 +28,16 @@ export type EventLog = $Result.DefaultSelection<Prisma.$EventLogPayload>
  * 
  */
 export type SyncState = $Result.DefaultSelection<Prisma.$SyncStatePayload>
+/**
+ * Model AuditEvent
+ * 
+ */
+export type AuditEvent = $Result.DefaultSelection<Prisma.$AuditEventPayload>
+/**
+ * Model SyncMetadata
+ * 
+ */
+export type SyncMetadata = $Result.DefaultSelection<Prisma.$SyncMetadataPayload>
 
 /**
  * Enums
@@ -194,6 +204,26 @@ export class PrismaClient<
     * ```
     */
   get syncState(): Prisma.SyncStateDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.auditEvent`: Exposes CRUD operations for the **AuditEvent** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more AuditEvents
+    * const auditEvents = await prisma.auditEvent.findMany()
+    * ```
+    */
+  get auditEvent(): Prisma.AuditEventDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.syncMetadata`: Exposes CRUD operations for the **SyncMetadata** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more SyncMetadata
+    * const syncMetadata = await prisma.syncMetadata.findMany()
+    * ```
+    */
+  get syncMetadata(): Prisma.SyncMetadataDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -630,7 +660,9 @@ export namespace Prisma {
   export const ModelName: {
     Stream: 'Stream',
     EventLog: 'EventLog',
-    SyncState: 'SyncState'
+    SyncState: 'SyncState',
+    AuditEvent: 'AuditEvent',
+    SyncMetadata: 'SyncMetadata'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -646,7 +678,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "stream" | "eventLog" | "syncState"
+      modelProps: "stream" | "eventLog" | "syncState" | "auditEvent" | "syncMetadata"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -872,6 +904,154 @@ export namespace Prisma {
           }
         }
       }
+      AuditEvent: {
+        payload: Prisma.$AuditEventPayload<ExtArgs>
+        fields: Prisma.AuditEventFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.AuditEventFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.AuditEventFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          findFirst: {
+            args: Prisma.AuditEventFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.AuditEventFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          findMany: {
+            args: Prisma.AuditEventFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>[]
+          }
+          create: {
+            args: Prisma.AuditEventCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          createMany: {
+            args: Prisma.AuditEventCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.AuditEventCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>[]
+          }
+          delete: {
+            args: Prisma.AuditEventDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          update: {
+            args: Prisma.AuditEventUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          deleteMany: {
+            args: Prisma.AuditEventDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.AuditEventUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.AuditEventUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>[]
+          }
+          upsert: {
+            args: Prisma.AuditEventUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$AuditEventPayload>
+          }
+          aggregate: {
+            args: Prisma.AuditEventAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateAuditEvent>
+          }
+          groupBy: {
+            args: Prisma.AuditEventGroupByArgs<ExtArgs>
+            result: $Utils.Optional<AuditEventGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.AuditEventCountArgs<ExtArgs>
+            result: $Utils.Optional<AuditEventCountAggregateOutputType> | number
+          }
+        }
+      }
+      SyncMetadata: {
+        payload: Prisma.$SyncMetadataPayload<ExtArgs>
+        fields: Prisma.SyncMetadataFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.SyncMetadataFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.SyncMetadataFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          findFirst: {
+            args: Prisma.SyncMetadataFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.SyncMetadataFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          findMany: {
+            args: Prisma.SyncMetadataFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>[]
+          }
+          create: {
+            args: Prisma.SyncMetadataCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          createMany: {
+            args: Prisma.SyncMetadataCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.SyncMetadataCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>[]
+          }
+          delete: {
+            args: Prisma.SyncMetadataDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          update: {
+            args: Prisma.SyncMetadataUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          deleteMany: {
+            args: Prisma.SyncMetadataDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.SyncMetadataUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.SyncMetadataUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>[]
+          }
+          upsert: {
+            args: Prisma.SyncMetadataUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SyncMetadataPayload>
+          }
+          aggregate: {
+            args: Prisma.SyncMetadataAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateSyncMetadata>
+          }
+          groupBy: {
+            args: Prisma.SyncMetadataGroupByArgs<ExtArgs>
+            result: $Utils.Optional<SyncMetadataGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.SyncMetadataCountArgs<ExtArgs>
+            result: $Utils.Optional<SyncMetadataCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -983,6 +1163,8 @@ export namespace Prisma {
     stream?: StreamOmit
     eventLog?: EventLogOmit
     syncState?: SyncStateOmit
+    auditEvent?: AuditEventOmit
+    syncMetadata?: SyncMetadataOmit
   }
 
   /* Types for Logging */
@@ -4146,6 +4328,2107 @@ export namespace Prisma {
 
 
   /**
+   * Model AuditEvent
+   */
+
+  export type AggregateAuditEvent = {
+    _count: AuditEventCountAggregateOutputType | null
+    _avg: AuditEventAvgAggregateOutputType | null
+    _sum: AuditEventSumAggregateOutputType | null
+    _min: AuditEventMinAggregateOutputType | null
+    _max: AuditEventMaxAggregateOutputType | null
+  }
+
+  export type AuditEventAvgAggregateOutputType = {
+    ledger: number | null
+    amount: number | null
+  }
+
+  export type AuditEventSumAggregateOutputType = {
+    ledger: number | null
+    amount: bigint | null
+  }
+
+  export type AuditEventMinAggregateOutputType = {
+    id: string | null
+    eventType: string | null
+    streamId: string | null
+    txHash: string | null
+    ledger: number | null
+    ledgerClosedAt: string | null
+    sender: string | null
+    receiver: string | null
+    amount: bigint | null
+    metadata: string | null
+    createdAt: Date | null
+  }
+
+  export type AuditEventMaxAggregateOutputType = {
+    id: string | null
+    eventType: string | null
+    streamId: string | null
+    txHash: string | null
+    ledger: number | null
+    ledgerClosedAt: string | null
+    sender: string | null
+    receiver: string | null
+    amount: bigint | null
+    metadata: string | null
+    createdAt: Date | null
+  }
+
+  export type AuditEventCountAggregateOutputType = {
+    id: number
+    eventType: number
+    streamId: number
+    txHash: number
+    ledger: number
+    ledgerClosedAt: number
+    sender: number
+    receiver: number
+    amount: number
+    metadata: number
+    createdAt: number
+    _all: number
+  }
+
+
+  export type AuditEventAvgAggregateInputType = {
+    ledger?: true
+    amount?: true
+  }
+
+  export type AuditEventSumAggregateInputType = {
+    ledger?: true
+    amount?: true
+  }
+
+  export type AuditEventMinAggregateInputType = {
+    id?: true
+    eventType?: true
+    streamId?: true
+    txHash?: true
+    ledger?: true
+    ledgerClosedAt?: true
+    sender?: true
+    receiver?: true
+    amount?: true
+    metadata?: true
+    createdAt?: true
+  }
+
+  export type AuditEventMaxAggregateInputType = {
+    id?: true
+    eventType?: true
+    streamId?: true
+    txHash?: true
+    ledger?: true
+    ledgerClosedAt?: true
+    sender?: true
+    receiver?: true
+    amount?: true
+    metadata?: true
+    createdAt?: true
+  }
+
+  export type AuditEventCountAggregateInputType = {
+    id?: true
+    eventType?: true
+    streamId?: true
+    txHash?: true
+    ledger?: true
+    ledgerClosedAt?: true
+    sender?: true
+    receiver?: true
+    amount?: true
+    metadata?: true
+    createdAt?: true
+    _all?: true
+  }
+
+  export type AuditEventAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which AuditEvent to aggregate.
+     */
+    where?: AuditEventWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AuditEvents to fetch.
+     */
+    orderBy?: AuditEventOrderByWithRelationInput | AuditEventOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: AuditEventWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AuditEvents from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AuditEvents.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned AuditEvents
+    **/
+    _count?: true | AuditEventCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: AuditEventAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: AuditEventSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: AuditEventMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: AuditEventMaxAggregateInputType
+  }
+
+  export type GetAuditEventAggregateType<T extends AuditEventAggregateArgs> = {
+        [P in keyof T & keyof AggregateAuditEvent]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateAuditEvent[P]>
+      : GetScalarType<T[P], AggregateAuditEvent[P]>
+  }
+
+
+
+
+  export type AuditEventGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: AuditEventWhereInput
+    orderBy?: AuditEventOrderByWithAggregationInput | AuditEventOrderByWithAggregationInput[]
+    by: AuditEventScalarFieldEnum[] | AuditEventScalarFieldEnum
+    having?: AuditEventScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: AuditEventCountAggregateInputType | true
+    _avg?: AuditEventAvgAggregateInputType
+    _sum?: AuditEventSumAggregateInputType
+    _min?: AuditEventMinAggregateInputType
+    _max?: AuditEventMaxAggregateInputType
+  }
+
+  export type AuditEventGroupByOutputType = {
+    id: string
+    eventType: string
+    streamId: string
+    txHash: string
+    ledger: number
+    ledgerClosedAt: string
+    sender: string | null
+    receiver: string | null
+    amount: bigint | null
+    metadata: string | null
+    createdAt: Date
+    _count: AuditEventCountAggregateOutputType | null
+    _avg: AuditEventAvgAggregateOutputType | null
+    _sum: AuditEventSumAggregateOutputType | null
+    _min: AuditEventMinAggregateOutputType | null
+    _max: AuditEventMaxAggregateOutputType | null
+  }
+
+  type GetAuditEventGroupByPayload<T extends AuditEventGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<AuditEventGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof AuditEventGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], AuditEventGroupByOutputType[P]>
+            : GetScalarType<T[P], AuditEventGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type AuditEventSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    eventType?: boolean
+    streamId?: boolean
+    txHash?: boolean
+    ledger?: boolean
+    ledgerClosedAt?: boolean
+    sender?: boolean
+    receiver?: boolean
+    amount?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+  }, ExtArgs["result"]["auditEvent"]>
+
+  export type AuditEventSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    eventType?: boolean
+    streamId?: boolean
+    txHash?: boolean
+    ledger?: boolean
+    ledgerClosedAt?: boolean
+    sender?: boolean
+    receiver?: boolean
+    amount?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+  }, ExtArgs["result"]["auditEvent"]>
+
+  export type AuditEventSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    eventType?: boolean
+    streamId?: boolean
+    txHash?: boolean
+    ledger?: boolean
+    ledgerClosedAt?: boolean
+    sender?: boolean
+    receiver?: boolean
+    amount?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+  }, ExtArgs["result"]["auditEvent"]>
+
+  export type AuditEventSelectScalar = {
+    id?: boolean
+    eventType?: boolean
+    streamId?: boolean
+    txHash?: boolean
+    ledger?: boolean
+    ledgerClosedAt?: boolean
+    sender?: boolean
+    receiver?: boolean
+    amount?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+  }
+
+  export type AuditEventOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "eventType" | "streamId" | "txHash" | "ledger" | "ledgerClosedAt" | "sender" | "receiver" | "amount" | "metadata" | "createdAt", ExtArgs["result"]["auditEvent"]>
+
+  export type $AuditEventPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "AuditEvent"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      eventType: string
+      streamId: string
+      txHash: string
+      ledger: number
+      ledgerClosedAt: string
+      sender: string | null
+      receiver: string | null
+      amount: bigint | null
+      metadata: string | null
+      createdAt: Date
+    }, ExtArgs["result"]["auditEvent"]>
+    composites: {}
+  }
+
+  type AuditEventGetPayload<S extends boolean | null | undefined | AuditEventDefaultArgs> = $Result.GetResult<Prisma.$AuditEventPayload, S>
+
+  type AuditEventCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<AuditEventFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: AuditEventCountAggregateInputType | true
+    }
+
+  export interface AuditEventDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['AuditEvent'], meta: { name: 'AuditEvent' } }
+    /**
+     * Find zero or one AuditEvent that matches the filter.
+     * @param {AuditEventFindUniqueArgs} args - Arguments to find a AuditEvent
+     * @example
+     * // Get one AuditEvent
+     * const auditEvent = await prisma.auditEvent.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends AuditEventFindUniqueArgs>(args: SelectSubset<T, AuditEventFindUniqueArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one AuditEvent that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {AuditEventFindUniqueOrThrowArgs} args - Arguments to find a AuditEvent
+     * @example
+     * // Get one AuditEvent
+     * const auditEvent = await prisma.auditEvent.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends AuditEventFindUniqueOrThrowArgs>(args: SelectSubset<T, AuditEventFindUniqueOrThrowArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first AuditEvent that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventFindFirstArgs} args - Arguments to find a AuditEvent
+     * @example
+     * // Get one AuditEvent
+     * const auditEvent = await prisma.auditEvent.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends AuditEventFindFirstArgs>(args?: SelectSubset<T, AuditEventFindFirstArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first AuditEvent that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventFindFirstOrThrowArgs} args - Arguments to find a AuditEvent
+     * @example
+     * // Get one AuditEvent
+     * const auditEvent = await prisma.auditEvent.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends AuditEventFindFirstOrThrowArgs>(args?: SelectSubset<T, AuditEventFindFirstOrThrowArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more AuditEvents that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all AuditEvents
+     * const auditEvents = await prisma.auditEvent.findMany()
+     * 
+     * // Get first 10 AuditEvents
+     * const auditEvents = await prisma.auditEvent.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const auditEventWithIdOnly = await prisma.auditEvent.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends AuditEventFindManyArgs>(args?: SelectSubset<T, AuditEventFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a AuditEvent.
+     * @param {AuditEventCreateArgs} args - Arguments to create a AuditEvent.
+     * @example
+     * // Create one AuditEvent
+     * const AuditEvent = await prisma.auditEvent.create({
+     *   data: {
+     *     // ... data to create a AuditEvent
+     *   }
+     * })
+     * 
+     */
+    create<T extends AuditEventCreateArgs>(args: SelectSubset<T, AuditEventCreateArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many AuditEvents.
+     * @param {AuditEventCreateManyArgs} args - Arguments to create many AuditEvents.
+     * @example
+     * // Create many AuditEvents
+     * const auditEvent = await prisma.auditEvent.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends AuditEventCreateManyArgs>(args?: SelectSubset<T, AuditEventCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many AuditEvents and returns the data saved in the database.
+     * @param {AuditEventCreateManyAndReturnArgs} args - Arguments to create many AuditEvents.
+     * @example
+     * // Create many AuditEvents
+     * const auditEvent = await prisma.auditEvent.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many AuditEvents and only return the `id`
+     * const auditEventWithIdOnly = await prisma.auditEvent.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends AuditEventCreateManyAndReturnArgs>(args?: SelectSubset<T, AuditEventCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a AuditEvent.
+     * @param {AuditEventDeleteArgs} args - Arguments to delete one AuditEvent.
+     * @example
+     * // Delete one AuditEvent
+     * const AuditEvent = await prisma.auditEvent.delete({
+     *   where: {
+     *     // ... filter to delete one AuditEvent
+     *   }
+     * })
+     * 
+     */
+    delete<T extends AuditEventDeleteArgs>(args: SelectSubset<T, AuditEventDeleteArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one AuditEvent.
+     * @param {AuditEventUpdateArgs} args - Arguments to update one AuditEvent.
+     * @example
+     * // Update one AuditEvent
+     * const auditEvent = await prisma.auditEvent.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends AuditEventUpdateArgs>(args: SelectSubset<T, AuditEventUpdateArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more AuditEvents.
+     * @param {AuditEventDeleteManyArgs} args - Arguments to filter AuditEvents to delete.
+     * @example
+     * // Delete a few AuditEvents
+     * const { count } = await prisma.auditEvent.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends AuditEventDeleteManyArgs>(args?: SelectSubset<T, AuditEventDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more AuditEvents.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many AuditEvents
+     * const auditEvent = await prisma.auditEvent.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends AuditEventUpdateManyArgs>(args: SelectSubset<T, AuditEventUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more AuditEvents and returns the data updated in the database.
+     * @param {AuditEventUpdateManyAndReturnArgs} args - Arguments to update many AuditEvents.
+     * @example
+     * // Update many AuditEvents
+     * const auditEvent = await prisma.auditEvent.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more AuditEvents and only return the `id`
+     * const auditEventWithIdOnly = await prisma.auditEvent.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends AuditEventUpdateManyAndReturnArgs>(args: SelectSubset<T, AuditEventUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one AuditEvent.
+     * @param {AuditEventUpsertArgs} args - Arguments to update or create a AuditEvent.
+     * @example
+     * // Update or create a AuditEvent
+     * const auditEvent = await prisma.auditEvent.upsert({
+     *   create: {
+     *     // ... data to create a AuditEvent
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the AuditEvent we want to update
+     *   }
+     * })
+     */
+    upsert<T extends AuditEventUpsertArgs>(args: SelectSubset<T, AuditEventUpsertArgs<ExtArgs>>): Prisma__AuditEventClient<$Result.GetResult<Prisma.$AuditEventPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of AuditEvents.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventCountArgs} args - Arguments to filter AuditEvents to count.
+     * @example
+     * // Count the number of AuditEvents
+     * const count = await prisma.auditEvent.count({
+     *   where: {
+     *     // ... the filter for the AuditEvents we want to count
+     *   }
+     * })
+    **/
+    count<T extends AuditEventCountArgs>(
+      args?: Subset<T, AuditEventCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], AuditEventCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a AuditEvent.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends AuditEventAggregateArgs>(args: Subset<T, AuditEventAggregateArgs>): Prisma.PrismaPromise<GetAuditEventAggregateType<T>>
+
+    /**
+     * Group by AuditEvent.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {AuditEventGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends AuditEventGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: AuditEventGroupByArgs['orderBy'] }
+        : { orderBy?: AuditEventGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, AuditEventGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetAuditEventGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the AuditEvent model
+   */
+  readonly fields: AuditEventFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for AuditEvent.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__AuditEventClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the AuditEvent model
+   */
+  interface AuditEventFieldRefs {
+    readonly id: FieldRef<"AuditEvent", 'String'>
+    readonly eventType: FieldRef<"AuditEvent", 'String'>
+    readonly streamId: FieldRef<"AuditEvent", 'String'>
+    readonly txHash: FieldRef<"AuditEvent", 'String'>
+    readonly ledger: FieldRef<"AuditEvent", 'Int'>
+    readonly ledgerClosedAt: FieldRef<"AuditEvent", 'String'>
+    readonly sender: FieldRef<"AuditEvent", 'String'>
+    readonly receiver: FieldRef<"AuditEvent", 'String'>
+    readonly amount: FieldRef<"AuditEvent", 'BigInt'>
+    readonly metadata: FieldRef<"AuditEvent", 'String'>
+    readonly createdAt: FieldRef<"AuditEvent", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * AuditEvent findUnique
+   */
+  export type AuditEventFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter, which AuditEvent to fetch.
+     */
+    where: AuditEventWhereUniqueInput
+  }
+
+  /**
+   * AuditEvent findUniqueOrThrow
+   */
+  export type AuditEventFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter, which AuditEvent to fetch.
+     */
+    where: AuditEventWhereUniqueInput
+  }
+
+  /**
+   * AuditEvent findFirst
+   */
+  export type AuditEventFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter, which AuditEvent to fetch.
+     */
+    where?: AuditEventWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AuditEvents to fetch.
+     */
+    orderBy?: AuditEventOrderByWithRelationInput | AuditEventOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for AuditEvents.
+     */
+    cursor?: AuditEventWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AuditEvents from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AuditEvents.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of AuditEvents.
+     */
+    distinct?: AuditEventScalarFieldEnum | AuditEventScalarFieldEnum[]
+  }
+
+  /**
+   * AuditEvent findFirstOrThrow
+   */
+  export type AuditEventFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter, which AuditEvent to fetch.
+     */
+    where?: AuditEventWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AuditEvents to fetch.
+     */
+    orderBy?: AuditEventOrderByWithRelationInput | AuditEventOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for AuditEvents.
+     */
+    cursor?: AuditEventWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AuditEvents from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AuditEvents.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of AuditEvents.
+     */
+    distinct?: AuditEventScalarFieldEnum | AuditEventScalarFieldEnum[]
+  }
+
+  /**
+   * AuditEvent findMany
+   */
+  export type AuditEventFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter, which AuditEvents to fetch.
+     */
+    where?: AuditEventWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of AuditEvents to fetch.
+     */
+    orderBy?: AuditEventOrderByWithRelationInput | AuditEventOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing AuditEvents.
+     */
+    cursor?: AuditEventWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` AuditEvents from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` AuditEvents.
+     */
+    skip?: number
+    distinct?: AuditEventScalarFieldEnum | AuditEventScalarFieldEnum[]
+  }
+
+  /**
+   * AuditEvent create
+   */
+  export type AuditEventCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * The data needed to create a AuditEvent.
+     */
+    data: XOR<AuditEventCreateInput, AuditEventUncheckedCreateInput>
+  }
+
+  /**
+   * AuditEvent createMany
+   */
+  export type AuditEventCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many AuditEvents.
+     */
+    data: AuditEventCreateManyInput | AuditEventCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * AuditEvent createManyAndReturn
+   */
+  export type AuditEventCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * The data used to create many AuditEvents.
+     */
+    data: AuditEventCreateManyInput | AuditEventCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * AuditEvent update
+   */
+  export type AuditEventUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * The data needed to update a AuditEvent.
+     */
+    data: XOR<AuditEventUpdateInput, AuditEventUncheckedUpdateInput>
+    /**
+     * Choose, which AuditEvent to update.
+     */
+    where: AuditEventWhereUniqueInput
+  }
+
+  /**
+   * AuditEvent updateMany
+   */
+  export type AuditEventUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update AuditEvents.
+     */
+    data: XOR<AuditEventUpdateManyMutationInput, AuditEventUncheckedUpdateManyInput>
+    /**
+     * Filter which AuditEvents to update
+     */
+    where?: AuditEventWhereInput
+    /**
+     * Limit how many AuditEvents to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * AuditEvent updateManyAndReturn
+   */
+  export type AuditEventUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * The data used to update AuditEvents.
+     */
+    data: XOR<AuditEventUpdateManyMutationInput, AuditEventUncheckedUpdateManyInput>
+    /**
+     * Filter which AuditEvents to update
+     */
+    where?: AuditEventWhereInput
+    /**
+     * Limit how many AuditEvents to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * AuditEvent upsert
+   */
+  export type AuditEventUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * The filter to search for the AuditEvent to update in case it exists.
+     */
+    where: AuditEventWhereUniqueInput
+    /**
+     * In case the AuditEvent found by the `where` argument doesn't exist, create a new AuditEvent with this data.
+     */
+    create: XOR<AuditEventCreateInput, AuditEventUncheckedCreateInput>
+    /**
+     * In case the AuditEvent was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<AuditEventUpdateInput, AuditEventUncheckedUpdateInput>
+  }
+
+  /**
+   * AuditEvent delete
+   */
+  export type AuditEventDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+    /**
+     * Filter which AuditEvent to delete.
+     */
+    where: AuditEventWhereUniqueInput
+  }
+
+  /**
+   * AuditEvent deleteMany
+   */
+  export type AuditEventDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which AuditEvents to delete
+     */
+    where?: AuditEventWhereInput
+    /**
+     * Limit how many AuditEvents to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * AuditEvent without action
+   */
+  export type AuditEventDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the AuditEvent
+     */
+    select?: AuditEventSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the AuditEvent
+     */
+    omit?: AuditEventOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model SyncMetadata
+   */
+
+  export type AggregateSyncMetadata = {
+    _count: SyncMetadataCountAggregateOutputType | null
+    _avg: SyncMetadataAvgAggregateOutputType | null
+    _sum: SyncMetadataSumAggregateOutputType | null
+    _min: SyncMetadataMinAggregateOutputType | null
+    _max: SyncMetadataMaxAggregateOutputType | null
+  }
+
+  export type SyncMetadataAvgAggregateOutputType = {
+    lastLedgerSequence: number | null
+  }
+
+  export type SyncMetadataSumAggregateOutputType = {
+    lastLedgerSequence: number | null
+  }
+
+  export type SyncMetadataMinAggregateOutputType = {
+    id: string | null
+    lastLedgerSequence: number | null
+  }
+
+  export type SyncMetadataMaxAggregateOutputType = {
+    id: string | null
+    lastLedgerSequence: number | null
+  }
+
+  export type SyncMetadataCountAggregateOutputType = {
+    id: number
+    lastLedgerSequence: number
+    _all: number
+  }
+
+
+  export type SyncMetadataAvgAggregateInputType = {
+    lastLedgerSequence?: true
+  }
+
+  export type SyncMetadataSumAggregateInputType = {
+    lastLedgerSequence?: true
+  }
+
+  export type SyncMetadataMinAggregateInputType = {
+    id?: true
+    lastLedgerSequence?: true
+  }
+
+  export type SyncMetadataMaxAggregateInputType = {
+    id?: true
+    lastLedgerSequence?: true
+  }
+
+  export type SyncMetadataCountAggregateInputType = {
+    id?: true
+    lastLedgerSequence?: true
+    _all?: true
+  }
+
+  export type SyncMetadataAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which SyncMetadata to aggregate.
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SyncMetadata to fetch.
+     */
+    orderBy?: SyncMetadataOrderByWithRelationInput | SyncMetadataOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: SyncMetadataWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SyncMetadata from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SyncMetadata.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned SyncMetadata
+    **/
+    _count?: true | SyncMetadataCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: SyncMetadataAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: SyncMetadataSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: SyncMetadataMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: SyncMetadataMaxAggregateInputType
+  }
+
+  export type GetSyncMetadataAggregateType<T extends SyncMetadataAggregateArgs> = {
+        [P in keyof T & keyof AggregateSyncMetadata]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateSyncMetadata[P]>
+      : GetScalarType<T[P], AggregateSyncMetadata[P]>
+  }
+
+
+
+
+  export type SyncMetadataGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: SyncMetadataWhereInput
+    orderBy?: SyncMetadataOrderByWithAggregationInput | SyncMetadataOrderByWithAggregationInput[]
+    by: SyncMetadataScalarFieldEnum[] | SyncMetadataScalarFieldEnum
+    having?: SyncMetadataScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: SyncMetadataCountAggregateInputType | true
+    _avg?: SyncMetadataAvgAggregateInputType
+    _sum?: SyncMetadataSumAggregateInputType
+    _min?: SyncMetadataMinAggregateInputType
+    _max?: SyncMetadataMaxAggregateInputType
+  }
+
+  export type SyncMetadataGroupByOutputType = {
+    id: string
+    lastLedgerSequence: number
+    _count: SyncMetadataCountAggregateOutputType | null
+    _avg: SyncMetadataAvgAggregateOutputType | null
+    _sum: SyncMetadataSumAggregateOutputType | null
+    _min: SyncMetadataMinAggregateOutputType | null
+    _max: SyncMetadataMaxAggregateOutputType | null
+  }
+
+  type GetSyncMetadataGroupByPayload<T extends SyncMetadataGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<SyncMetadataGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof SyncMetadataGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], SyncMetadataGroupByOutputType[P]>
+            : GetScalarType<T[P], SyncMetadataGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type SyncMetadataSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    lastLedgerSequence?: boolean
+  }, ExtArgs["result"]["syncMetadata"]>
+
+  export type SyncMetadataSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    lastLedgerSequence?: boolean
+  }, ExtArgs["result"]["syncMetadata"]>
+
+  export type SyncMetadataSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    lastLedgerSequence?: boolean
+  }, ExtArgs["result"]["syncMetadata"]>
+
+  export type SyncMetadataSelectScalar = {
+    id?: boolean
+    lastLedgerSequence?: boolean
+  }
+
+  export type SyncMetadataOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "lastLedgerSequence", ExtArgs["result"]["syncMetadata"]>
+
+  export type $SyncMetadataPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "SyncMetadata"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      lastLedgerSequence: number
+    }, ExtArgs["result"]["syncMetadata"]>
+    composites: {}
+  }
+
+  type SyncMetadataGetPayload<S extends boolean | null | undefined | SyncMetadataDefaultArgs> = $Result.GetResult<Prisma.$SyncMetadataPayload, S>
+
+  type SyncMetadataCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<SyncMetadataFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: SyncMetadataCountAggregateInputType | true
+    }
+
+  export interface SyncMetadataDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['SyncMetadata'], meta: { name: 'SyncMetadata' } }
+    /**
+     * Find zero or one SyncMetadata that matches the filter.
+     * @param {SyncMetadataFindUniqueArgs} args - Arguments to find a SyncMetadata
+     * @example
+     * // Get one SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends SyncMetadataFindUniqueArgs>(args: SelectSubset<T, SyncMetadataFindUniqueArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one SyncMetadata that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {SyncMetadataFindUniqueOrThrowArgs} args - Arguments to find a SyncMetadata
+     * @example
+     * // Get one SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends SyncMetadataFindUniqueOrThrowArgs>(args: SelectSubset<T, SyncMetadataFindUniqueOrThrowArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first SyncMetadata that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataFindFirstArgs} args - Arguments to find a SyncMetadata
+     * @example
+     * // Get one SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends SyncMetadataFindFirstArgs>(args?: SelectSubset<T, SyncMetadataFindFirstArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first SyncMetadata that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataFindFirstOrThrowArgs} args - Arguments to find a SyncMetadata
+     * @example
+     * // Get one SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends SyncMetadataFindFirstOrThrowArgs>(args?: SelectSubset<T, SyncMetadataFindFirstOrThrowArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more SyncMetadata that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findMany()
+     * 
+     * // Get first 10 SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const syncMetadataWithIdOnly = await prisma.syncMetadata.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends SyncMetadataFindManyArgs>(args?: SelectSubset<T, SyncMetadataFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a SyncMetadata.
+     * @param {SyncMetadataCreateArgs} args - Arguments to create a SyncMetadata.
+     * @example
+     * // Create one SyncMetadata
+     * const SyncMetadata = await prisma.syncMetadata.create({
+     *   data: {
+     *     // ... data to create a SyncMetadata
+     *   }
+     * })
+     * 
+     */
+    create<T extends SyncMetadataCreateArgs>(args: SelectSubset<T, SyncMetadataCreateArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many SyncMetadata.
+     * @param {SyncMetadataCreateManyArgs} args - Arguments to create many SyncMetadata.
+     * @example
+     * // Create many SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends SyncMetadataCreateManyArgs>(args?: SelectSubset<T, SyncMetadataCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many SyncMetadata and returns the data saved in the database.
+     * @param {SyncMetadataCreateManyAndReturnArgs} args - Arguments to create many SyncMetadata.
+     * @example
+     * // Create many SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many SyncMetadata and only return the `id`
+     * const syncMetadataWithIdOnly = await prisma.syncMetadata.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends SyncMetadataCreateManyAndReturnArgs>(args?: SelectSubset<T, SyncMetadataCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a SyncMetadata.
+     * @param {SyncMetadataDeleteArgs} args - Arguments to delete one SyncMetadata.
+     * @example
+     * // Delete one SyncMetadata
+     * const SyncMetadata = await prisma.syncMetadata.delete({
+     *   where: {
+     *     // ... filter to delete one SyncMetadata
+     *   }
+     * })
+     * 
+     */
+    delete<T extends SyncMetadataDeleteArgs>(args: SelectSubset<T, SyncMetadataDeleteArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one SyncMetadata.
+     * @param {SyncMetadataUpdateArgs} args - Arguments to update one SyncMetadata.
+     * @example
+     * // Update one SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends SyncMetadataUpdateArgs>(args: SelectSubset<T, SyncMetadataUpdateArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more SyncMetadata.
+     * @param {SyncMetadataDeleteManyArgs} args - Arguments to filter SyncMetadata to delete.
+     * @example
+     * // Delete a few SyncMetadata
+     * const { count } = await prisma.syncMetadata.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends SyncMetadataDeleteManyArgs>(args?: SelectSubset<T, SyncMetadataDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more SyncMetadata.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends SyncMetadataUpdateManyArgs>(args: SelectSubset<T, SyncMetadataUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more SyncMetadata and returns the data updated in the database.
+     * @param {SyncMetadataUpdateManyAndReturnArgs} args - Arguments to update many SyncMetadata.
+     * @example
+     * // Update many SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more SyncMetadata and only return the `id`
+     * const syncMetadataWithIdOnly = await prisma.syncMetadata.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends SyncMetadataUpdateManyAndReturnArgs>(args: SelectSubset<T, SyncMetadataUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one SyncMetadata.
+     * @param {SyncMetadataUpsertArgs} args - Arguments to update or create a SyncMetadata.
+     * @example
+     * // Update or create a SyncMetadata
+     * const syncMetadata = await prisma.syncMetadata.upsert({
+     *   create: {
+     *     // ... data to create a SyncMetadata
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the SyncMetadata we want to update
+     *   }
+     * })
+     */
+    upsert<T extends SyncMetadataUpsertArgs>(args: SelectSubset<T, SyncMetadataUpsertArgs<ExtArgs>>): Prisma__SyncMetadataClient<$Result.GetResult<Prisma.$SyncMetadataPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of SyncMetadata.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataCountArgs} args - Arguments to filter SyncMetadata to count.
+     * @example
+     * // Count the number of SyncMetadata
+     * const count = await prisma.syncMetadata.count({
+     *   where: {
+     *     // ... the filter for the SyncMetadata we want to count
+     *   }
+     * })
+    **/
+    count<T extends SyncMetadataCountArgs>(
+      args?: Subset<T, SyncMetadataCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], SyncMetadataCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a SyncMetadata.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends SyncMetadataAggregateArgs>(args: Subset<T, SyncMetadataAggregateArgs>): Prisma.PrismaPromise<GetSyncMetadataAggregateType<T>>
+
+    /**
+     * Group by SyncMetadata.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SyncMetadataGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends SyncMetadataGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: SyncMetadataGroupByArgs['orderBy'] }
+        : { orderBy?: SyncMetadataGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, SyncMetadataGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetSyncMetadataGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the SyncMetadata model
+   */
+  readonly fields: SyncMetadataFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for SyncMetadata.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__SyncMetadataClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the SyncMetadata model
+   */
+  interface SyncMetadataFieldRefs {
+    readonly id: FieldRef<"SyncMetadata", 'String'>
+    readonly lastLedgerSequence: FieldRef<"SyncMetadata", 'Int'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * SyncMetadata findUnique
+   */
+  export type SyncMetadataFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter, which SyncMetadata to fetch.
+     */
+    where: SyncMetadataWhereUniqueInput
+  }
+
+  /**
+   * SyncMetadata findUniqueOrThrow
+   */
+  export type SyncMetadataFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter, which SyncMetadata to fetch.
+     */
+    where: SyncMetadataWhereUniqueInput
+  }
+
+  /**
+   * SyncMetadata findFirst
+   */
+  export type SyncMetadataFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter, which SyncMetadata to fetch.
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SyncMetadata to fetch.
+     */
+    orderBy?: SyncMetadataOrderByWithRelationInput | SyncMetadataOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for SyncMetadata.
+     */
+    cursor?: SyncMetadataWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SyncMetadata from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SyncMetadata.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of SyncMetadata.
+     */
+    distinct?: SyncMetadataScalarFieldEnum | SyncMetadataScalarFieldEnum[]
+  }
+
+  /**
+   * SyncMetadata findFirstOrThrow
+   */
+  export type SyncMetadataFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter, which SyncMetadata to fetch.
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SyncMetadata to fetch.
+     */
+    orderBy?: SyncMetadataOrderByWithRelationInput | SyncMetadataOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for SyncMetadata.
+     */
+    cursor?: SyncMetadataWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SyncMetadata from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SyncMetadata.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of SyncMetadata.
+     */
+    distinct?: SyncMetadataScalarFieldEnum | SyncMetadataScalarFieldEnum[]
+  }
+
+  /**
+   * SyncMetadata findMany
+   */
+  export type SyncMetadataFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter, which SyncMetadata to fetch.
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SyncMetadata to fetch.
+     */
+    orderBy?: SyncMetadataOrderByWithRelationInput | SyncMetadataOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing SyncMetadata.
+     */
+    cursor?: SyncMetadataWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SyncMetadata from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SyncMetadata.
+     */
+    skip?: number
+    distinct?: SyncMetadataScalarFieldEnum | SyncMetadataScalarFieldEnum[]
+  }
+
+  /**
+   * SyncMetadata create
+   */
+  export type SyncMetadataCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * The data needed to create a SyncMetadata.
+     */
+    data: XOR<SyncMetadataCreateInput, SyncMetadataUncheckedCreateInput>
+  }
+
+  /**
+   * SyncMetadata createMany
+   */
+  export type SyncMetadataCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many SyncMetadata.
+     */
+    data: SyncMetadataCreateManyInput | SyncMetadataCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * SyncMetadata createManyAndReturn
+   */
+  export type SyncMetadataCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * The data used to create many SyncMetadata.
+     */
+    data: SyncMetadataCreateManyInput | SyncMetadataCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * SyncMetadata update
+   */
+  export type SyncMetadataUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * The data needed to update a SyncMetadata.
+     */
+    data: XOR<SyncMetadataUpdateInput, SyncMetadataUncheckedUpdateInput>
+    /**
+     * Choose, which SyncMetadata to update.
+     */
+    where: SyncMetadataWhereUniqueInput
+  }
+
+  /**
+   * SyncMetadata updateMany
+   */
+  export type SyncMetadataUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update SyncMetadata.
+     */
+    data: XOR<SyncMetadataUpdateManyMutationInput, SyncMetadataUncheckedUpdateManyInput>
+    /**
+     * Filter which SyncMetadata to update
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * Limit how many SyncMetadata to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * SyncMetadata updateManyAndReturn
+   */
+  export type SyncMetadataUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * The data used to update SyncMetadata.
+     */
+    data: XOR<SyncMetadataUpdateManyMutationInput, SyncMetadataUncheckedUpdateManyInput>
+    /**
+     * Filter which SyncMetadata to update
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * Limit how many SyncMetadata to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * SyncMetadata upsert
+   */
+  export type SyncMetadataUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * The filter to search for the SyncMetadata to update in case it exists.
+     */
+    where: SyncMetadataWhereUniqueInput
+    /**
+     * In case the SyncMetadata found by the `where` argument doesn't exist, create a new SyncMetadata with this data.
+     */
+    create: XOR<SyncMetadataCreateInput, SyncMetadataUncheckedCreateInput>
+    /**
+     * In case the SyncMetadata was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<SyncMetadataUpdateInput, SyncMetadataUncheckedUpdateInput>
+  }
+
+  /**
+   * SyncMetadata delete
+   */
+  export type SyncMetadataDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+    /**
+     * Filter which SyncMetadata to delete.
+     */
+    where: SyncMetadataWhereUniqueInput
+  }
+
+  /**
+   * SyncMetadata deleteMany
+   */
+  export type SyncMetadataDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which SyncMetadata to delete
+     */
+    where?: SyncMetadataWhereInput
+    /**
+     * Limit how many SyncMetadata to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * SyncMetadata without action
+   */
+  export type SyncMetadataDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SyncMetadata
+     */
+    select?: SyncMetadataSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SyncMetadata
+     */
+    omit?: SyncMetadataOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -4189,6 +6472,31 @@ export namespace Prisma {
   };
 
   export type SyncStateScalarFieldEnum = (typeof SyncStateScalarFieldEnum)[keyof typeof SyncStateScalarFieldEnum]
+
+
+  export const AuditEventScalarFieldEnum: {
+    id: 'id',
+    eventType: 'eventType',
+    streamId: 'streamId',
+    txHash: 'txHash',
+    ledger: 'ledger',
+    ledgerClosedAt: 'ledgerClosedAt',
+    sender: 'sender',
+    receiver: 'receiver',
+    amount: 'amount',
+    metadata: 'metadata',
+    createdAt: 'createdAt'
+  };
+
+  export type AuditEventScalarFieldEnum = (typeof AuditEventScalarFieldEnum)[keyof typeof AuditEventScalarFieldEnum]
+
+
+  export const SyncMetadataScalarFieldEnum: {
+    id: 'id',
+    lastLedgerSequence: 'lastLedgerSequence'
+  };
+
+  export type SyncMetadataScalarFieldEnum = (typeof SyncMetadataScalarFieldEnum)[keyof typeof SyncMetadataScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -4464,6 +6772,129 @@ export namespace Prisma {
     lastLedgerSequence?: IntWithAggregatesFilter<"SyncState"> | number
   }
 
+  export type AuditEventWhereInput = {
+    AND?: AuditEventWhereInput | AuditEventWhereInput[]
+    OR?: AuditEventWhereInput[]
+    NOT?: AuditEventWhereInput | AuditEventWhereInput[]
+    id?: StringFilter<"AuditEvent"> | string
+    eventType?: StringFilter<"AuditEvent"> | string
+    streamId?: StringFilter<"AuditEvent"> | string
+    txHash?: StringFilter<"AuditEvent"> | string
+    ledger?: IntFilter<"AuditEvent"> | number
+    ledgerClosedAt?: StringFilter<"AuditEvent"> | string
+    sender?: StringNullableFilter<"AuditEvent"> | string | null
+    receiver?: StringNullableFilter<"AuditEvent"> | string | null
+    amount?: BigIntNullableFilter<"AuditEvent"> | bigint | number | null
+    metadata?: StringNullableFilter<"AuditEvent"> | string | null
+    createdAt?: DateTimeFilter<"AuditEvent"> | Date | string
+  }
+
+  export type AuditEventOrderByWithRelationInput = {
+    id?: SortOrder
+    eventType?: SortOrder
+    streamId?: SortOrder
+    txHash?: SortOrder
+    ledger?: SortOrder
+    ledgerClosedAt?: SortOrder
+    sender?: SortOrderInput | SortOrder
+    receiver?: SortOrderInput | SortOrder
+    amount?: SortOrderInput | SortOrder
+    metadata?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type AuditEventWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: AuditEventWhereInput | AuditEventWhereInput[]
+    OR?: AuditEventWhereInput[]
+    NOT?: AuditEventWhereInput | AuditEventWhereInput[]
+    eventType?: StringFilter<"AuditEvent"> | string
+    streamId?: StringFilter<"AuditEvent"> | string
+    txHash?: StringFilter<"AuditEvent"> | string
+    ledger?: IntFilter<"AuditEvent"> | number
+    ledgerClosedAt?: StringFilter<"AuditEvent"> | string
+    sender?: StringNullableFilter<"AuditEvent"> | string | null
+    receiver?: StringNullableFilter<"AuditEvent"> | string | null
+    amount?: BigIntNullableFilter<"AuditEvent"> | bigint | number | null
+    metadata?: StringNullableFilter<"AuditEvent"> | string | null
+    createdAt?: DateTimeFilter<"AuditEvent"> | Date | string
+  }, "id">
+
+  export type AuditEventOrderByWithAggregationInput = {
+    id?: SortOrder
+    eventType?: SortOrder
+    streamId?: SortOrder
+    txHash?: SortOrder
+    ledger?: SortOrder
+    ledgerClosedAt?: SortOrder
+    sender?: SortOrderInput | SortOrder
+    receiver?: SortOrderInput | SortOrder
+    amount?: SortOrderInput | SortOrder
+    metadata?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    _count?: AuditEventCountOrderByAggregateInput
+    _avg?: AuditEventAvgOrderByAggregateInput
+    _max?: AuditEventMaxOrderByAggregateInput
+    _min?: AuditEventMinOrderByAggregateInput
+    _sum?: AuditEventSumOrderByAggregateInput
+  }
+
+  export type AuditEventScalarWhereWithAggregatesInput = {
+    AND?: AuditEventScalarWhereWithAggregatesInput | AuditEventScalarWhereWithAggregatesInput[]
+    OR?: AuditEventScalarWhereWithAggregatesInput[]
+    NOT?: AuditEventScalarWhereWithAggregatesInput | AuditEventScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"AuditEvent"> | string
+    eventType?: StringWithAggregatesFilter<"AuditEvent"> | string
+    streamId?: StringWithAggregatesFilter<"AuditEvent"> | string
+    txHash?: StringWithAggregatesFilter<"AuditEvent"> | string
+    ledger?: IntWithAggregatesFilter<"AuditEvent"> | number
+    ledgerClosedAt?: StringWithAggregatesFilter<"AuditEvent"> | string
+    sender?: StringNullableWithAggregatesFilter<"AuditEvent"> | string | null
+    receiver?: StringNullableWithAggregatesFilter<"AuditEvent"> | string | null
+    amount?: BigIntNullableWithAggregatesFilter<"AuditEvent"> | bigint | number | null
+    metadata?: StringNullableWithAggregatesFilter<"AuditEvent"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"AuditEvent"> | Date | string
+  }
+
+  export type SyncMetadataWhereInput = {
+    AND?: SyncMetadataWhereInput | SyncMetadataWhereInput[]
+    OR?: SyncMetadataWhereInput[]
+    NOT?: SyncMetadataWhereInput | SyncMetadataWhereInput[]
+    id?: StringFilter<"SyncMetadata"> | string
+    lastLedgerSequence?: IntFilter<"SyncMetadata"> | number
+  }
+
+  export type SyncMetadataOrderByWithRelationInput = {
+    id?: SortOrder
+    lastLedgerSequence?: SortOrder
+  }
+
+  export type SyncMetadataWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: SyncMetadataWhereInput | SyncMetadataWhereInput[]
+    OR?: SyncMetadataWhereInput[]
+    NOT?: SyncMetadataWhereInput | SyncMetadataWhereInput[]
+    lastLedgerSequence?: IntFilter<"SyncMetadata"> | number
+  }, "id">
+
+  export type SyncMetadataOrderByWithAggregationInput = {
+    id?: SortOrder
+    lastLedgerSequence?: SortOrder
+    _count?: SyncMetadataCountOrderByAggregateInput
+    _avg?: SyncMetadataAvgOrderByAggregateInput
+    _max?: SyncMetadataMaxOrderByAggregateInput
+    _min?: SyncMetadataMinOrderByAggregateInput
+    _sum?: SyncMetadataSumOrderByAggregateInput
+  }
+
+  export type SyncMetadataScalarWhereWithAggregatesInput = {
+    AND?: SyncMetadataScalarWhereWithAggregatesInput | SyncMetadataScalarWhereWithAggregatesInput[]
+    OR?: SyncMetadataScalarWhereWithAggregatesInput[]
+    NOT?: SyncMetadataScalarWhereWithAggregatesInput | SyncMetadataScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"SyncMetadata"> | string
+    lastLedgerSequence?: IntWithAggregatesFilter<"SyncMetadata"> | number
+  }
+
   export type StreamCreateInput = {
     id: string
     sender: string
@@ -4622,6 +7053,139 @@ export namespace Prisma {
 
   export type SyncStateUncheckedUpdateManyInput = {
     id?: IntFieldUpdateOperationsInput | number
+    lastLedgerSequence?: IntFieldUpdateOperationsInput | number
+  }
+
+  export type AuditEventCreateInput = {
+    id?: string
+    eventType: string
+    streamId: string
+    txHash: string
+    ledger: number
+    ledgerClosedAt: string
+    sender?: string | null
+    receiver?: string | null
+    amount?: bigint | number | null
+    metadata?: string | null
+    createdAt?: Date | string
+  }
+
+  export type AuditEventUncheckedCreateInput = {
+    id?: string
+    eventType: string
+    streamId: string
+    txHash: string
+    ledger: number
+    ledgerClosedAt: string
+    sender?: string | null
+    receiver?: string | null
+    amount?: bigint | number | null
+    metadata?: string | null
+    createdAt?: Date | string
+  }
+
+  export type AuditEventUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    eventType?: StringFieldUpdateOperationsInput | string
+    streamId?: StringFieldUpdateOperationsInput | string
+    txHash?: StringFieldUpdateOperationsInput | string
+    ledger?: IntFieldUpdateOperationsInput | number
+    ledgerClosedAt?: StringFieldUpdateOperationsInput | string
+    sender?: NullableStringFieldUpdateOperationsInput | string | null
+    receiver?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    metadata?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AuditEventUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    eventType?: StringFieldUpdateOperationsInput | string
+    streamId?: StringFieldUpdateOperationsInput | string
+    txHash?: StringFieldUpdateOperationsInput | string
+    ledger?: IntFieldUpdateOperationsInput | number
+    ledgerClosedAt?: StringFieldUpdateOperationsInput | string
+    sender?: NullableStringFieldUpdateOperationsInput | string | null
+    receiver?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    metadata?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AuditEventCreateManyInput = {
+    id?: string
+    eventType: string
+    streamId: string
+    txHash: string
+    ledger: number
+    ledgerClosedAt: string
+    sender?: string | null
+    receiver?: string | null
+    amount?: bigint | number | null
+    metadata?: string | null
+    createdAt?: Date | string
+  }
+
+  export type AuditEventUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    eventType?: StringFieldUpdateOperationsInput | string
+    streamId?: StringFieldUpdateOperationsInput | string
+    txHash?: StringFieldUpdateOperationsInput | string
+    ledger?: IntFieldUpdateOperationsInput | number
+    ledgerClosedAt?: StringFieldUpdateOperationsInput | string
+    sender?: NullableStringFieldUpdateOperationsInput | string | null
+    receiver?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    metadata?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type AuditEventUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    eventType?: StringFieldUpdateOperationsInput | string
+    streamId?: StringFieldUpdateOperationsInput | string
+    txHash?: StringFieldUpdateOperationsInput | string
+    ledger?: IntFieldUpdateOperationsInput | number
+    ledgerClosedAt?: StringFieldUpdateOperationsInput | string
+    sender?: NullableStringFieldUpdateOperationsInput | string | null
+    receiver?: NullableStringFieldUpdateOperationsInput | string | null
+    amount?: NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+    metadata?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SyncMetadataCreateInput = {
+    id: string
+    lastLedgerSequence?: number
+  }
+
+  export type SyncMetadataUncheckedCreateInput = {
+    id: string
+    lastLedgerSequence?: number
+  }
+
+  export type SyncMetadataUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    lastLedgerSequence?: IntFieldUpdateOperationsInput | number
+  }
+
+  export type SyncMetadataUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    lastLedgerSequence?: IntFieldUpdateOperationsInput | number
+  }
+
+  export type SyncMetadataCreateManyInput = {
+    id: string
+    lastLedgerSequence?: number
+  }
+
+  export type SyncMetadataUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    lastLedgerSequence?: IntFieldUpdateOperationsInput | number
+  }
+
+  export type SyncMetadataUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
     lastLedgerSequence?: IntFieldUpdateOperationsInput | number
   }
 
@@ -4916,6 +7480,108 @@ export namespace Prisma {
     _max?: NestedIntFilter<$PrismaModel>
   }
 
+  export type BigIntNullableFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableFilter<$PrismaModel> | bigint | number | null
+  }
+
+  export type AuditEventCountOrderByAggregateInput = {
+    id?: SortOrder
+    eventType?: SortOrder
+    streamId?: SortOrder
+    txHash?: SortOrder
+    ledger?: SortOrder
+    ledgerClosedAt?: SortOrder
+    sender?: SortOrder
+    receiver?: SortOrder
+    amount?: SortOrder
+    metadata?: SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type AuditEventAvgOrderByAggregateInput = {
+    ledger?: SortOrder
+    amount?: SortOrder
+  }
+
+  export type AuditEventMaxOrderByAggregateInput = {
+    id?: SortOrder
+    eventType?: SortOrder
+    streamId?: SortOrder
+    txHash?: SortOrder
+    ledger?: SortOrder
+    ledgerClosedAt?: SortOrder
+    sender?: SortOrder
+    receiver?: SortOrder
+    amount?: SortOrder
+    metadata?: SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type AuditEventMinOrderByAggregateInput = {
+    id?: SortOrder
+    eventType?: SortOrder
+    streamId?: SortOrder
+    txHash?: SortOrder
+    ledger?: SortOrder
+    ledgerClosedAt?: SortOrder
+    sender?: SortOrder
+    receiver?: SortOrder
+    amount?: SortOrder
+    metadata?: SortOrder
+    createdAt?: SortOrder
+  }
+
+  export type AuditEventSumOrderByAggregateInput = {
+    ledger?: SortOrder
+    amount?: SortOrder
+  }
+
+  export type BigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableWithAggregatesFilter<$PrismaModel> | bigint | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedBigIntNullableFilter<$PrismaModel>
+    _min?: NestedBigIntNullableFilter<$PrismaModel>
+    _max?: NestedBigIntNullableFilter<$PrismaModel>
+  }
+
+  export type SyncMetadataCountOrderByAggregateInput = {
+    id?: SortOrder
+    lastLedgerSequence?: SortOrder
+  }
+
+  export type SyncMetadataAvgOrderByAggregateInput = {
+    lastLedgerSequence?: SortOrder
+  }
+
+  export type SyncMetadataMaxOrderByAggregateInput = {
+    id?: SortOrder
+    lastLedgerSequence?: SortOrder
+  }
+
+  export type SyncMetadataMinOrderByAggregateInput = {
+    id?: SortOrder
+    lastLedgerSequence?: SortOrder
+  }
+
+  export type SyncMetadataSumOrderByAggregateInput = {
+    lastLedgerSequence?: SortOrder
+  }
+
   export type StringFieldUpdateOperationsInput = {
     set?: string
   }
@@ -4954,6 +7620,14 @@ export namespace Prisma {
     decrement?: number
     multiply?: number
     divide?: number
+  }
+
+  export type NullableBigIntFieldUpdateOperationsInput = {
+    set?: bigint | number | null
+    increment?: bigint | number
+    decrement?: bigint | number
+    multiply?: bigint | number
+    divide?: bigint | number
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -5161,6 +7835,33 @@ export namespace Prisma {
     _sum?: NestedIntFilter<$PrismaModel>
     _min?: NestedIntFilter<$PrismaModel>
     _max?: NestedIntFilter<$PrismaModel>
+  }
+
+  export type NestedBigIntNullableFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableFilter<$PrismaModel> | bigint | number | null
+  }
+
+  export type NestedBigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: bigint | number | BigIntFieldRefInput<$PrismaModel> | null
+    in?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    notIn?: bigint[] | number[] | ListBigIntFieldRefInput<$PrismaModel> | null
+    lt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    lte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gt?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    gte?: bigint | number | BigIntFieldRefInput<$PrismaModel>
+    not?: NestedBigIntNullableWithAggregatesFilter<$PrismaModel> | bigint | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedBigIntNullableFilter<$PrismaModel>
+    _min?: NestedBigIntNullableFilter<$PrismaModel>
+    _max?: NestedBigIntNullableFilter<$PrismaModel>
   }
 
 
