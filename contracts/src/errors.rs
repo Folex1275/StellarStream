@@ -27,4 +27,6 @@ pub enum Error {
     StreamIsSoulbound = 21,
     /// Address is restricted by OFAC compliance
     AddressRestricted = 22,
+    /// Stream has ended
+    StreamEnded = 23,
 }

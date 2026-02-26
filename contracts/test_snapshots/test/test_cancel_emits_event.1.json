@@ -526,7 +526,7 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 500
+                                  "lo": 0
                                 }
                               }
                             },
@@ -537,7 +537,7 @@
                               "val": {
                                 "i128": {
                                   "hi": 0,
-                                  "lo": 0
+                                  "lo": 500
                                 }
                               }
                             }
@@ -1066,76 +1066,6 @@
                 "hi": 0,
                 "lo": 500
               }
-            }
-          }
-        }
-      },
-      "failed_call": false
-    },
-    {
-      "event": {
-        "ext": "v0",
-        "contract_id": "0000000000000000000000000000000000000000000000000000000000000001",
-        "type_": "contract",
-        "body": {
-          "v0": {
-            "topics": [
-              {
-                "symbol": "cancel"
-              },
-              {
-                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-              }
-            ],
-            "data": {
-              "map": [
-                {
-                  "key": {
-                    "symbol": "canceller"
-                  },
-                  "val": {
-                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "stream_id"
-                  },
-                  "val": {
-                    "u64": 0
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "timestamp"
-                  },
-                  "val": {
-                    "u64": 150
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "to_receiver"
-                  },
-                  "val": {
-                    "i128": {
-                      "hi": 0,
-                      "lo": 500
-                    }
-                  }
-                },
-                {
-                  "key": {
-                    "symbol": "to_sender"
-                  },
-                  "val": {
-                    "i128": {
-                      "hi": 0,
-                      "lo": 500
-                    }
-                  }
-                }
-              ]
             }
           }
         }

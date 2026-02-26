@@ -1,5 +1,6 @@
 use soroban_sdk::{Address, Env};
 
+#[allow(dead_code)]
 /// Fetch price from oracle with staleness check
 pub fn get_price(env: &Env, oracle: &Address, max_staleness: u64) -> Result<i128, ()> {
     // Call oracle contract to get latest price
@@ -28,6 +29,7 @@ pub fn get_price(env: &Env, oracle: &Address, max_staleness: u64) -> Result<i128
     Ok(price)
 }
 
+#[allow(dead_code)]
 /// Calculate token amount based on USD value and current price
 /// usd_amount: USD value with 7 decimals
 /// price: Token price in USD with 7 decimals

@@ -1,5 +1,6 @@
 use soroban_sdk::{Address, Env};
 
+#[allow(dead_code)]
 /// Get voting power for a stream
 /// Returns the unlocked balance that can be used for voting
 pub fn get_voting_power(_env: &Env, stream: &crate::types::Stream, current_time: u64) -> i128 {
@@ -22,6 +23,7 @@ pub fn get_voting_power(_env: &Env, stream: &crate::types::Stream, current_time:
     unlocked - stream.withdrawn_amount
 }
 
+#[allow(dead_code)]
 /// Get total stream balance (locked + unlocked)
 pub fn get_total_balance(stream: &crate::types::Stream) -> i128 {
     if stream.cancelled {
@@ -30,6 +32,7 @@ pub fn get_total_balance(stream: &crate::types::Stream) -> i128 {
     stream.total_amount - stream.withdrawn_amount
 }
 
+#[allow(dead_code)]
 /// Check if address has delegation rights for a stream
 pub fn can_delegate(env: &Env, stream_id: u64, caller: &Address) -> bool {
     let receipt: crate::types::StreamReceipt = env

@@ -41,6 +41,7 @@ pub fn deposit_to_vault(
     Ok(shares)
 }
 
+#[allow(dead_code)]
 /// Withdraw principal from vault
 pub fn withdraw_from_vault(env: &Env, vault: &Address, shares: i128) -> Result<i128, ()> {
     if shares <= 0 {
