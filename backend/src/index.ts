@@ -70,6 +70,8 @@ const authRouter = express.Router();
 authRouter.get('/nonce', rateLimitMiddleware, getNonce);
 authRouter.get('/me', rateLimitMiddleware, requireWalletAuth, getMe);
 app.use('/api/v1/auth', authRouter);
+app.use(batchRoutes);
+app.use(healthRoutes);
 
 async function start(): Promise<void> {
   await ensureRedis();
@@ -98,12 +100,6 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 start().catch((err) => {
   console.error('Failed to start server:', err);
   process.exit(1);
-// Batch metadata endpoint for bulk streaming queries
-app.use(batchRoutes);
-app.use(healthRoutes);
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
 });
 
 export default app;

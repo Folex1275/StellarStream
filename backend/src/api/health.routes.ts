@@ -25,7 +25,7 @@ router.get('/health/sync', async (_req: Request, res: Response) => {
       indexed_ledger: indexedLedger,
       difference
     });
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Failed to fetch sync status' });
   }
 });
