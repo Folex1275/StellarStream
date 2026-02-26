@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import { BatchMetadataService } from "../services/batch-metadata.service.js";
+import { getStreamGraph } from "../services/stream-graph.service.js";
+import { prisma } from "../lib/db.js";
 
 /**
  * Maximum number of stream IDs allowed in a single batch request.
@@ -80,6 +82,38 @@ export function createBatchRoutes(
                 res.status(200).json(response);
             } catch (err) {
                 console.error("[BatchMetadata] Unexpected error:", err);
+                res.status(500).json({ error: "Internal server error" });
+            }
+        },
+    );
+
+    /**
+     * GET /api/v1/streams/:id/graph
+     *
+     * Returns 20 data points of unlocked amount over the stream's duration
+     * for the Stream Flow visualizer. projectedYield is null until vault association exists.
+     */
+    router.get(
+        "/api/v1/streams/:id/graph",
+        async (req: Request, res: Response): Promise<void> => {
+            try {
+                const id = req.params.id?.trim();
+                if (!id) {
+                    res.status(400).json({
+                        error: "Stream ID is required.",
+                    });
+                    return;
+                }
+                const result = await getStreamGraph(id, batchService, prisma);
+                if (result === null) {
+                    res.status(404).json({
+                        error: "Stream not found.",
+                    });
+                    return;
+                }
+                res.status(200).json(result);
+            } catch (err) {
+                console.error("[StreamGraph] Unexpected error:", err);
                 res.status(500).json({ error: "Internal server error" });
             }
         },
