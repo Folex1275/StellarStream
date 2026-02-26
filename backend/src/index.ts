@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import apiRouter from './api/index.js';
+import docsRouter from './docs/docs.routes.js';
 import { startPriceUpdateJob } from './services/index.js';
 
 const app: Express = express();
@@ -13,7 +14,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'https:'],
     },
   },
@@ -53,6 +54,9 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // Mount API routes
 app.use('/api', apiRouter);
+
+// Mount documentation routes
+app.use('/api/v1/docs', docsRouter);
 
 // Start price update background job
 const priceUpdateJob = startPriceUpdateJob();
