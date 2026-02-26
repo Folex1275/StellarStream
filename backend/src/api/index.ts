@@ -4,8 +4,12 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '../generated/client/index.js';
 import { calculateUsdValue } from '../services/index.js';
+import protocolRouter from './protocol.routes.js';
 
 const router = Router();
+
+// Mount protocol routes
+router.use('/v1/protocol', protocolRouter);
 const prisma = new PrismaClient();
 
 /**
