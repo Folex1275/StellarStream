@@ -6,3 +6,4 @@ export {
   toBigIntOrNull,
   toObjectOrNull,
 } from "./stream-lifecycle-service.js";
+export type { LeaderboardEntry } from "./stream-lifecycle-service.js";

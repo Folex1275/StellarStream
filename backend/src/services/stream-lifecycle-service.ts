@@ -3,6 +3,11 @@ import path from "node:path";
 
 export type IndexedStreamStatus = "ACTIVE" | "CANCELED" | "COMPLETED" | "PAUSED";
 
+export interface LeaderboardEntry {
+  address: string;
+  totalVolume: string; // string to preserve BigInt precision
+}
+
 interface StreamLifecycleRecord {
   stream_id: string;
   tx_hash_created: string;
@@ -155,6 +160,41 @@ export class StreamLifecycleService {
     } catch {
       return { streams: {} };
     }
+  }
+
+  async getLeaderboard(limit = 10): Promise<{
+    topStreamers: LeaderboardEntry[];
+    topReceivers: LeaderboardEntry[];
+  }> {
+    const db = await this.loadDb();
+    const streams = Object.values(db.streams).filter(
+      (s): s is StreamLifecycleRecord => s !== undefined
+    );
+
+    const senderVolume = new Map<string, bigint>();
+    const receiverVolume = new Map<string, bigint>();
+
+    for (const stream of streams) {
+      if (stream.sender && stream.sender !== "unknown") {
+        const prev = senderVolume.get(stream.sender) ?? 0n;
+        senderVolume.set(stream.sender, prev + this.toBigInt(stream.original_total_amount));
+      }
+      if (stream.receiver && stream.receiver !== "unknown") {
+        const prev = receiverVolume.get(stream.receiver) ?? 0n;
+        receiverVolume.set(stream.receiver, prev + this.toBigInt(stream.original_total_amount));
+      }
+    }
+
+    const toSortedEntries = (map: Map<string, bigint>): LeaderboardEntry[] =>
+      [...map.entries()]
+        .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+        .slice(0, limit)
+        .map(([address, totalVolume]) => ({ address, totalVolume: totalVolume.toString() }));
+
+    return {
+      topStreamers: toSortedEntries(senderVolume),
+      topReceivers: toSortedEntries(receiverVolume),
+    };
   }
 
   private async saveDb(db: StreamLifecycleDatabase): Promise<void> {

@@ -4,7 +4,7 @@ import tsparser from '@typescript-eslint/parser';
 export default [
   // Global ignores (replaces .eslintignore)
   {
-    ignores: ['dist/**', 'node_modules/**', '*.js', '*.cjs', '*.d.ts'],
+    ignores: ['dist/**', 'node_modules/**', '*.js', '*.cjs', '*.d.ts', 'jest.config.ts'],
   },
 
   // Source files — full type-aware linting
