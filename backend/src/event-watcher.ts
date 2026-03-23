@@ -16,18 +16,27 @@ export class EventWatcher {
   private pollTimeout?: NodeJS.Timeout;
   private streamLifecycleService: StreamLifecycleService;
 
-  constructor(config: EventWatcherConfig) {
+  constructor(
+    config: EventWatcherConfig,
+    deps?: {
+      server?: SorobanRpc.Server;
+      streamLifecycleService?: StreamLifecycleService;
+    }
+  ) {
     this.config = config;
-    this.server = new SorobanRpc.Server(config.rpcUrl, {
-      allowHttp: config.rpcUrl.startsWith("http://"),
-    });
+    this.server =
+      deps?.server ??
+      new SorobanRpc.Server(config.rpcUrl, {
+        allowHttp: config.rpcUrl.startsWith("http://"),
+      });
 
     this.state = {
       lastProcessedLedger: 0,
       isRunning: false,
       errorCount: 0,
     };
-    this.streamLifecycleService = new StreamLifecycleService();
+    this.streamLifecycleService =
+      deps?.streamLifecycleService ?? new StreamLifecycleService();
 
     logger.info("EventWatcher initialized", {
       rpcUrl: config.rpcUrl,

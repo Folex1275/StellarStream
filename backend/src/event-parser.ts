@@ -21,7 +21,7 @@ export function parseContractEvent(
       contractId: event.contractId?.toString() ?? "unknown",
       topics: event.topic.map((topic) => topic.toXDR("base64")),
       value: parseScVal(event.value),
-      txHash: event.txHash ?? "unknown",
+      txHash: event.id ?? "unknown",
       inSuccessfulContractCall: event.inSuccessfulContractCall,
     };
   } catch (error) {
