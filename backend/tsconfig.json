@@ -29,5 +29,5 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/test-websocket.ts"]
+  "exclude": ["node_modules", "dist", "src/test-websocket.ts", "src/__jest__/**/*"]
 }
