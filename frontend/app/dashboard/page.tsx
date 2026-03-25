@@ -45,18 +45,14 @@ const fmtDate = (d: Date) =>
 const fmtTime = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
-// ─── Live Counter (Mobile-Optimized) ──────────────────────────────────────────
+// ─── Live Counter ─────────────────────────────────────────────────────────────
 function LiveCounter({ base, rate }: { base: number; rate: number }) {
   const [val, setVal] = useState(base);
   useEffect(() => {
     const id = setInterval(() => setVal((v) => v + rate * 0.1), 100);
     return () => clearInterval(id);
   }, [rate]);
-  return (
-    <span className="inline-block tabular-nums text-center">
-      {fmt(val)}
-    </span>
-  );
+  return <>{fmt(val)}</>;
 }
 
 // ─── Radial Progress Arc ──────────────────────────────────────────────────────
@@ -198,10 +194,10 @@ export default function StreamDetailPage() {
   const daysLeft  = Math.ceil((STREAM.endTime.getTime() - Date.now()) / 86_400_000);
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
+    <div className="min-h-screen p-4 md:p-6 space-y-4">
 
-      {/* ── Header (Mobile-First) ── */}
-      <section className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-6 lg:p-8 backdrop-blur-xl">
+      {/* ── Header ── */}
+      <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="flex items-center gap-3 flex-wrap">

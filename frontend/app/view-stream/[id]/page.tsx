@@ -16,7 +16,6 @@
 import { useState, useEffect, use } from "react";
 import { motion } from "framer-motion";
 import { Wallet, ArrowRight, Clock, TrendingUp, AlertCircle } from "lucide-react";
-import YieldComparisonChart from "@/components/yield-comparison-chart";
 
 // Stream data interface
 interface StreamData {
@@ -31,7 +30,6 @@ interface StreamData {
   receiver: string;
   startTime: Date;
   endTime: Date;
-  apy?: number; // Annual percentage yield as decimal
 }
 
 // Mock data fetch - in production, this would fetch from the API
@@ -52,7 +50,6 @@ async function fetchStreamData(id: string): Promise<StreamData | null> {
     receiver: "GDEV9...7BC1",
     startTime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30),
     endTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 48),
-    apy: 0.08, // 8% APY
   };
 }
 
@@ -293,16 +290,6 @@ export default function ViewStreamPage({ params }: { params: Promise<{ id: strin
           transition: width 1s ease-out;
         }
 
-        /* Yield Chart */
-        .yield-chart-container {
-          margin: 32px 0;
-          padding: 24px;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 16px;
-          backdrop-filter: blur(10px);
-        }
-
         /* Stream Details */
         .stream-details {
           display: grid;
@@ -405,24 +392,6 @@ export default function ViewStreamPage({ params }: { params: Promise<{ id: strin
               />
             </div>
           </div>
-
-          {/* Yield Comparison Chart */}
-          {stream.apy && stream.apy > 0 && (
-            <div className="yield-chart-container">
-              <h2 className="text-white text-lg font-semibold mb-4 text-center">
-                Yield Comparison
-              </h2>
-              <YieldComparisonChart
-                totalAmount={stream.totalAmount}
-                streamed={stream.streamed}
-                ratePerSecond={stream.ratePerSecond}
-                startTime={stream.startTime}
-                endTime={stream.endTime}
-                apy={stream.apy}
-                token={stream.token}
-              />
-            </div>
-          )}
 
           {/* Details */}
           <div className="stream-details">

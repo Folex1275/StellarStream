@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
-import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -15,8 +14,6 @@ interface FormData {
   splitEnabled: boolean;
   splitAddress: string;
   splitPercent: number; // 0–50
-  // Privacy Shield (Issue #463)
-  privacyShieldEnabled: boolean;
   // Step 2
   totalAmount: string;
   rateType: "per-second" | "per-minute" | "per-hour" | "per-day";
@@ -34,7 +31,6 @@ const INITIAL_FORM: FormData = {
   splitEnabled: false,
   splitAddress: "",
   splitPercent: 10,
-  privacyShieldEnabled: false,
   totalAmount: "",
   rateType: "per-hour",
   durationPreset: "1 Month",
@@ -540,13 +536,6 @@ function Step1({
       <div className="h-px bg-white/[0.06]" />
 
       <StreamSplitter form={form} update={update} />
-
-      <div className="h-px bg-white/[0.06]" />
-
-      <PrivacyShieldToggle
-        enabled={form.privacyShieldEnabled}
-        onChange={(enabled) => update({ privacyShieldEnabled: enabled })}
-      />
     </div>
   );
 }
@@ -689,9 +678,6 @@ function Step3({
     ...(form.splitEnabled ? [
       { label: "Split To", value: `${form.splitAddress.slice(0, 6)}…${form.splitAddress.slice(-4)}`, accent: true },
       { label: "Split %", value: `${form.splitPercent}% → ${100 - form.splitPercent}% primary`, accent: true },
-    ] : []),
-    ...(form.privacyShieldEnabled ? [
-      { label: "Privacy", value: "🔐 P25 Privacy Shield Enabled", accent: true },
     ] : []),
   ];
 

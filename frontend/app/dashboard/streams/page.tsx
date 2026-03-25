@@ -6,9 +6,6 @@ import { ArrowUpRight, ArrowDownLeft, ChevronDown } from "lucide-react";
 import { useScrollBlur } from "@/lib/use-scroll-blur";
 import MigrationWizard from "@/components/migration-wizard";
 import StreamRowSkeleton from "@/components/stream-row-skeleton";
-import StreamFilterBar, { StreamFilters } from "@/components/stream-filter-bar";
-import GaslessStatusBadge from "@/components/gasless-status-badge";
-import ZKReadyBadge from "@/components/zk-ready-badge";
 
 type Stream = {
   id: string;
@@ -18,10 +15,6 @@ type Stream = {
   startDate: Date;
   endDate: Date;
   status: "active" | "paused" | "completed";
-  asset: string;
-  role: "sender" | "receiver";
-  privacyEnabled?: boolean;
-  gaslessCreated?: boolean;
 };
 
 type SortOption = "endDate" | "value";
@@ -35,10 +28,6 @@ const mockOutgoingStreams: Stream[] = [
     startDate: new Date("2026-02-15"),
     endDate: new Date("2026-03-15"),
     status: "active",
-    asset: "usdc",
-    role: "sender",
-    privacyEnabled: true,
-    gaslessCreated: true,
   },
   {
     id: "out-2",
@@ -48,10 +37,6 @@ const mockOutgoingStreams: Stream[] = [
     startDate: new Date("2026-02-10"),
     endDate: new Date("2026-02-28"),
     status: "active",
-    asset: "xlm",
-    role: "sender",
-    privacyEnabled: false,
-    gaslessCreated: false,
   },
   {
     id: "out-3",
@@ -61,10 +46,6 @@ const mockOutgoingStreams: Stream[] = [
     startDate: new Date("2026-01-20"),
     endDate: new Date("2026-02-25"),
     status: "paused",
-    asset: "usdt",
-    role: "sender",
-    privacyEnabled: false,
-    gaslessCreated: true,
   },
 ];
 
@@ -77,10 +58,6 @@ const mockIncomingStreams: Stream[] = [
     startDate: new Date("2026-02-12"),
     endDate: new Date("2026-03-20"),
     status: "active",
-    asset: "usdc",
-    role: "receiver",
-    privacyEnabled: true,
-    gaslessCreated: false,
   },
   {
     id: "in-2",
@@ -90,10 +67,6 @@ const mockIncomingStreams: Stream[] = [
     startDate: new Date("2026-02-18"),
     endDate: new Date("2026-03-10"),
     status: "active",
-    asset: "eth",
-    role: "receiver",
-    privacyEnabled: false,
-    gaslessCreated: true,
   },
 ];
 
@@ -144,12 +117,6 @@ function StreamCard({
         </span>
       </div>
 
-      {/* Badges Row */}
-      <div className="flex gap-2 mb-3 flex-wrap">
-        {stream.privacyEnabled && <ZKReadyBadge size="sm" />}
-        {stream.gaslessCreated && <GaslessStatusBadge className="!text-xs" />}
-      </div>
-
       <div className="space-y-2">
         <div className="flex justify-between items-baseline">
           <span className="text-xs text-white/50">Total Amount</span>
@@ -191,36 +158,12 @@ export default function StreamsPage() {
   const [outgoingSort, setOutgoingSort] = useState<SortOption>("endDate");
   const [incomingSort, setIncomingSort] = useState<SortOption>("endDate");
   const [isLoading, setIsLoading] = useState(true);
-  const [activeFilters, setActiveFilters] = useState<StreamFilters>({
-    status: new Set(),
-    asset: new Set(),
-    role: new Set(),
-  });
 
   useEffect(() => {
     // Simulate data fetch — replace with real fetch when ready
     const timer = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(timer);
   }, []);
-
-  const handleFiltersChange = (filters: StreamFilters) => {
-    setActiveFilters(filters);
-  };
-
-  const applyFilters = (streams: Stream[]): Stream[] => {
-    return streams.filter((stream) => {
-      if (activeFilters.status.size > 0 && !activeFilters.status.has(stream.status)) {
-        return false;
-      }
-      if (activeFilters.asset.size > 0 && !activeFilters.asset.has(stream.asset)) {
-        return false;
-      }
-      if (activeFilters.role.size > 0 && !activeFilters.role.has(stream.role)) {
-        return false;
-      }
-      return true;
-    });
-  };
 
   // Scroll blur hooks for adaptive lucency
   const [outgoingScrollState, outgoingScrollRef] = useScrollBlur({
@@ -273,14 +216,6 @@ export default function StreamsPage() {
 
   return (
     <>
-      {/* Filter Bar */}
-      <div className="col-span-full rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 md:p-8">
-        <StreamFilterBar
-          onFiltersChange={handleFiltersChange}
-          onClearAll={() => setActiveFilters({ status: new Set(), asset: new Set(), role: new Set() })}
-        />
-      </div>
-
       {/* Migration Center Banner */}
       <div className="col-span-full flex items-center justify-between rounded-2xl border border-[#ffb400]/20 bg-[#ffb400]/5 px-5 py-3.5">
         <div className="flex items-center gap-3">
@@ -365,7 +300,7 @@ export default function StreamsPage() {
             ? Array.from({ length: 3 }).map((_, i) => (
                 <StreamRowSkeleton key={`out-skeleton-${i}`} />
               ))
-            : applyFilters(sortedOutgoing).map((stream) => (
+            : sortedOutgoing.map((stream) => (
                 <StreamCard key={stream.id} stream={stream} type="outgoing" />
               ))}
         </div>
@@ -417,7 +352,7 @@ export default function StreamsPage() {
             ? Array.from({ length: 2 }).map((_, i) => (
                 <StreamRowSkeleton key={`in-skeleton-${i}`} />
               ))
-            : applyFilters(sortedIncoming).map((stream) => (
+            : sortedIncoming.map((stream) => (
                 <StreamCard key={stream.id} stream={stream} type="incoming" />
               ))}
         </div>
