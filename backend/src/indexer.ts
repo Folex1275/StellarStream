@@ -1,4 +1,4 @@
-import { SorobanRpc, xdr, scValToNative } from "@stellar/stellar-sdk";
+import { SorobanRpc, scValToNative } from "@stellar/stellar-sdk";
 import { config } from "./config";
 import { isMegaStream, stroopsToXlm } from "./filter";
 import { notifyMegaStream, MegaStreamEvent } from "./discord";
@@ -59,12 +59,11 @@ async function handleEvent(event: SorobanRpc.Api.EventResponse): Promise<void> {
     const topicVal = event.topic[0];
     if (!topicVal) return;
 
-    const topicNative = scValToNative(xdr.ScVal.fromXDR(topicVal, "base64"));
+    const topicNative = scValToNative(topicVal);
     if (topicNative !== "create") return;
 
     // event.value holds the StreamCreatedEvent struct as an ScVal map
-    const valueXdr = xdr.ScVal.fromXDR(event.value, "base64");
-    const eventData = scValToNative(valueXdr) as Record<string, unknown>;
+    const eventData = scValToNative(event.value) as Record<string, unknown>;
 
     const totalAmount = BigInt(String(eventData["total_amount"] ?? "0"));
 

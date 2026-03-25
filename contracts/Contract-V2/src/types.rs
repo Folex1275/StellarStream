@@ -173,3 +173,14 @@ pub struct ProtocolHealthV2 {
     pub active_v2_users: u32,
     pub total_v2_streams: u64,
 }
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct StreamToppedUpEvent {
+    pub stream_id: u64,
+    pub sender: Address,
+    pub extra_amount: i128,
+    pub new_total_amount: i128,
+    pub new_end_time: u64,
+    pub timestamp: u64,
+}

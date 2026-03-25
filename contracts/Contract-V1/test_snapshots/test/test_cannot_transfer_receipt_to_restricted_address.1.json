@@ -237,7 +237,7 @@
                     "storage": [
                       {
                         "key": {
-                          "symbol": "RESTRICT"
+                          "symbol": "RESTR_LST"
                         },
                         "val": {
                           "vec": [

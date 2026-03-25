@@ -1,7 +1,7 @@
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
-pub enum ContractError {
+pub enum Error {
     AlreadyInitialized = 1,
     NotStreamOwner = 2,
     StreamNotMigratable = 3,
@@ -18,4 +18,11 @@ pub enum ContractError {
     InvalidTimeRange = 14,
     AlreadyCancelled = 15,
     BatchTooLarge = 16,
+    NothingToWithdraw = 17,
+    UnauthorizedSender = 18,
+    StreamAlreadyExists = 19,
+    ContractNotInitialized = 20,
+    AdminListNotSet = 21,
+    NotExecutionTime = 22,
+    OpNotScheduled = 23,
 }

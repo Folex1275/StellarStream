@@ -64,3 +64,21 @@ export function getConfig(): EventWatcherConfig {
   }
   return cachedConfig;
 }
+
+/** Singleton config object for direct import as `{ config }`. */
+export const config = {
+  get rpcUrl() { return process.env.STELLAR_RPC_URL ?? ""; },
+  get horizonUrl() { return process.env.STELLAR_HORIZON_URL ?? "https://horizon-testnet.stellar.org"; },
+  get networkPassphrase() { return process.env.STELLAR_NETWORK_PASSPHRASE ?? "Test SDF Network ; September 2015"; },
+  get contractId() { return process.env.CONTRACT_ID ?? ""; },
+  get contractAddress() { return process.env.CONTRACT_ID ?? ""; },
+  get sorobanRpcUrl() { return process.env.STELLAR_RPC_URL ?? ""; },
+  get pollIntervalMs() { return parseInt(process.env.POLL_INTERVAL_MS ?? "5000", 10); },
+  get maxRetries() { return parseInt(process.env.MAX_RETRIES ?? "3", 10); },
+  get retryDelayMs() { return parseInt(process.env.RETRY_DELAY_MS ?? "2000", 10); },
+  get apiPort() { return parseInt(process.env.PORT ?? "3001", 10); },
+  get defaultPageSize() { return parseInt(process.env.DEFAULT_PAGE_SIZE ?? "20", 10); },
+  get maxPageSize() { return parseInt(process.env.MAX_PAGE_SIZE ?? "100", 10); },
+  get discordWebhookUrl() { return process.env.DISCORD_WEBHOOK_URL ?? ""; },
+  get megaStreamThreshold() { return BigInt(process.env.MEGA_STREAM_THRESHOLD ?? "1000000000000"); },
+};

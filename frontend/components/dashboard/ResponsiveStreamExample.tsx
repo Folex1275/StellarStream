@@ -70,6 +70,16 @@ export default function ResponsiveStreamExample() {
     // Implement withdrawal logic
   };
 
+  const handleBatchWithdraw = (streamIds: string[]) => {
+    console.log("Batch withdraw from streams:", streamIds);
+    // TODO: Implement batch withdrawal using V2 contract batch_withdraw function
+    // or bundle transactions using Stellar SDK
+    
+    // Example implementation:
+    // const transactions = streamIds.map(id => createWithdrawTx(id));
+    // await stellarSdk.submitBatchTransactions(transactions);
+  };
+
   const handleTopUp = (streamId: string) => {
     console.log("Top-up stream:", streamId);
     // Implement top-up logic
@@ -94,6 +104,7 @@ export default function ResponsiveStreamExample() {
       <ResponsiveStreamView
         streams={EXAMPLE_STREAMS}
         onWithdraw={handleWithdraw}
+        onBatchWithdraw={handleBatchWithdraw}
         onTopUp={handleTopUp}
         onViewDetails={handleViewDetails}
       />
@@ -101,7 +112,7 @@ export default function ResponsiveStreamExample() {
       {/* Mobile usage hint */}
       <div className="mt-6 md:hidden rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
         <p className="font-body text-xs text-cyan-400/80 text-center">
-          💡 Swipe cards left or right to reveal quick actions
+          💡 Swipe cards left or right to reveal quick actions • Tap checkboxes to select multiple streams
         </p>
       </div>
     </div>

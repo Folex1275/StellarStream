@@ -5,7 +5,7 @@ use crate::types::{PermitArgs, StreamArgs};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
     token::TokenClient,
-    Address, Env, Vec,
+    Address, Env, vec,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -868,7 +868,7 @@ fn test_create_batch_streams_success() {
     // Mint tokens to sender
     asset_client.mint(&sender, &1_000_000_000);
 
-    let (_, v2_client) = setup_v2(&env, &admin);
+    let (v2_address, v2_client) = setup_v2(&env, &admin);
 
     // Create batch of 2 streams
     let streams = soroban_sdk::vec![
@@ -917,7 +917,7 @@ fn test_create_batch_streams_success() {
 
     // Check tokens were transferred
     assert_eq!(token_client.balance(&sender), 700_000_000); // 1e9 - 3e8
-    assert_eq!(token_client.balance(&v2_client.address), 300_000_000);
+    assert_eq!(token_client.balance(&v2_address), 300_000_000);
 }
 
 #[test]
@@ -950,7 +950,7 @@ fn test_create_batch_streams_max_limit() {
     }
 
     let result = v2_client.try_create_batch_streams(&streams);
-    assert_eq!(result, Err(Ok(ContractError::BatchTooLarge)));
+    assert_eq!(result, Err(Ok(Error::BatchTooLarge)));
 }
 
 #[test]
@@ -965,7 +965,7 @@ fn test_create_batch_streams_atomic_failure() {
     let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
 
     // Mint insufficient tokens
-    asset_client.mint(&sender, &200_000_000);
+    asset_client.mint(&sender, &100_000_000);
 
     let (_, v2_client) = setup_v2(&env, &admin);
 

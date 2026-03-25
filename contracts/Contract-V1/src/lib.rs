@@ -47,12 +47,15 @@ mod voting_test;
 mod ttl_stress_test;
 
 use errors::Error;
-use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, Vec};
+use soroban_sdk::{
+    contract, contractimpl, panic_with_error, symbol_short, token, Address, Env, Vec,
+};
 use storage::{PROPOSAL_COUNT, RECEIPT, RESTRICTED_ADDRESSES, STREAM_COUNT};
 use types::{
     ContributorRequest, CurveType, DataKey, Milestone, ProposalApprovedEvent, ProposalCreatedEvent,
-    ReceiptMetadata, RequestCreatedEvent, RequestExecutedEvent, RequestKey, RequestStatus, Role,
-    Stream, StreamCreatedEvent, StreamProposal, StreamReceipt,
+    ReceiptMetadata, ReceiptTransferredEvent, RequestCreatedEvent, RequestExecutedEvent,
+    RequestKey, RequestStatus, Role, Stream, StreamCancelledEvent, StreamClaimEvent,
+    StreamCreatedEvent, StreamPausedEvent, StreamProposal, StreamReceipt, StreamUnpausedEvent,
 };
 
 #[contract]
@@ -1030,6 +1033,89 @@ impl StellarStreamContract {
         env.storage()
             .instance()
             .get(&RequestKey::Request(request_id))
+    }
+
+    // ========== OFAC Compliance Functions ==========
+
+    /// Restrict an address (Admin only)
+    pub fn restrict_address(env: Env, admin: Address, address: Address) {
+        admin.require_auth();
+        if !Self::has_role(&env, &admin, Role::Admin) {
+            panic_with_error!(&env, Error::Unauthorized);
+        }
+        let mut list: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&RESTRICTED_ADDRESSES)
+            .unwrap_or_else(|| Vec::new(&env));
+        // Idempotent: only add if not already present
+        for existing in list.iter() {
+            if existing == address {
+                return;
+            }
+        }
+        list.push_back(address);
+        env.storage().instance().set(&RESTRICTED_ADDRESSES, &list);
+    }
+
+    /// Unrestrict an address (Admin only)
+    pub fn unrestrict_address(env: Env, admin: Address, address: Address) {
+        admin.require_auth();
+        if !Self::has_role(&env, &admin, Role::Admin) {
+            panic_with_error!(&env, Error::Unauthorized);
+        }
+        let list: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&RESTRICTED_ADDRESSES)
+            .unwrap_or_else(|| Vec::new(&env));
+        let mut new_list: Vec<Address> = Vec::new(&env);
+        for existing in list.iter() {
+            if existing != address {
+                new_list.push_back(existing);
+            }
+        }
+        env.storage()
+            .instance()
+            .set(&RESTRICTED_ADDRESSES, &new_list);
+    }
+
+    /// Check if an address is restricted
+    pub fn is_address_restricted(env: Env, address: Address) -> bool {
+        let list: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&RESTRICTED_ADDRESSES)
+            .unwrap_or_else(|| Vec::new(&env));
+        for existing in list.iter() {
+            if existing == address {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get all restricted addresses
+    pub fn get_restricted_addresses(env: Env) -> Vec<Address> {
+        env.storage()
+            .instance()
+            .get(&RESTRICTED_ADDRESSES)
+            .unwrap_or_else(|| Vec::new(&env))
+    }
+
+    /// Internal helper: validate receiver is not restricted
+    fn validate_receiver(env: &Env, receiver: &Address) -> Result<(), Error> {
+        let list: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&RESTRICTED_ADDRESSES)
+            .unwrap_or_else(|| Vec::new(env));
+        for existing in list.iter() {
+            if &existing == receiver {
+                return Err(Error::ReceiverRestricted);
+            }
+        }
+        Ok(())
     }
 
     pub fn get_proposal(env: Env, proposal_id: u64) -> Option<StreamProposal> {

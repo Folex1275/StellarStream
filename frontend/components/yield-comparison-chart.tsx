@@ -146,7 +146,7 @@ export default function YieldComparisonChart({
                 borderRadius: "8px",
                 color: "#00f5ff"
               }}
-              formatter={(value: any, name: string) => {
+              formatter={(value: any, name: string | undefined) => {
                 const numValue = typeof value === 'number' ? value : 0;
                 if (name === "Standard Unlocking") {
                   return [formatAmount(numValue), name];
@@ -218,5 +218,4 @@ function formatAmount(value: number): string {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
   if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
   return value.toFixed(2);
-}</content>
-<parameter name="filePath">/workspaces/StellarStream/frontend/components/yield-comparison-chart.tsx
+}

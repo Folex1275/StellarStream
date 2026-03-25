@@ -1,4 +1,4 @@
-use crate::errors::ContractError;
+use crate::contracterror::Error;
 use crate::types::StreamV2;
 use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol, Vec};
 
@@ -29,6 +29,9 @@ pub enum DataKeyV2 {
 
     // -- Analytics -----------------------------------------------
     UserSeen(Address), // 6
+
+    // -- Time-locked Admin Actions -------------------------------
+    ScheduledOp(crate::types::Operation), // 7
 }
 
 /// Global stream counter.
@@ -44,6 +47,9 @@ const INSTANCE_TTL_BUMP: u32 = 535_680; // ~31 days
 pub const STREAM_TTL_THRESHOLD: u32 = 518_400; // ~30 days — extend if below this
 pub const STREAM_TTL_BUMP: u32 = 2_073_600; // ~120 days — extend to this
 
+// 48-hour delay for administrative operations.
+pub const ADMIN_DELAY: u64 = 172_800; // 48h in seconds
+
 // ----------------------------------------------------------------
 // Backward-compat single-admin bootstrap (used by init)
 // ----------------------------------------------------------------
@@ -58,7 +64,12 @@ pub fn set_admin(env: &Env, admin: &Address) {
 /// Return the first admin (legacy helper used by existing callers).
 pub fn get_admin(env: &Env) -> Address {
     bump_instance(env);
-    get_admin_list(env).first().expect("V2: AdminList not set")
+    get_admin_list(env).first().unwrap_or_else(|| env.panic_with_error(Error::ContractNotInitialized))
+}
+
+pub fn try_get_admin(env: &Env) -> Result<Address, Error> {
+    bump_instance(env);
+    get_admin_list(env).first().ok_or(Error::ContractNotInitialized)
 }
 
 /// Returns true if the admin list has been initialised.
@@ -86,7 +97,15 @@ pub fn get_admin_list(env: &Env) -> Vec<Address> {
     env.storage()
         .instance()
         .get(&DataKeyV2::AdminList)
-        .expect("V2: AdminList not set")
+        .unwrap_or_else(|| env.panic_with_error(Error::AdminListNotSet))
+}
+
+pub fn try_get_admin_list(env: &Env) -> Result<Vec<Address>, Error> {
+    bump_instance(env);
+    env.storage()
+        .instance()
+        .get(&DataKeyV2::AdminList)
+        .ok_or(Error::AdminListNotSet)
 }
 
 /// Return the approval threshold.
@@ -105,20 +124,20 @@ pub fn get_threshold(env: &Env) -> u32 {
 ///   1. Verifies every address in `signers` is in the admin list.
 ///   2. Calls `require_auth()` on each (host enforces the auth entry).
 ///   3. Checks `signers.len() >= threshold`.
-pub fn require_multisig(env: &Env, signers: &Vec<Address>) -> Result<(), ContractError> {
-    let admins = get_admin_list(env);
+pub fn require_multisig(env: &Env, signers: &Vec<Address>) -> Result<(), Error> {
+    let admins = try_get_admin_list(env)?;
     let threshold = get_threshold(env);
 
     // Every supplied signer must be a registered admin.
     for signer in signers.iter() {
         if !admins.contains(&signer) {
-            return Err(ContractError::NotEnoughSigners);
+            return Err(Error::NotEnoughSigners);
         }
         signer.require_auth();
     }
 
     if signers.len() < threshold {
-        return Err(ContractError::NotEnoughSigners);
+        return Err(Error::NotEnoughSigners);
     }
 
     Ok(())
@@ -271,4 +290,26 @@ pub fn get_min_value(env: &Env, asset: &Address) -> i128 {
         .instance()
         .get(&DataKeyV2::MinValue(asset.clone()))
         .unwrap_or(DEFAULT_MIN_VALUE)
+}
+
+// ----------------------------------------------------------------
+// Time-locked operations
+// ----------------------------------------------------------------
+
+pub fn schedule_op(env: &Env, op: &crate::types::Operation, execution_time: u64) {
+    env.storage()
+        .instance()
+        .set(&DataKeyV2::ScheduledOp(op.clone()), &execution_time);
+    bump_instance(env);
+}
+
+pub fn get_scheduled_op_time(env: &Env, op: &crate::types::Operation) -> Option<u64> {
+    env.storage()
+        .instance()
+        .get(&DataKeyV2::ScheduledOp(op.clone()))
+}
+
+pub fn clear_op(env: &Env, op: &crate::types::Operation) {
+    env.storage().instance().remove(&DataKeyV2::ScheduledOp(op.clone()));
+    bump_instance(env);
 }

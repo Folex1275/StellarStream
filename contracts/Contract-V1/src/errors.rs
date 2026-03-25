@@ -22,11 +22,12 @@ pub enum Error {
     PriceOutOfBounds = 17,
     FlashLoanNotRepaid = 18,
     FlashLoanInProgress = 19,
-    AlreadyExecuted = 20,
+    ReceiverRestricted = 20,
+    AlreadyExecuted = 21,
     /// Stream is soulbound: receiver cannot be transferred
-    StreamIsSoulbound = 21,
+    StreamIsSoulbound = 22,
     /// Address is restricted by OFAC compliance
-    AddressRestricted = 22,
+    AddressRestricted = 23,
     /// Stream has already ended (past end_time)
-    StreamEnded = 23,
+    StreamEnded = 24,
 }

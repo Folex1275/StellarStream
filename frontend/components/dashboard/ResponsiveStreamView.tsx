@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, Download } from "lucide-react";
 import { StreamCard } from "./StreamCard";
 
 interface Stream {
@@ -20,6 +22,7 @@ interface Stream {
 interface ResponsiveStreamViewProps {
   streams: Stream[];
   onWithdraw?: (streamId: string) => void;
+  onBatchWithdraw?: (streamIds: string[]) => void;
   onTopUp?: (streamId: string) => void;
   onViewDetails?: (streamId: string) => void;
 }
@@ -31,11 +34,13 @@ function truncateAddress(address: string) {
 export function ResponsiveStreamView({
   streams,
   onWithdraw,
+  onBatchWithdraw,
   onTopUp,
   onViewDetails,
 }: ResponsiveStreamViewProps) {
   const [sortKey, setSortKey] = useState<"name" | "progress" | "amount">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleSort = (key: typeof sortKey) => {
     if (sortKey === key) {
@@ -60,6 +65,35 @@ export function ResponsiveStreamView({
     return sortDir === "asc" ? comparison : -comparison;
   });
 
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === streams.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(streams.map(s => s.id)));
+    }
+  };
+
+  const handleBatchWithdraw = () => {
+    if (onBatchWithdraw && selectedIds.size > 0) {
+      onBatchWithdraw(Array.from(selectedIds));
+      setSelectedIds(new Set());
+    }
+  };
+
+  const totalSelectedAmount = streams
+    .filter(s => selectedIds.has(s.id))
+    .reduce((sum, s) => sum + s.amountStreamed, 0);
+
   return (
     <div className="w-full">
       {/* Mobile Card View (default, hidden on md+) */}
@@ -68,24 +102,49 @@ export function ResponsiveStreamView({
           <h2 className="font-heading text-lg text-white">Active Streams</h2>
           <p className="font-body text-sm text-white/40">{streams.length} total</p>
         </div>
+
+        {/* Mobile: Selection mode toggle */}
+        {streams.length > 1 && (
+          <button
+            onClick={toggleSelectAll}
+            className="w-full rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.05] mb-4"
+          >
+            {selectedIds.size === streams.length ? "Deselect All" : "Select All"}
+          </button>
+        )}
+
         {sortedStreams.map((stream) => (
-          <StreamCard
-            key={stream.id}
-            streamId={stream.id}
-            name={stream.name}
-            sender={stream.sender}
-            receiver={stream.receiver}
-            token={stream.token}
-            amountStreamed={stream.amountStreamed}
-            totalAmount={stream.totalAmount}
-            startTime={stream.startTime}
-            endTime={stream.endTime}
-            status={stream.status}
-            ratePerSecond={stream.ratePerSecond}
-            onWithdraw={onWithdraw ? () => onWithdraw(stream.id) : undefined}
-            onTopUp={onTopUp ? () => onTopUp(stream.id) : undefined}
-            onViewDetails={onViewDetails ? () => onViewDetails(stream.id) : undefined}
-          />
+          <div key={stream.id} className="relative">
+            {/* Selection checkbox overlay for mobile */}
+            <div className="absolute top-3 right-3 z-10">
+              <button
+                onClick={() => toggleSelection(stream.id)}
+                className={`flex h-6 w-6 items-center justify-center rounded-md border transition ${
+                  selectedIds.has(stream.id)
+                    ? "border-cyan-500 bg-cyan-500"
+                    : "border-white/20 bg-white/5"
+                }`}
+              >
+                {selectedIds.has(stream.id) && <Check className="h-4 w-4 text-black" />}
+              </button>
+            </div>
+            <StreamCard
+              streamId={stream.id}
+              name={stream.name}
+              sender={stream.sender}
+              receiver={stream.receiver}
+              token={stream.token}
+              amountStreamed={stream.amountStreamed}
+              totalAmount={stream.totalAmount}
+              startTime={stream.startTime}
+              endTime={stream.endTime}
+              status={stream.status}
+              ratePerSecond={stream.ratePerSecond}
+              onWithdraw={onWithdraw ? () => onWithdraw(stream.id) : undefined}
+              onTopUp={onTopUp ? () => onTopUp(stream.id) : undefined}
+              onViewDetails={onViewDetails ? () => onViewDetails(stream.id) : undefined}
+            />
+          </div>
         ))}
       </div>
 
@@ -95,6 +154,18 @@ export function ResponsiveStreamView({
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02]">
+                <th className="px-6 py-4 text-left">
+                  <button
+                    onClick={toggleSelectAll}
+                    className={`flex h-5 w-5 items-center justify-center rounded border transition ${
+                      selectedIds.size === streams.length
+                        ? "border-cyan-500 bg-cyan-500"
+                        : "border-white/20 bg-white/5 hover:border-white/40"
+                    }`}
+                  >
+                    {selectedIds.size === streams.length && <Check className="h-3.5 w-3.5 text-black" />}
+                  </button>
+                </th>
                 <th
                   onClick={() => handleSort("name")}
                   className="cursor-pointer px-6 py-4 text-left font-body text-[10px] uppercase tracking-wider text-white/40 hover:text-white/60 transition"
@@ -127,12 +198,27 @@ export function ResponsiveStreamView({
             <tbody>
               {sortedStreams.map((stream, idx) => {
                 const progress = (stream.amountStreamed / stream.totalAmount) * 100;
+                const isSelected = selectedIds.has(stream.id);
                 return (
                   <tr
                     key={stream.id}
-                    className="border-b border-white/5 transition hover:bg-white/[0.02]"
+                    className={`border-b border-white/5 transition ${
+                      isSelected ? "bg-cyan-500/5" : "hover:bg-white/[0.02]"
+                    }`}
                     style={{ animation: `fadeIn 0.3s ease ${idx * 50}ms both` }}
                   >
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => toggleSelection(stream.id)}
+                        className={`flex h-5 w-5 items-center justify-center rounded border transition ${
+                          isSelected
+                            ? "border-cyan-500 bg-cyan-500"
+                            : "border-white/20 bg-white/5 hover:border-white/40"
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5 text-black" />}
+                      </button>
+                    </td>
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-heading text-sm text-white mb-1">{stream.name}</p>
@@ -211,6 +297,39 @@ export function ResponsiveStreamView({
           </table>
         </div>
       </div>
+
+      {/* Floating Batch Withdraw Button */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && onBatchWithdraw && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40"
+          >
+            <div className="rounded-2xl border border-cyan-500/30 bg-black/90 backdrop-blur-xl shadow-2xl shadow-cyan-500/20 p-4">
+              <div className="flex items-center gap-4">
+                <div className="text-left">
+                  <p className="font-body text-xs text-white/60 mb-1">
+                    {selectedIds.size} stream{selectedIds.size > 1 ? "s" : ""} selected
+                  </p>
+                  <p className="font-heading text-lg text-white tabular-nums">
+                    {totalSelectedAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <button
+                  onClick={handleBatchWithdraw}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-500 px-6 py-3 font-semibold text-white shadow-lg shadow-cyan-500/30 transition hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105"
+                >
+                  <Download className="h-5 w-5" />
+                  <span>Batch Withdraw</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx>{`
         @keyframes fadeIn {

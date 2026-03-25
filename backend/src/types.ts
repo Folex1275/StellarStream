@@ -63,3 +63,50 @@ export interface RetryConfig {
   delayMs: number;
   backoffMultiplier?: number;
 }
+
+/** A stream record as stored/returned by the API. */
+export interface Stream {
+  id: string;
+  sender: string;
+  receiver: string;
+  token: string;
+  totalAmount: string;
+  withdrawnAmount: string;
+  startTime: number;
+  endTime: number;
+  cancelled: boolean;
+  isPaused: boolean;
+  createdAt: number;
+  txHash: string;
+}
+
+/** Opaque base64url cursor string. */
+export type Cursor = string;
+
+/** Decoded cursor payload. */
+export interface CursorPayload {
+  id: string;
+  createdAt: number;
+}
+
+/** Query parameters for listing streams. */
+export interface StreamListQuery {
+  after?: string;
+  before?: string;
+  limit?: number;
+  sender?: string;
+  receiver?: string;
+  status?: "active" | "paused" | "cancelled" | "completed";
+}
+
+/** Paginated stream list response. */
+export interface StreamPage {
+  data: Stream[];
+  pageInfo: {
+    nextCursor: string | null;
+    prevCursor: string | null;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+  total: number;
+}
