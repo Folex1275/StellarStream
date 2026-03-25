@@ -23,6 +23,42 @@ pub struct StellarStreamContract;
 
 #[contractimpl]
 impl StellarStreamContract {
+    /// Create a multi-signature stream proposal.
+    ///
+    /// Registers a pending [`StreamProposal`] that must collect `required_approvals`
+    /// signatures via [`approve_proposal`] before a stream is created and funded.
+    /// No tokens are transferred at this stage.
+    ///
+    /// # Authorization
+    /// `sender` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `sender`            – Address initiating the proposal and funding the stream once executed.
+    /// * `receiver`          – Intended stream beneficiary. Must not be OFAC-restricted.
+    /// * `token`             – SAC-compliant token contract address.
+    /// * `total_amount`      – Total tokens to stream (in the token's base unit). Must be > 0.
+    /// * `start_time`        – Stream start as a Unix timestamp (seconds). Must be < `end_time`.
+    /// * `end_time`          – Stream end as a Unix timestamp (seconds).
+    /// * `required_approvals`– Minimum number of approvals needed to execute. Must be ≥ 1.
+    /// * `deadline`          – Proposal expiry as a Unix timestamp. Must be in the future.
+    ///
+    /// # Returns
+    /// The newly allocated `proposal_id` (monotonically increasing `u64`).
+    ///
+    /// # Errors
+    /// * [`Error::InvalidTimeRange`]         – `start_time >= end_time`.
+    /// * [`Error::InvalidAmount`]            – `total_amount <= 0`.
+    /// * [`Error::InvalidApprovalThreshold`] – `required_approvals == 0`.
+    /// * [`Error::ProposalExpired`]          – `deadline <= current ledger timestamp`.
+    /// * [`Error::AlreadyExecuted`]          – Receiver is OFAC-restricted (error code 20).
+    ///
+    /// # Events
+    /// Emits `("create", sender)` → [`ProposalCreatedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(PROPOSAL_COUNT, proposal_id)` → [`StreamProposal`]
+    /// * `PROPOSAL_COUNT` → next proposal counter
     pub fn create_proposal(
         env: Env,
         sender: Address,
@@ -93,6 +129,33 @@ impl StellarStreamContract {
         Ok(proposal_id)
     }
 
+    /// Add an approval to a pending proposal.
+    ///
+    /// Each unique address may approve at most once. When the number of approvals
+    /// reaches `required_approvals`, the proposal is automatically executed:
+    /// tokens are pulled from the original `sender` and a new stream is created.
+    ///
+    /// # Authorization
+    /// `approver` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `proposal_id` – ID returned by [`create_proposal`].
+    /// * `approver`    – Address casting the approval vote.
+    ///
+    /// # Errors
+    /// * [`Error::ProposalNotFound`]        – No proposal exists for `proposal_id`.
+    /// * [`Error::ProposalAlreadyExecuted`] – Proposal has already been executed.
+    /// * [`Error::ProposalExpired`]         – Current time exceeds the proposal deadline.
+    /// * [`Error::AlreadyApproved`]         – `approver` has already voted on this proposal.
+    ///
+    /// # Events
+    /// Emits `("approve", approver)` → [`ProposalApprovedEvent`].
+    /// If execution is triggered, also emits `("create", sender)` → [`StreamCreatedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(PROPOSAL_COUNT, proposal_id)` → updated [`StreamProposal`]
+    /// * On execution: `(STREAM_COUNT, stream_id)` → [`Stream`], `(RECEIPT, stream_id)` → [`StreamReceipt`]
     pub fn approve_proposal(env: Env, proposal_id: u64, approver: Address) -> Result<(), Error> {
         approver.require_auth();
 
@@ -207,6 +270,40 @@ impl StellarStreamContract {
         Ok(stream_id)
     }
 
+    /// Create a single-signature stream (convenience wrapper around [`create_stream_with_milestones`]).
+    ///
+    /// Transfers `total_amount` tokens from `sender` to the contract immediately and
+    /// mints a [`StreamReceipt`] NFT to `receiver`. The receipt owner is the only
+    /// address authorised to call [`withdraw`].
+    ///
+    /// # Authorization
+    /// `sender` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `sender`       – Funding address. Tokens are pulled from here on creation.
+    /// * `receiver`     – Initial receipt owner and withdrawal beneficiary. Must not be OFAC-restricted.
+    /// * `token`        – SAC-compliant token contract address.
+    /// * `total_amount` – Total tokens to stream. Must be > 0.
+    /// * `start_time`   – Stream start (Unix seconds). Must be < `end_time`.
+    /// * `end_time`     – Stream end (Unix seconds).
+    /// * `curve_type`   – Unlock curve: [`CurveType::Linear`] or [`CurveType::Exponential`].
+    ///
+    /// # Returns
+    /// The newly allocated `stream_id`.
+    ///
+    /// # Errors
+    /// * [`Error::InvalidTimeRange`] – `start_time >= end_time`.
+    /// * [`Error::InvalidAmount`]    – `total_amount <= 0`.
+    /// * [`Error::AlreadyExecuted`]  – Receiver is OFAC-restricted (error code 20).
+    ///
+    /// # Events
+    /// Emits `("create", sender)` → [`StreamCreatedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → [`Stream`]
+    /// * `(RECEIPT, stream_id)`      → [`StreamReceipt`]
+    /// * `STREAM_COUNT`              → updated counter
     pub fn create_stream(
         env: Env,
         sender: Address,
@@ -231,6 +328,42 @@ impl StellarStreamContract {
         )
     }
 
+    /// Create a stream with milestone-gated unlock caps.
+    ///
+    /// Identical to [`create_stream`] but accepts an ordered list of [`Milestone`]s.
+    /// Each milestone defines a `(timestamp, percentage)` pair that caps the maximum
+    /// withdrawable amount until that timestamp is reached. The effective unlocked
+    /// amount is `min(curve_unlocked, highest_reached_milestone_cap)`.
+    ///
+    /// # Authorization
+    /// `sender` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `sender`       – Funding address.
+    /// * `receiver`     – Initial receipt owner. Must not be OFAC-restricted.
+    /// * `token`        – SAC-compliant token contract address.
+    /// * `total_amount` – Total tokens to stream. Must be > 0.
+    /// * `start_time`   – Stream start (Unix seconds). Must be < `end_time`.
+    /// * `end_time`     – Stream end (Unix seconds).
+    /// * `milestones`   – Ordered list of [`Milestone`] unlock gates. May be empty.
+    /// * `curve_type`   – Unlock curve: [`CurveType::Linear`] or [`CurveType::Exponential`].
+    ///
+    /// # Returns
+    /// The newly allocated `stream_id`.
+    ///
+    /// # Errors
+    /// * [`Error::InvalidTimeRange`] – `start_time >= end_time`.
+    /// * [`Error::InvalidAmount`]    – `total_amount <= 0`.
+    /// * [`Error::AlreadyExecuted`]  – Receiver is OFAC-restricted (error code 20).
+    ///
+    /// # Events
+    /// Emits `("create", sender)` → [`StreamCreatedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → [`Stream`]
+    /// * `(RECEIPT, stream_id)`      → [`StreamReceipt`]
+    /// * `STREAM_COUNT`              → updated counter
     pub fn create_stream_with_milestones(
         env: Env,
         sender: Address,
@@ -311,6 +444,48 @@ impl StellarStreamContract {
         Ok(stream_id)
     }
 
+    /// Create a USD-pegged stream whose token amount adjusts to an oracle price.
+    ///
+    /// The deposit amount is calculated at creation time as
+    /// `token_amount = usd_amount / oracle_price`. On each [`withdraw`] call the
+    /// unlocked USD value is re-converted at the current oracle price, so the
+    /// receiver always receives the correct USD-denominated amount regardless of
+    /// token price movements (within the configured price bounds).
+    ///
+    /// # Authorization
+    /// `sender` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `sender`         – Funding address.
+    /// * `receiver`       – Initial receipt owner. Must not be OFAC-restricted.
+    /// * `token`          – SAC-compliant token contract address.
+    /// * `usd_amount`     – Total USD value to stream (7-decimal fixed-point, e.g. `5_000_000_000` = $500). Must be > 0.
+    /// * `start_time`     – Stream start (Unix seconds). Must be < `end_time`.
+    /// * `end_time`       – Stream end (Unix seconds).
+    /// * `oracle_address` – Price oracle contract address.
+    /// * `max_staleness`  – Maximum acceptable age of oracle price data (seconds).
+    /// * `min_price`      – Lower price bound for slippage protection.
+    /// * `max_price`      – Upper price bound for slippage protection.
+    ///
+    /// # Returns
+    /// The newly allocated `stream_id`.
+    ///
+    /// # Errors
+    /// * [`Error::InvalidTimeRange`]  – `start_time >= end_time`.
+    /// * [`Error::InvalidAmount`]     – `usd_amount <= 0` or token amount calculation overflows.
+    /// * [`Error::OracleFailed`]      – Oracle call failed or returned stale data.
+    /// * [`Error::PriceOutOfBounds`]  – Oracle price is outside `[min_price, max_price]`.
+    /// * [`Error::AlreadyExecuted`]   – Receiver is OFAC-restricted (error code 20).
+    ///
+    /// # Events
+    /// Emits `("create", sender)` → [`StreamCreatedEvent`] (with `total_amount` set to the
+    /// calculated token deposit, not the USD amount).
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → [`Stream`] (with `is_usd_pegged = true`)
+    /// * `(RECEIPT, stream_id)`      → [`StreamReceipt`]
+    /// * `STREAM_COUNT`              → updated counter
     pub fn create_usd_pegged_stream(
         env: Env,
         sender: Address,
@@ -407,6 +582,32 @@ impl StellarStreamContract {
         Ok(stream_id)
     }
 
+    /// Pause an active stream, freezing the unlock clock.
+    ///
+    /// Records `paused_time = current_ledger_timestamp`. While paused, the unlocked
+    /// balance does not increase and [`withdraw`] is blocked. The accumulated pause
+    /// duration is tracked in `total_paused_duration` and subtracted from elapsed
+    /// time in all unlock calculations, so the receiver does not lose any vesting
+    /// time. Calling this on an already-paused stream is a no-op.
+    ///
+    /// # Authorization
+    /// `caller` must sign the transaction and must be the stream `sender`.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream to pause.
+    /// * `caller`    – Must equal `stream.sender`.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`]   – No stream exists for `stream_id`.
+    /// * [`Error::Unauthorized`]     – `caller` is not the stream sender.
+    /// * [`Error::AlreadyCancelled`] – Stream has already been cancelled.
+    ///
+    /// # Events
+    /// Emits `("pause", caller)` → [`StreamPausedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → updated [`Stream`] (`is_paused = true`, `paused_time` set)
     pub fn pause_stream(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
         caller.require_auth();
 
@@ -444,6 +645,30 @@ impl StellarStreamContract {
         Ok(())
     }
 
+    /// Resume a paused stream.
+    ///
+    /// Calculates the pause duration (`current_time - paused_time`) and adds it to
+    /// `total_paused_duration`, effectively extending the stream's end time by the
+    /// same amount. Calling this on a stream that is not paused is a no-op.
+    ///
+    /// # Authorization
+    /// `caller` must sign the transaction and must be the stream `sender`.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream to resume.
+    /// * `caller`    – Must equal `stream.sender`.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`]   – No stream exists for `stream_id`.
+    /// * [`Error::Unauthorized`]     – `caller` is not the stream sender.
+    /// * [`Error::AlreadyCancelled`] – Stream has already been cancelled.
+    ///
+    /// # Events
+    /// Emits `("unpause", caller)` → [`StreamUnpausedEvent`] (includes `paused_duration`).
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → updated [`Stream`] (`is_paused = false`, `total_paused_duration` incremented)
     pub fn unpause_stream(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
         caller.require_auth();
 
@@ -497,6 +722,33 @@ impl StellarStreamContract {
             .set(&(RECEIPT, stream_id), &receipt);
     }
 
+    /// Transfer the stream receipt NFT to a new owner.
+    ///
+    /// The receipt owner is the only address authorised to call [`withdraw`].
+    /// Transferring the receipt effectively transfers the right to claim all
+    /// future unlocked funds. The `receipt_owner` field on the [`Stream`] struct
+    /// is updated in sync.
+    ///
+    /// # Authorization
+    /// `from` must sign the transaction and must be the current receipt owner.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream whose receipt is being transferred.
+    /// * `from`      – Current receipt owner.
+    /// * `to`        – New receipt owner. Must not be OFAC-restricted.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`]  – No stream or receipt exists for `stream_id`.
+    /// * [`Error::NotReceiptOwner`] – `from` is not the current receipt owner.
+    /// * [`Error::AlreadyExecuted`] – `to` is OFAC-restricted (error code 20).
+    ///
+    /// # Events
+    /// Emits `("transfer", from)` → [`ReceiptTransferredEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(RECEIPT, stream_id)`      → updated [`StreamReceipt`] (new owner)
+    /// * `(STREAM_COUNT, stream_id)` → updated [`Stream`] (`receipt_owner` field)
     pub fn transfer_receipt(
         env: Env,
         stream_id: u64,
@@ -550,6 +802,19 @@ impl StellarStreamContract {
         Ok(())
     }
 
+    /// Fetch the raw [`StreamReceipt`] for a stream.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream.
+    ///
+    /// # Returns
+    /// The [`StreamReceipt`] containing `stream_id`, `owner`, and `minted_at`.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`] – No receipt exists for `stream_id`.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `(RECEIPT, stream_id)`.
     pub fn get_receipt(env: Env, stream_id: u64) -> Result<StreamReceipt, Error> {
         env.storage()
             .instance()
@@ -557,6 +822,27 @@ impl StellarStreamContract {
             .ok_or(Error::StreamNotFound)
     }
 
+    /// Return a computed [`ReceiptMetadata`] snapshot for a stream.
+    ///
+    /// Calculates `locked_balance`, `unlocked_balance`, and `total_amount` at the
+    /// current ledger timestamp without modifying any state. Useful for frontends
+    /// that need a single read-only call to render the stream card.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream.
+    ///
+    /// # Returns
+    /// [`ReceiptMetadata`] with:
+    /// * `locked_balance`   – Tokens not yet unlocked.
+    /// * `unlocked_balance` – Tokens unlocked but not yet withdrawn.
+    /// * `total_amount`     – Original deposit.
+    /// * `token`            – Token contract address.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`] – No stream exists for `stream_id`.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `(STREAM_COUNT, stream_id)`. No writes.
     pub fn get_receipt_metadata(env: Env, stream_id: u64) -> Result<ReceiptMetadata, Error> {
         let stream: Stream = env
             .storage()
@@ -577,6 +863,38 @@ impl StellarStreamContract {
         })
     }
 
+    /// Withdraw all currently unlocked tokens to the receipt owner.
+    ///
+    /// Calculates the withdrawable amount as `unlocked - already_withdrawn`.
+    /// For USD-pegged streams the unlocked USD value is re-priced at the current
+    /// oracle rate before conversion to tokens.
+    ///
+    /// # Authorization
+    /// `caller` must sign the transaction and must be the current receipt owner.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream to withdraw from.
+    /// * `caller`    – Must be the current receipt owner.
+    ///
+    /// # Returns
+    /// The token amount transferred to the receiver.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`]    – No stream or receipt exists for `stream_id`.
+    /// * [`Error::NotReceiptOwner`]   – `caller` is not the current receipt owner.
+    /// * [`Error::AlreadyCancelled`]  – Stream has been cancelled.
+    /// * [`Error::StreamPaused`]      – Stream is currently paused.
+    /// * [`Error::InsufficientBalance`] – No tokens are available to withdraw yet.
+    /// * [`Error::OracleStalePrice`]  – Oracle price is stale (USD-pegged streams only).
+    /// * [`Error::PriceOutOfBounds`]  – Oracle price outside configured bounds (USD-pegged only).
+    /// * [`Error::InvalidAmount`]     – Token amount calculation overflow (USD-pegged only).
+    ///
+    /// # Events
+    /// Emits `("claim", receiver)` → [`StreamClaimEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → updated [`Stream`] (`withdrawn_amount` incremented)
     pub fn withdraw(env: Env, stream_id: u64, caller: Address) -> Result<i128, Error> {
         caller.require_auth();
 
@@ -662,6 +980,33 @@ impl StellarStreamContract {
         Ok(to_withdraw)
     }
 
+    /// Cancel a stream and settle pro-rated balances immediately.
+    ///
+    /// Calculates the unlocked amount at the current ledger timestamp.
+    /// * The **receiver** (receipt owner) receives `unlocked - already_withdrawn`.
+    /// * The **sender** receives `total_amount - unlocked` (the unearned remainder).
+    ///
+    /// Either the original `sender` or the current receipt owner may cancel.
+    ///
+    /// # Authorization
+    /// `caller` must sign the transaction and must be either `stream.sender` or the
+    /// current receipt owner.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream to cancel.
+    /// * `caller`    – Authorised canceller (sender or receipt owner).
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`]   – No stream or receipt exists for `stream_id`.
+    /// * [`Error::Unauthorized`]     – `caller` is neither the sender nor the receipt owner.
+    /// * [`Error::AlreadyCancelled`] – Stream has already been cancelled.
+    ///
+    /// # Events
+    /// Emits `("cancel", caller)` → [`StreamCancelledEvent`] (includes `to_receiver` and `to_sender`).
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `(STREAM_COUNT, stream_id)` → updated [`Stream`] (`cancelled = true`)
     pub fn cancel(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
         caller.require_auth();
 
@@ -721,6 +1066,16 @@ impl StellarStreamContract {
         Ok(())
     }
 
+    /// Fetch the full [`Stream`] struct for a given stream ID.
+    ///
+    /// # Arguments
+    /// * `stream_id` – ID of the stream.
+    ///
+    /// # Errors
+    /// * [`Error::StreamNotFound`] – No stream exists for `stream_id`.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `(STREAM_COUNT, stream_id)`. No writes.
     pub fn get_stream(env: Env, stream_id: u64) -> Result<Stream, Error> {
         env.storage()
             .instance()
@@ -728,6 +1083,16 @@ impl StellarStreamContract {
             .ok_or(Error::StreamNotFound)
     }
 
+    /// Fetch the full [`StreamProposal`] struct for a given proposal ID.
+    ///
+    /// # Arguments
+    /// * `proposal_id` – ID returned by [`create_proposal`].
+    ///
+    /// # Errors
+    /// * [`Error::ProposalNotFound`] – No proposal exists for `proposal_id`.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `(PROPOSAL_COUNT, proposal_id)`. No writes.
     pub fn get_proposal(env: Env, proposal_id: u64) -> Result<StreamProposal, Error> {
         env.storage()
             .instance()
@@ -828,7 +1193,28 @@ impl StellarStreamContract {
 
     // ========== RBAC Functions ==========
 
-    /// Grant a role to an address (Admin only)
+    /// Grant a role to an address.
+    ///
+    /// Stores a `true` flag under `DataKey::Role(target, role)` in instance storage.
+    /// Only an address that already holds [`Role::Admin`] may call this function.
+    ///
+    /// # Authorization
+    /// `admin` must sign the transaction and must hold [`Role::Admin`].
+    ///
+    /// # Arguments
+    /// * `admin`  – Caller; must have the Admin role.
+    /// * `target` – Address to receive the role.
+    /// * `role`   – [`Role`] to grant (`Admin`, `Pauser`, or `TreasuryManager`).
+    ///
+    /// # Panics
+    /// Panics with [`Error::Unauthorized`] (code 5) if `admin` does not hold [`Role::Admin`].
+    ///
+    /// # Events
+    /// Emits `("grant", target)` → `role`.
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `DataKey::Role(target, role)` → `true`
     pub fn grant_role(env: Env, admin: Address, target: Address, role: Role) {
         admin.require_auth();
 
@@ -846,7 +1232,26 @@ impl StellarStreamContract {
         env.events().publish((symbol_short!("grant"), target), role);
     }
 
-    /// Revoke a role from an address (Admin only)
+    /// Revoke a role from an address.
+    ///
+    /// Removes the `DataKey::Role(target, role)` entry from instance storage.
+    /// Only an address that already holds [`Role::Admin`] may call this function.
+    /// Silently returns if `admin` does not hold the Admin role (no panic).
+    ///
+    /// # Authorization
+    /// `admin` must sign the transaction and must hold [`Role::Admin`].
+    ///
+    /// # Arguments
+    /// * `admin`  – Caller; must have the Admin role.
+    /// * `target` – Address to lose the role.
+    /// * `role`   – [`Role`] to revoke.
+    ///
+    /// # Events
+    /// Emits `("revoke", target)` → `role`.
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * Removes `DataKey::Role(target, role)`
     pub fn revoke_role(env: Env, admin: Address, target: Address, role: Role) {
         admin.require_auth();
 
@@ -865,7 +1270,19 @@ impl StellarStreamContract {
             .publish((symbol_short!("revoke"), target), role);
     }
 
-    /// Check if an address has a specific role
+    /// Check whether an address holds a specific role.
+    ///
+    /// Pure read — no state changes, no auth required.
+    ///
+    /// # Arguments
+    /// * `address` – Address to query.
+    /// * `role`    – [`Role`] to check.
+    ///
+    /// # Returns
+    /// `true` if the address holds the role, `false` otherwise.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `DataKey::Role(address, role)`. No writes.
     pub fn check_role(env: Env, address: Address, role: Role) -> bool {
         Self::has_role(&env, &address, role)
     }
@@ -880,8 +1297,25 @@ impl StellarStreamContract {
 
     // ========== Contract Upgrade Functions ==========
 
-    /// Upgrade the contract to a new WASM hash
-    /// Only addresses with Admin role can perform this operation
+    /// Upgrade the contract WASM to a new hash.
+    ///
+    /// Calls `env.deployer().update_current_contract_wasm(new_wasm_hash)`.
+    /// The upgrade takes effect immediately for all subsequent invocations.
+    /// Only an address holding [`Role::Admin`] may perform this operation.
+    /// Silently returns if `admin` does not hold the Admin role (no panic).
+    ///
+    /// # Authorization
+    /// `admin` must sign the transaction and must hold [`Role::Admin`].
+    ///
+    /// # Arguments
+    /// * `admin`         – Caller; must have the Admin role.
+    /// * `new_wasm_hash` – 32-byte hash of the new contract WASM.
+    ///
+    /// # Events
+    /// Emits `("upgrade", admin)` → `new_wasm_hash`.
+    ///
+    /// # Storage
+    /// No direct storage writes. The Soroban host updates the contract WASM entry.
     pub fn upgrade(env: Env, admin: Address, new_wasm_hash: soroban_sdk::BytesN<32>) {
         admin.require_auth();
 
@@ -899,7 +1333,17 @@ impl StellarStreamContract {
             .publish((symbol_short!("upgrade"), admin), new_wasm_hash);
     }
 
-    /// Get the current admin address (for backward compatibility)
+    /// Return the contract's admin address (legacy compatibility accessor).
+    ///
+    /// Reads `DataKey::Admin` from instance storage. This key is set during
+    /// contract initialisation and is kept for backward compatibility with
+    /// tooling that predates the RBAC system.
+    ///
+    /// # Panics
+    /// Panics if `DataKey::Admin` has not been set (contract not initialised).
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `DataKey::Admin`. No writes.
     pub fn get_admin(env: Env) -> Address {
         env.storage()
             .instance()
@@ -909,6 +1353,32 @@ impl StellarStreamContract {
 
     // --- CONTRIBUTOR PULL-REQUEST PAYMENTS ---
 
+    /// Submit a contributor payment request (pull-request payment flow).
+    ///
+    /// A contributor calls this to request a vesting stream as compensation for
+    /// completed work. The request is stored with `status = Pending` and must be
+    /// approved by an Admin via [`execute_request`] before any tokens are transferred.
+    ///
+    /// # Authorization
+    /// `receiver` must sign the transaction.
+    ///
+    /// # Arguments
+    /// * `receiver`     – Contributor's address; will receive the stream.
+    /// * `token`        – SAC-compliant token contract address.
+    /// * `total_amount` – Requested token amount.
+    /// * `duration`     – Stream duration in seconds.
+    /// * `metadata`     – Optional 32-byte metadata hash (e.g. IPFS CID of the PR).
+    ///
+    /// # Returns
+    /// The newly allocated `request_id`.
+    ///
+    /// # Events
+    /// Emits `("RequestCreated", request_id)` → [`RequestCreatedEvent`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `RequestKey::Request(request_id)` → [`ContributorRequest`]
+    /// * `RequestKey::RequestCount`        → updated counter
     pub fn create_request(
         env: Env,
         receiver: Address,
@@ -947,6 +1417,36 @@ impl StellarStreamContract {
         request_id
     }
 
+    /// Approve and execute a pending contributor payment request.
+    ///
+    /// Marks the request as `Approved` and immediately creates a linear stream
+    /// from `admin` to the contributor for the requested amount and duration.
+    /// Only an address holding [`Role::Admin`] may call this function.
+    ///
+    /// # Authorization
+    /// `admin` must sign the transaction and must hold [`Role::Admin`].
+    ///
+    /// # Arguments
+    /// * `admin`      – Caller; must have the Admin role.
+    /// * `request_id` – ID returned by [`create_request`].
+    ///
+    /// # Returns
+    /// The `stream_id` of the newly created stream.
+    ///
+    /// # Errors
+    /// * [`Error::Unauthorized`]   – `admin` does not hold [`Role::Admin`].
+    /// * [`Error::StreamNotFound`] – No request exists for `request_id`.
+    /// * [`Error::AlreadyExecuted`]– Request status is not `Pending`.
+    /// * Any error from [`create_stream`] (e.g. [`Error::InvalidTimeRange`]).
+    ///
+    /// # Events
+    /// Emits `("RequestExecuted", request_id)` → [`RequestExecutedEvent`].
+    /// Also emits `("create", admin)` → [`StreamCreatedEvent`] via [`create_stream`].
+    ///
+    /// # Storage
+    /// Uses **instance** storage:
+    /// * `RequestKey::Request(request_id)` → updated [`ContributorRequest`] (`status = Approved`)
+    /// * All stream storage written by [`create_stream`]
     pub fn execute_request(env: Env, admin: Address, request_id: u64) -> Result<u64, Error> {
         admin.require_auth();
         if !Self::has_role(&env, &admin, Role::Admin) {
@@ -984,6 +1484,16 @@ impl StellarStreamContract {
         Ok(stream_id)
     }
 
+    /// Fetch a contributor payment request by ID.
+    ///
+    /// # Arguments
+    /// * `request_id` – ID returned by [`create_request`].
+    ///
+    /// # Returns
+    /// `Some(`[`ContributorRequest`]`)` if found, `None` otherwise.
+    ///
+    /// # Storage
+    /// Reads **instance** storage key `RequestKey::Request(request_id)`. No writes.
     pub fn get_request(env: Env, request_id: u64) -> Option<ContributorRequest> {
         env.storage().instance().get(&RequestKey::Request(request_id))
     }
