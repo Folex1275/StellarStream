@@ -39,32 +39,31 @@ function Avatar({
   label?: string;
   size?: number;
 }) {
-  if (avatar) {
+  const [error, setError] = useState(false);
+
+  const seed = address || label || "?";
+  const hash = seed
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+  const hue = hash % 360;
+
+  if (avatar && !error) {
     return (
       <img
         src={avatar}
         alt={label || address}
+        onError={() => setError(true)}
         style={{
           width: size,
           height: size,
           borderRadius: "50%",
+          objectFit: "cover",
           border: "2px solid rgba(0, 229, 255, 0.2)",
         }}
       />
     );
   }
-
-  // Generate a simple gradient avatar based on address
-  const colors = [
-    ["#00e5ff", "#8a2be2"],
-    ["#ff6b6b", "#4ecdc4"],
-    ["#45b7d1", "#96ceb4"],
-    ["#feca57", "#ff9ff3"],
-    ["#54a0ff", "#5f27cd"],
-  ];
-  const parsedTail = Number.parseInt(address.slice(-2), 16);
-  const colorIndex = Number.isNaN(parsedTail) ? 0 : parsedTail % colors.length;
-  const [color1, color2] = colors[colorIndex] ?? colors[0];
 
   return (
     <div
@@ -72,17 +71,15 @@ function Avatar({
         width: size,
         height: size,
         borderRadius: "50%",
-        background: `linear-gradient(135deg, ${color1}, ${color2})`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: size * 0.4,
-        fontWeight: "bold",
         color: "white",
-        border: "2px solid rgba(255, 255, 255, 0.1)",
+        fontWeight: "bold",
+        background: `linear-gradient(135deg, hsl(${hue}, 70%, 60%), hsl(${(hue + 40) % 360}, 70%, 40%))`,
       }}
     >
-      {(label || address).charAt(0).toUpperCase()}
+      {(label || address || "?")[0]}
     </div>
   );
 }
@@ -127,7 +124,10 @@ export default function EnhancedStreamSummaryCard({
   const now = Date.now();
   const remaining = endTime.getTime() - now;
   const daysRemaining = Math.max(0, Math.floor(remaining / 86400000));
-  const hoursRemaining = Math.max(0, Math.floor((remaining % 86400000) / 3600000));
+  const hoursRemaining = Math.max(
+    0,
+    Math.floor((remaining % 86400000) / 3600000),
+  );
 
   const isIncoming = direction === "incoming";
 
@@ -142,16 +142,16 @@ export default function EnhancedStreamSummaryCard({
           background: rgba(10, 10, 20, 0.85);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
-          border: 1px solid ${isIncoming ? 'rgba(0, 229, 255, 0.15)' : 'rgba(138, 43, 226, 0.15)'};
+          border: 1px solid ${isIncoming ? "rgba(0, 229, 255, 0.15)" : "rgba(138, 43, 226, 0.15)"};
           border-radius: 20px;
           padding: 24px;
           font-family: 'Syne', sans-serif;
           color: #e8eaf6;
           overflow: hidden;
           box-shadow:
-            0 0 0 1px ${isIncoming ? 'rgba(0, 229, 255, 0.05)' : 'rgba(138, 43, 226, 0.05)'},
+            0 0 0 1px ${isIncoming ? "rgba(0, 229, 255, 0.05)" : "rgba(138, 43, 226, 0.05)"},
             0 8px 40px rgba(0, 0, 0, 0.6),
-            0 0 60px ${isIncoming ? 'rgba(0, 229, 255, 0.04)' : 'rgba(138, 43, 226, 0.04)'} inset;
+            0 0 60px ${isIncoming ? "rgba(0, 229, 255, 0.04)" : "rgba(138, 43, 226, 0.04)"} inset;
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
@@ -159,34 +159,35 @@ export default function EnhancedStreamSummaryCard({
           content: '';
           position: absolute;
           inset: 0;
-          background: ${isIncoming 
-            ? 'radial-gradient(ellipse at 20% 0%, rgba(0, 229, 255, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(0, 229, 255, 0.04) 0%, transparent 60%)'
-            : 'radial-gradient(ellipse at 20% 0%, rgba(138, 43, 226, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(138, 43, 226, 0.04) 0%, transparent 60%)'
+          background: ${
+            isIncoming
+              ? "radial-gradient(ellipse at 20% 0%, rgba(0, 229, 255, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(0, 229, 255, 0.04) 0%, transparent 60%)"
+              : "radial-gradient(ellipse at 20% 0%, rgba(138, 43, 226, 0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(138, 43, 226, 0.04) 0%, transparent 60%)"
           };
           pointer-events: none;
           border-radius: 20px;
         }
 
         .enhanced-stream-card:hover {
-          border-color: ${isIncoming ? 'rgba(0, 229, 255, 0.3)' : 'rgba(138, 43, 226, 0.3)'};
+          border-color: ${isIncoming ? "rgba(0, 229, 255, 0.3)" : "rgba(138, 43, 226, 0.3)"};
           box-shadow:
-            0 0 0 1px ${isIncoming ? 'rgba(0, 229, 255, 0.1)' : 'rgba(138, 43, 226, 0.1)'},
+            0 0 0 1px ${isIncoming ? "rgba(0, 229, 255, 0.1)" : "rgba(138, 43, 226, 0.1)"},
             0 8px 60px rgba(0, 0, 0, 0.7),
-            0 0 80px ${isIncoming ? 'rgba(0, 229, 255, 0.07)' : 'rgba(138, 43, 226, 0.07)'} inset;
+            0 0 80px ${isIncoming ? "rgba(0, 229, 255, 0.07)" : "rgba(138, 43, 226, 0.07)"} inset;
         }
 
         .live-badge {
           display: inline-flex;
           align-items: center;
           gap: 5px;
-          background: ${isIncoming ? 'rgba(0, 229, 255, 0.1)' : 'rgba(138, 43, 226, 0.1)'};
-          border: 1px solid ${isIncoming ? 'rgba(0, 229, 255, 0.25)' : 'rgba(138, 43, 226, 0.25)'};
+          background: ${isIncoming ? "rgba(0, 229, 255, 0.1)" : "rgba(138, 43, 226, 0.1)"};
+          border: 1px solid ${isIncoming ? "rgba(0, 229, 255, 0.25)" : "rgba(138, 43, 226, 0.25)"};
           border-radius: 999px;
           padding: 2px 10px;
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.12em;
-          color: ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          color: ${isIncoming ? "#00e5ff" : "#8a2be2"};
           text-transform: uppercase;
           font-family: 'Space Mono', monospace;
         }
@@ -194,10 +195,10 @@ export default function EnhancedStreamSummaryCard({
         .live-dot {
           width: 6px;
           height: 6px;
-          background: ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          background: ${isIncoming ? "#00e5ff" : "#8a2be2"};
           border-radius: 50%;
           animation: pulse-dot 1.5s ease-in-out infinite;
-          box-shadow: 0 0 6px ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          box-shadow: 0 0 6px ${isIncoming ? "#00e5ff" : "#8a2be2"};
         }
 
         @keyframes pulse-dot {
@@ -257,9 +258,10 @@ export default function EnhancedStreamSummaryCard({
         .arrow-line {
           width: 40px;
           height: 1px;
-          background: ${isIncoming 
-            ? 'linear-gradient(90deg, rgba(0, 229, 255, 0.4), rgba(0, 229, 255, 0.6))'
-            : 'linear-gradient(90deg, rgba(138, 43, 226, 0.4), rgba(138, 43, 226, 0.6))'
+          background: ${
+            isIncoming
+              ? "linear-gradient(90deg, rgba(0, 229, 255, 0.4), rgba(0, 229, 255, 0.6))"
+              : "linear-gradient(90deg, rgba(138, 43, 226, 0.4), rgba(138, 43, 226, 0.6))"
           };
           position: relative;
         }
@@ -269,7 +271,7 @@ export default function EnhancedStreamSummaryCard({
           position: absolute;
           right: -2px;
           top: -7px;
-          color: ${isIncoming ? 'rgba(0, 229, 255, 0.8)' : 'rgba(138, 43, 226, 0.8)'};
+          color: ${isIncoming ? "rgba(0, 229, 255, 0.8)" : "rgba(138, 43, 226, 0.8)"};
           font-size: 14px;
         }
 
@@ -297,9 +299,10 @@ export default function EnhancedStreamSummaryCard({
           font-family: 'Space Mono', monospace;
           font-size: 20px;
           font-weight: 700;
-          background: ${isIncoming 
-            ? 'linear-gradient(135deg, #00e5ff, #00b8cc)'
-            : 'linear-gradient(135deg, #8a2be2, #6a1b9a)'
+          background: ${
+            isIncoming
+              ? "linear-gradient(135deg, #00e5ff, #00b8cc)"
+              : "linear-gradient(135deg, #8a2be2, #6a1b9a)"
           };
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -333,7 +336,7 @@ export default function EnhancedStreamSummaryCard({
 
         .progress-pct {
           font-family: 'Space Mono', monospace;
-          color: ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          color: ${isIncoming ? "#00e5ff" : "#8a2be2"};
           font-weight: 700;
         }
 
@@ -348,13 +351,14 @@ export default function EnhancedStreamSummaryCard({
         .progress-fill {
           height: 100%;
           border-radius: 999px;
-          background: ${isIncoming 
-            ? 'linear-gradient(90deg, #00e5ff, #00b8cc)'
-            : 'linear-gradient(90deg, #8a2be2, #6a1b9a)'
+          background: ${
+            isIncoming
+              ? "linear-gradient(90deg, #00e5ff, #00b8cc)"
+              : "linear-gradient(90deg, #8a2be2, #6a1b9a)"
           };
           position: relative;
           transition: width 0.1s linear;
-          box-shadow: 0 0 12px ${isIncoming ? 'rgba(0, 229, 255, 0.5)' : 'rgba(138, 43, 226, 0.5)'};
+          box-shadow: 0 0 12px ${isIncoming ? "rgba(0, 229, 255, 0.5)" : "rgba(138, 43, 226, 0.5)"};
         }
 
         .progress-fill::after {
@@ -367,7 +371,7 @@ export default function EnhancedStreamSummaryCard({
           height: 8px;
           border-radius: 50%;
           background: #fff;
-          box-shadow: 0 0 8px ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          box-shadow: 0 0 8px ${isIncoming ? "#00e5ff" : "#8a2be2"};
         }
 
         .time-remaining {
@@ -383,10 +387,10 @@ export default function EnhancedStreamSummaryCard({
           width: 100%;
           margin-top: 18px;
           padding: 11px 0;
-          background: ${isIncoming ? 'rgba(0, 229, 255, 0.06)' : 'rgba(138, 43, 226, 0.06)'};
-          border: 1px solid ${isIncoming ? 'rgba(0, 229, 255, 0.2)' : 'rgba(138, 43, 226, 0.2)'};
+          background: ${isIncoming ? "rgba(0, 229, 255, 0.06)" : "rgba(138, 43, 226, 0.06)"};
+          border: 1px solid ${isIncoming ? "rgba(0, 229, 255, 0.2)" : "rgba(138, 43, 226, 0.2)"};
           border-radius: 12px;
-          color: ${isIncoming ? '#00e5ff' : '#8a2be2'};
+          color: ${isIncoming ? "#00e5ff" : "#8a2be2"};
           font-family: 'Syne', sans-serif;
           font-size: 13px;
           font-weight: 700;
@@ -404,9 +408,10 @@ export default function EnhancedStreamSummaryCard({
           content: '';
           position: absolute;
           inset: 0;
-          background: ${isIncoming 
-            ? 'linear-gradient(135deg, rgba(0, 229, 255, 0.12), rgba(0, 229, 255, 0.08))'
-            : 'linear-gradient(135deg, rgba(138, 43, 226, 0.12), rgba(138, 43, 226, 0.08))'
+          background: ${
+            isIncoming
+              ? "linear-gradient(135deg, rgba(0, 229, 255, 0.12), rgba(0, 229, 255, 0.08))"
+              : "linear-gradient(135deg, rgba(138, 43, 226, 0.12), rgba(138, 43, 226, 0.08))"
           };
           opacity: 0;
           transition: opacity 0.25s ease;
@@ -417,8 +422,8 @@ export default function EnhancedStreamSummaryCard({
         }
 
         .view-details-btn:hover {
-          border-color: ${isIncoming ? 'rgba(0, 229, 255, 0.5)' : 'rgba(138, 43, 226, 0.5)'};
-          box-shadow: 0 0 20px ${isIncoming ? 'rgba(0, 229, 255, 0.15)' : 'rgba(138, 43, 226, 0.15)'};
+          border-color: ${isIncoming ? "rgba(0, 229, 255, 0.5)" : "rgba(138, 43, 226, 0.5)"};
+          box-shadow: 0 0 20px ${isIncoming ? "rgba(0, 229, 255, 0.15)" : "rgba(138, 43, 226, 0.15)"};
           transform: translateY(-1px);
           color: #fff;
         }
@@ -430,10 +435,24 @@ export default function EnhancedStreamSummaryCard({
 
       <div className="enhanced-stream-card">
         {/* Header with Token Flow Badge */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 4,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <TokenFlowBadge direction={direction} size="sm" />
-            <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: "0.01em", color: "#e8eaf6" }}>
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 800,
+                letterSpacing: "0.01em",
+                color: "#e8eaf6",
+              }}
+            >
               {isIncoming ? "Incoming Stream" : "Outgoing Stream"}
             </div>
           </div>
@@ -448,7 +467,12 @@ export default function EnhancedStreamSummaryCard({
 
         {/* Participants */}
         <div className="participants-row">
-          <Avatar address={sender.address} avatar={sender.avatar} label={sender.label} size={38} />
+          <Avatar
+            address={sender.address}
+            avatar={sender.avatar}
+            label={sender.label}
+            size={38}
+          />
           <div className="participant-info" style={{ flex: 1 }}>
             <span className="participant-label">From</span>
             <span className="participant-address">
@@ -460,13 +484,21 @@ export default function EnhancedStreamSummaryCard({
             <div className="arrow-line" />
           </div>
 
-          <div className="participant-info" style={{ flex: 1, alignItems: "flex-end" }}>
+          <div
+            className="participant-info"
+            style={{ flex: 1, alignItems: "flex-end" }}
+          >
             <span className="participant-label">To</span>
             <span className="participant-address">
               {receiver.label || truncateAddress(receiver.address)}
             </span>
           </div>
-          <Avatar address={receiver.address} avatar={receiver.avatar} label={receiver.label} size={38} />
+          <Avatar
+            address={receiver.address}
+            avatar={receiver.avatar}
+            label={receiver.label}
+            size={38}
+          />
         </div>
 
         {/* Amounts */}
@@ -474,14 +506,21 @@ export default function EnhancedStreamSummaryCard({
           <div className="amount-row">
             <span className="amount-label">Amount Streamed</span>
             <span className="amount-value">
-              {isIncoming ? '+' : '-'}{liveStreamed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+              {isIncoming ? "+" : "-"}
+              {liveStreamed.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 4,
+              })}
             </span>
           </div>
           <div className="divider" />
           <div className="amount-row">
             <span className="amount-label">Total</span>
             <span className="amount-total">
-              {totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })} {tokenSymbol}
+              {totalAmount.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}{" "}
+              {tokenSymbol}
             </span>
           </div>
         </div>
@@ -506,10 +545,7 @@ export default function EnhancedStreamSummaryCard({
         </div>
 
         {/* View Details */}
-        <button
-          className="view-details-btn"
-          onClick={onViewDetails}
-        >
+        <button className="view-details-btn" onClick={onViewDetails}>
           View Details →
         </button>
       </div>

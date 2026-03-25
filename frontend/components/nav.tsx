@@ -5,11 +5,9 @@
  * Modified for Issue #161 — Easter Egg: "The Stream Matrix"
  * Added: 5-click logo trigger to activate StreamMatrix component
  * Preserved: NetworkStatusOrb from main branch
- * Updated: Hidden on dashboard pages (dashboard has its own navigation)
  */
 
 import { useState, useCallback } from "react";
-import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useWallet } from "@/lib/wallet-context";
 import { WalletConnectModal } from "./wallet-connect-modal";
@@ -27,16 +25,10 @@ const navLinks = [
 const TRIGGER_CLICKS = 5;
 
 export function Nav() {
-  const pathname = usePathname();
   const { isConnected, address, openModal } = useWallet();
 
   const [clickCount, setClickCount]     = useState(0);
   const [matrixActive, setMatrixActive] = useState(false);
-
-  // Hide nav on dashboard pages (dashboard has its own navigation)
-  if (pathname?.startsWith("/dashboard")) {
-    return null;
-  }
 
   const handleLogoClick = useCallback(
     (e: React.MouseEvent) => {

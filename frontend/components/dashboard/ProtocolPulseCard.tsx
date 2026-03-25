@@ -158,32 +158,32 @@ function LiveBadge() {
 function StatCard({ config, index, color }: { config: StatConfig; index: number; color: string }) {
   return (
     <div
-      className="relative flex flex-col justify-between rounded-xl md:rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 md:p-5 overflow-hidden transition-all duration-300 hover:border-white/[0.13] hover:bg-white/[0.05] group"
+      className="relative flex flex-col justify-between rounded-2xl border border-white/[0.07] bg-white/[0.03] p-5 overflow-hidden transition-all duration-300 hover:border-white/[0.13] hover:bg-white/[0.05] group"
       style={{ animation: `pulseReveal 0.5s cubic-bezier(0.16,1,0.3,1) ${index * 80}ms both` }}
     >
       <div
-        className="pointer-events-none absolute inset-0 rounded-xl md:rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(34,211,238,0.07) 0%, transparent 70%)" }}
       />
 
-      <div className="flex items-start justify-between mb-3 md:mb-4">
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="font-body text-[9px] md:text-[10px] tracking-[0.12em] text-white/40 uppercase">{config.label}</p>
-          <p className="font-body text-[8px] md:text-[9px] text-white/25 mt-0.5">{config.sublabel}</p>
+          <p className="font-body text-[10px] tracking-[0.12em] text-white/40 uppercase">{config.label}</p>
+          <p className="font-body text-[9px] text-white/25 mt-0.5">{config.sublabel}</p>
         </div>
-        <span className="text-base md:text-lg text-white/20 group-hover:text-white/35 transition-colors duration-300">
+        <span className="text-lg text-white/20 group-hover:text-white/35 transition-colors duration-300">
           {config.icon}
         </span>
       </div>
 
-      {/* Count-up animated number - Mobile optimized */}
-      <p className="font-heading text-2xl md:text-3xl lg:text-4xl text-white tabular-nums leading-none mb-1">
+      {/* Count-up animated number */}
+      <p className="font-heading text-3xl md:text-4xl text-white tabular-nums leading-none mb-1">
         <AnimatedStat config={config} delay={index * 120 + 200} />
       </p>
 
-      <div className="flex items-center justify-between mt-2 md:mt-3">
+      <div className="flex items-center justify-between mt-3">
         <span
-          className="font-body text-[9px] md:text-[10px] font-bold"
+          className="font-body text-[10px] font-bold"
           style={{ color: config.deltaPositive ? "#34d399" : "#fb923c" }}
         >
           {config.delta}
@@ -233,7 +233,7 @@ export function ProtocolPulseCard() {
         }
       `}</style>
 
-      <div className="relative rounded-2xl md:rounded-3xl border border-white/10 overflow-hidden">
+      <div className="relative rounded-3xl border border-white/10 overflow-hidden">
 
         {/* ── Shifting mesh gradient background (issue requirement) ── */}
         <div className="pointer-events-none absolute inset-0" aria-hidden>
@@ -272,29 +272,29 @@ export function ProtocolPulseCard() {
         </div>
 
         {/* ── Content ── */}
-        <div className="relative z-10 p-5 md:p-6 lg:p-8">
+        <div className="relative z-10 p-6 md:p-8">
 
           <div
-            className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-5 md:mb-6"
+            className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6"
             style={{ animation: "headerReveal 0.4s cubic-bezier(0.16,1,0.3,1) both" }}
           >
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <p className="font-body text-[10px] md:text-xs tracking-[0.12em] text-white/60 uppercase">
+                <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
                   Protocol Health
                 </p>
                 <LiveBadge />
               </div>
-              <h2 className="font-heading mt-2 text-2xl md:text-3xl lg:text-4xl">Protocol Pulse</h2>
-              <p className="font-body mt-1 text-xs md:text-sm text-white/50">
+              <h2 className="font-heading mt-2 text-3xl md:text-4xl">Protocol Pulse</h2>
+              <p className="font-body mt-1 text-sm text-white/50">
                 Real-time TVL, stream activity, and throughput.
               </p>
             </div>
 
             {/* Timestamp — shows "--:--:--" on server, real time after mount */}
             <div className="flex-shrink-0 sm:text-right">
-              <p className="font-body text-[9px] md:text-[10px] text-white/25 uppercase tracking-wider">Updated</p>
-              <p className="font-body text-[10px] md:text-xs text-white/40 tabular-nums mt-0.5">
+              <p className="font-body text-[10px] text-white/25 uppercase tracking-wider">Updated</p>
+              <p className="font-body text-xs text-white/40 tabular-nums mt-0.5">
                 {lastUpdated
                   ? lastUpdated.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
                   : "--:--:--"}
@@ -302,8 +302,8 @@ export function ProtocolPulseCard() {
             </div>
           </div>
 
-          {/* Stats grid - Mobile-First Responsive */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {STATS.map((stat, i) => (
               <StatCard key={stat.label} config={stat} index={i} color={SPARK_COLORS[i]} />
             ))}
@@ -311,7 +311,7 @@ export function ProtocolPulseCard() {
 
           {/* Footer */}
           <div
-            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl md:rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 md:px-5 py-2.5 md:py-3"
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-3"
             style={{ animation: "pulseReveal 0.5s cubic-bezier(0.16,1,0.3,1) 440ms both" }}
           >
             <div className="flex items-center gap-2">
@@ -319,11 +319,11 @@ export function ProtocolPulseCard() {
                 <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </span>
-              <p className="font-body text-[10px] md:text-[11px] text-white/35">
+              <p className="font-body text-[11px] text-white/35">
                 Syncing every <span className="text-cyan-400/70">30s</span>
               </p>
             </div>
-            <div className="flex items-center gap-3 md:gap-4">
+            <div className="flex items-center gap-4">
               {[
                 { label: "Network", value: "Starknet"   },
                 { label: "Block",   value: "#1,482,940" },

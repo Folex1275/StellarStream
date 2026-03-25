@@ -46,7 +46,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         {/* Main Content Area with 12-column Bento Grid */}
         <main className="flex-1 overflow-hidden">
           <div
-            className="grid gap-6 p-5 md:px-8 md:py-8 pb-24 md:pb-8 pt-20 md:pt-8"
+            className="grid gap-6 p-5 md:px-8 md:py-8 pb-24 md:pb-8"
             style={{
               gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
               gridAutoFlow: "dense",

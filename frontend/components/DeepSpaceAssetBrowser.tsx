@@ -1,7 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, X, Shield, Check, ExternalLink, Loader2, Globe, Star } from "lucide-react";
+import {
+  Search,
+  X,
+  Shield,
+  Check,
+  ExternalLink,
+  Loader2,
+  Globe,
+  Star,
+} from "lucide-react";
+import Image from "next/image";
 
 /**
  * Asset type representing a Stellar or cross-chain asset
@@ -27,16 +37,25 @@ export interface Asset {
 /**
  * Known Stellar anchors for verification badges
  */
-const KNOWN_ANCHORS: Record<string, { name: string; domain: string; logo?: string }> = {
+const KNOWN_ANCHORS: Record<
+  string,
+  { name: string; domain: string; logo?: string }
+> = {
   "circle.com": { name: "Circle", domain: "circle.com" },
-  "stellar.org": { name: "Stellar Development Foundation", domain: "stellar.org" },
+  "stellar.org": {
+    name: "Stellar Development Foundation",
+    domain: "stellar.org",
+  },
   "tempo.eu.com": { name: "Tempo", domain: "tempo.eu.com" },
   "moneygram.com": { name: "MoneyGram", domain: "moneygram.com" },
   "satoshipayment.com": { name: "SatoshiPay", domain: "satoshipayment.com" },
   "bitpay.com": { name: "BitPay", domain: "bitpay.com" },
   "anchor山羊.com": { name: "Anchorage", domain: "anchor山羊.com" },
   "ripple.com": { name: "Ripple", domain: "ripple.com" },
-  "frankfurtermakler.de": { name: "Frankfurter Makler", domain: "frankfurtermakler.de" },
+  "frankfurtermakler.de": {
+    name: "Frankfurter Makler",
+    domain: "frankfurtermakler.de",
+  },
   "lobstr.co": { name: "LOBSTR", domain: "lobstr.co" },
   "keybase.io": { name: "Keybase", domain: "keybase.io" },
 };
@@ -51,7 +70,10 @@ const DEFAULT_ASSETS: Asset[] = [
     decimals: 7,
     isVerified: true,
     chain: "stellar",
-    anchorInfo: { name: "Stellar Development Foundation", url: "https://stellar.org" },
+    anchorInfo: {
+      name: "Stellar Development Foundation",
+      url: "https://stellar.org",
+    },
   },
   {
     code: "USDC",
@@ -136,25 +158,30 @@ export interface DeepSpaceAssetBrowserProps {
 /**
  * Asset icon component with gradient fallback
  */
+
 function AssetIcon({ asset, size = 40 }: { asset: Asset; size?: number }) {
-  if (asset.icon || asset.anchorInfo?.logo) {
+  const [error, setError] = useState(false);
+  const src = asset.icon || asset.anchorInfo?.logo;
+
+  const hash = asset.code
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hue = hash % 360;
+
+  if (src && !error) {
     return (
-      <img
-        src={asset.icon || asset.anchorInfo?.logo}
+      <Image
+        src={src}
         alt={asset.code}
+        width={size}
+        height={size}
         className="rounded-full object-cover"
-        style={{ width: size, height: size }}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
+        onError={() => setError(true)}
       />
     );
   }
 
-  // Generate gradient based on code
-  const hash = asset.code.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const hue = hash % 360;
-
+  // fallback если картинки нет или она умерла
   return (
     <div
       className="rounded-full flex items-center justify-center font-bold text-white"
@@ -190,8 +217,16 @@ function VerifiedBadge({ anchor }: { anchor?: string }) {
 function ChainBadge({ chain }: { chain: Asset["chain"] }) {
   const config = {
     stellar: { color: "text-cyan-400", bg: "bg-cyan-400/20", label: "Stellar" },
-    ethereum: { color: "text-purple-400", bg: "bg-purple-400/20", label: "Ethereum" },
-    polygon: { color: "text-indigo-400", bg: "bg-indigo-400/20", label: "Polygon" },
+    ethereum: {
+      color: "text-purple-400",
+      bg: "bg-purple-400/20",
+      label: "Ethereum",
+    },
+    polygon: {
+      color: "text-indigo-400",
+      bg: "bg-indigo-400/20",
+      label: "Polygon",
+    },
     solana: { color: "text-teal-400", bg: "bg-teal-400/20", label: "Solana" },
     other: { color: "text-gray-400", bg: "bg-gray-400/20", label: "Other" },
   };
@@ -199,7 +234,9 @@ function ChainBadge({ chain }: { chain: Asset["chain"] }) {
   const { color, bg, label } = config[chain];
 
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${color} ${bg}`}>
+    <span
+      className={`px-2 py-0.5 rounded-full text-xs font-medium ${color} ${bg}`}
+    >
       {label}
     </span>
   );
@@ -207,14 +244,14 @@ function ChainBadge({ chain }: { chain: Asset["chain"] }) {
 
 /**
  * DeepSpaceAssetBrowser Component
- * 
+ *
  * A "Search & Select" modal for browsing and selecting cross-chain assets.
  * Features:
  * - Search by asset code, name, or domain
  * - Verified badges for known Stellar anchors
  * - Cross-chain asset support (Stellar, Ethereum, Polygon, Solana)
  * - Asset icons with gradient fallbacks
- * 
+ *
  * @example
  * ```tsx
  * <DeepSpaceAssetBrowser
@@ -237,7 +274,9 @@ export function DeepSpaceAssetBrowser({
   const [assets, setAssets] = useState<Asset[]>(DEFAULT_ASSETS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<"all" | "verified" | "stellar" | "cross-chain">("all");
+  const [selectedCategory, setSelectedCategory] = useState<
+    "all" | "verified" | "stellar" | "cross-chain"
+  >("all");
 
   /**
    * Fetch assets from backend whitelist API
@@ -291,7 +330,7 @@ export function DeepSpaceAssetBrowser({
           asset.code.toLowerCase().includes(query) ||
           asset.name.toLowerCase().includes(query) ||
           asset.domain?.toLowerCase().includes(query) ||
-          asset.anchorInfo?.name.toLowerCase().includes(query)
+          asset.anchorInfo?.name.toLowerCase().includes(query),
       );
     }
 
@@ -339,7 +378,9 @@ export function DeepSpaceAssetBrowser({
               <Globe size={20} className="text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Deep Space Asset Browser</h2>
+              <h2 className="text-xl font-bold text-white">
+                Deep Space Asset Browser
+              </h2>
               <p className="text-sm text-gray-400">Browse cross-chain assets</p>
             </div>
           </div>
@@ -378,7 +419,9 @@ export function DeepSpaceAssetBrowser({
             ].map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategory(cat.id as typeof selectedCategory)}
+                onClick={() =>
+                  setSelectedCategory(cat.id as typeof selectedCategory)
+                }
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                   selectedCategory === cat.id
                     ? "bg-violet-500/20 text-violet-400 border border-violet-500/30"
@@ -404,9 +447,10 @@ export function DeepSpaceAssetBrowser({
           ) : filteredAssets.length > 0 ? (
             <div className="space-y-1">
               {filteredAssets.map((asset) => {
-                const isSelected = selectedAsset?.code === asset.code && 
+                const isSelected =
+                  selectedAsset?.code === asset.code &&
                   selectedAsset?.issuer === asset.issuer;
-                
+
                 return (
                   <button
                     key={`${asset.code}-${asset.issuer || "native"}`}
@@ -418,16 +462,20 @@ export function DeepSpaceAssetBrowser({
                     }`}
                   >
                     <AssetIcon asset={asset} size={44} />
-                    
+
                     <div className="flex-1 min-w-0 text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-white group-hover:text-violet-400 transition-colors">
                           {asset.code}
                         </span>
-                        {asset.isVerified && <VerifiedBadge anchor={asset.anchorInfo?.name} />}
+                        {asset.isVerified && (
+                          <VerifiedBadge anchor={asset.anchorInfo?.name} />
+                        )}
                         <ChainBadge chain={asset.chain} />
                       </div>
-                      <p className="text-sm text-gray-400 truncate">{asset.name}</p>
+                      <p className="text-sm text-gray-400 truncate">
+                        {asset.name}
+                      </p>
                       {asset.anchorInfo && (
                         <p className="text-xs text-gray-500 truncate mt-0.5">
                           {asset.anchorInfo.name}
@@ -465,7 +513,8 @@ export function DeepSpaceAssetBrowser({
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-white/10 bg-black/20">
           <p className="text-xs text-gray-500">
-            {filteredAssets.length} asset{filteredAssets.length !== 1 ? "s" : ""} available
+            {filteredAssets.length} asset
+            {filteredAssets.length !== 1 ? "s" : ""} available
           </p>
           <a
             href="#"

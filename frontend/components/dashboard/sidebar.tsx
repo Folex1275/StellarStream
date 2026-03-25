@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, type ComponentType } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, type ComponentType } from "react";
 import {
   CirclePlus,
   ClipboardCheck,
@@ -13,9 +12,6 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   History as HistoryIcon,
-  Shield,
-  Menu,
-  X,
 } from "lucide-react";
 
 type NavItem = {
@@ -39,29 +35,10 @@ function isActive(pathname: string, href: string) {
 export function Sidebar({ onOpenAuditLog }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileMenuOpen]);
 
   const navItems: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: Gauge },
     { label: "My Streams", href: "/dashboard/streams", icon: Waves },
-    { label: "Vaults", href: "/dashboard/vaults", icon: Shield },
     {
       label: "Pending Approvals",
       href: "/dashboard/pending",
@@ -83,153 +60,6 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
 
   return (
     <>
-      {/* ── Mobile Header with Hamburger ── */}
-      <div className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/90 px-4 py-3 backdrop-blur-2xl md:hidden">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/[0.08]"
-          >
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </button>
-          
-          <Link href="/" className="font-heading text-base text-white">
-            StellarStream
-          </Link>
-
-          {/* Spacer to balance layout */}
-          <div className="w-10" />
-        </div>
-      </div>
-
-      {/* ── Mobile Menu Overlay ── */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            {/* Slide-in Menu */}
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="fixed top-0 left-0 bottom-0 z-50 w-[280px] border-r border-white/10 bg-black/95 backdrop-blur-2xl md:hidden overflow-y-auto"
-            >
-              <div className="flex flex-col h-full p-4">
-                {/* Header */}
-                <div className="mb-6 pt-2">
-                  <Link href="/" onClick={() => setMobileMenuOpen(false)}>
-                    <p className="font-heading text-xl text-white mb-1">
-                      StellarStream
-                    </p>
-                    <p className="font-body text-xs text-white/60">
-                      Navigation Menu
-                    </p>
-                  </Link>
-                </div>
-
-                {/* Nav links */}
-                <nav className="flex flex-1 flex-col gap-2">
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = item.href ? isActive(pathname, item.href) : false;
-                    const content = (
-                      <>
-                        <span
-                          className={`absolute inset-y-1 left-2 w-8 rounded-lg blur-md transition-all duration-200 ${
-                            active ? "bg-[#8A00FF]/45 opacity-100" : "opacity-0"
-                          }`}
-                        />
-                        <Icon
-                          className={`relative h-5 w-5 shrink-0 ${
-                            active ? "text-[#E9C8FF]" : "text-white/70 group-hover:text-white"
-                          }`}
-                        />
-                        <span
-                          className={`font-body relative text-base flex-1 ${
-                            active ? "text-white font-medium" : "text-white/78"
-                          }`}
-                        >
-                          {item.label}
-                        </span>
-                        {item.badge && item.badge > 0 ? (
-                          <span className="relative ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#00f5ff] px-1.5 text-[11px] font-bold leading-none text-black shadow-[0_0_8px_rgba(0,245,255,0.6)]">
-                            {item.badge}
-                          </span>
-                        ) : null}
-                      </>
-                    );
-
-                    const className = `group relative flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 ${
-                      active
-                        ? "border-white/20 bg-white/8"
-                        : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
-                    }`;
-
-                    if (item.href) {
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={className}
-                          onClick={() => setMobileMenuOpen(false)}
-                        >
-                          {content}
-                        </Link>
-                      );
-                    } else {
-                      return (
-                        <button
-                          key={item.label}
-                          onClick={() => {
-                            item.onClick?.();
-                            setMobileMenuOpen(false);
-                          }}
-                          className={className}
-                        >
-                          {content}
-                        </button>
-                      );
-                    }
-                  })}
-                </nav>
-
-                {/* Wallet card */}
-                <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#00F5FF]/35 bg-[#00F5FF]/12 text-sm font-semibold text-[#CCFAFF]">
-                      G
-                    </div>
-                    <div>
-                      <p className="font-body text-xs text-white/55">
-                        Connected Wallet
-                      </p>
-                      <p className="font-body text-sm text-white">
-                        GAB3...X7QP
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
-
       {/* ── Desktop / Tablet sidebar ── */}
       <aside
         className={`hidden flex-col border-r border-white/10 bg-white/5 p-4 backdrop-blur-2xl md:flex transition-all duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-[248px]"
@@ -363,8 +193,8 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
         </div>
       </aside>
 
-      {/* ── Mobile bottom bar ── */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/80 px-3 py-2 backdrop-blur-2xl md:hidden">
+      {/* ── Mobile bottom bar (unchanged) ── */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-white/5 px-3 py-2 backdrop-blur-2xl md:hidden">
         <nav className="mx-auto flex max-w-xl items-center justify-around gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
