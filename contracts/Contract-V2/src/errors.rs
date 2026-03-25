@@ -1,4 +1,3 @@
-use soroban_sdk::contracterror;
 
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
