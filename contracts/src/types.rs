@@ -288,3 +288,12 @@ pub struct RequestExecutedEvent {
     pub executor: Address,
     pub timestamp: u64,
 }
+
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct StreamArchivedEvent {
+    pub stream_id: u64,
+    pub sender: Address,
+    pub total_amount: i128,
+    pub timestamp: u64,
+}

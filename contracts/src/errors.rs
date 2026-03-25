@@ -23,4 +23,5 @@ pub enum Error {
     FlashLoanNotRepaid = 18,
     FlashLoanInProgress = 19,
     AlreadyExecuted = 20,
+    StreamNotFullyWithdrawn = 21,
 }

@@ -14,8 +14,9 @@ use storage::{PROPOSAL_COUNT, RECEIPT, STREAM_COUNT, RESTRICTED_ADDRESSES};
 use types::{
     ContributorRequest, RequestCreatedEvent, RequestExecutedEvent, RequestKey, RequestStatus,
     CurveType, DataKey, Milestone, ProposalApprovedEvent, ProposalCreatedEvent, ReceiptMetadata,
-    ReceiptTransferredEvent, Role, Stream, StreamCancelledEvent, StreamClaimEvent,
-    StreamCreatedEvent, StreamPausedEvent, StreamProposal, StreamReceipt, StreamUnpausedEvent,
+    ReceiptTransferredEvent, Role, Stream, StreamArchivedEvent, StreamCancelledEvent,
+    StreamClaimEvent, StreamCreatedEvent, StreamPausedEvent, StreamProposal, StreamReceipt,
+    StreamUnpausedEvent,
 };
 
 #[contract]
@@ -715,6 +716,57 @@ impl StellarStreamContract {
                 to_receiver,
                 to_sender,
                 timestamp: current_time,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Close a fully-withdrawn stream and recover the storage deposit.
+    ///
+    /// Requirements:
+    /// - Caller must be the stream sender.
+    /// - `withdrawn_amount` must equal `total_amount` (stream fully drained).
+    /// - Stream must not be cancelled (cancelled streams already refunded the sender).
+    ///
+    /// Effect: removes the stream entry and its receipt from instance storage,
+    /// freeing the rent reserve back to the sender's account.
+    pub fn close_and_archive(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
+        caller.require_auth();
+
+        let stream_key = (STREAM_COUNT, stream_id);
+        let stream: Stream = env
+            .storage()
+            .instance()
+            .get(&stream_key)
+            .ok_or(Error::StreamNotFound)?;
+
+        // Only the sender may reclaim their storage deposit
+        if stream.sender != caller {
+            return Err(Error::Unauthorized);
+        }
+
+        // Cancelled streams are already settled — nothing to archive
+        if stream.cancelled {
+            return Err(Error::AlreadyCancelled);
+        }
+
+        // Guard: every stroop must have been withdrawn before the slot can be freed
+        if stream.withdrawn_amount < stream.total_amount {
+            return Err(Error::StreamNotFullyWithdrawn);
+        }
+
+        // Remove stream data and its receipt NFT from storage
+        env.storage().instance().remove(&stream_key);
+        env.storage().instance().remove(&(RECEIPT, stream_id));
+
+        env.events().publish(
+            (symbol_short!("archive"), caller.clone()),
+            StreamArchivedEvent {
+                stream_id,
+                sender: caller,
+                total_amount: stream.total_amount,
+                timestamp: env.ledger().timestamp(),
             },
         );
 

@@ -536,3 +536,148 @@ fn test_invalid_cliff_time() {
            &None,
     );
 }
+
+// ─── close_and_archive tests ─────────────────────────────────────────────────
+
+#[test]
+fn test_close_and_archive_fully_withdrawn_stream() {
+    let ctx = setup_test();
+    let sender = Address::generate(&ctx.env);
+    let receiver = Address::generate(&ctx.env);
+
+    let amount = 1_000_i128;
+    ctx.token.mint(&sender, &amount);
+
+    let stream_id = ctx.client.create_stream(
+        &sender,
+        &receiver,
+        &ctx.token_id,
+        &amount,
+        &0,
+        &1000,
+        &CurveType::Linear,
+    );
+
+    // Advance time past end so the full amount is unlocked
+    ctx.env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: 2000,
+        protocol_version: 22,
+        sequence_number: 1,
+        network_id: [0u8; 32],
+        base_reserve: 0,
+        min_temp_entry_ttl: 0,
+        min_persistent_entry_ttl: 0,
+        max_entry_ttl: 1_000_000,
+    });
+
+    ctx.client.withdraw(&stream_id, &receiver);
+
+    // Sender closes the slot and recovers storage deposit
+    ctx.client.close_and_archive(&stream_id, &sender);
+
+    // Stream entry must no longer exist
+    let result = ctx.client.try_get_stream(&stream_id);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_close_and_archive_fails_if_not_fully_withdrawn() {
+    let ctx = setup_test();
+    let sender = Address::generate(&ctx.env);
+    let receiver = Address::generate(&ctx.env);
+
+    let amount = 1_000_i128;
+    ctx.token.mint(&sender, &amount);
+
+    let stream_id = ctx.client.create_stream(
+        &sender,
+        &receiver,
+        &ctx.token_id,
+        &amount,
+        &0,
+        &1000,
+        &CurveType::Linear,
+    );
+
+    // Only half the stream has elapsed — receiver withdraws partial amount
+    ctx.env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: 500,
+        protocol_version: 22,
+        sequence_number: 1,
+        network_id: [0u8; 32],
+        base_reserve: 0,
+        min_temp_entry_ttl: 0,
+        min_persistent_entry_ttl: 0,
+        max_entry_ttl: 1_000_000,
+    });
+
+    ctx.client.withdraw(&stream_id, &receiver);
+
+    // Attempt to archive before fully withdrawn — must fail
+    let result = ctx.client.try_close_and_archive(&stream_id, &sender);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_close_and_archive_fails_for_non_sender() {
+    let ctx = setup_test();
+    let sender = Address::generate(&ctx.env);
+    let receiver = Address::generate(&ctx.env);
+    let stranger = Address::generate(&ctx.env);
+
+    let amount = 500_i128;
+    ctx.token.mint(&sender, &amount);
+
+    let stream_id = ctx.client.create_stream(
+        &sender,
+        &receiver,
+        &ctx.token_id,
+        &amount,
+        &0,
+        &1000,
+        &CurveType::Linear,
+    );
+
+    ctx.env.ledger().set(soroban_sdk::testutils::LedgerInfo {
+        timestamp: 2000,
+        protocol_version: 22,
+        sequence_number: 1,
+        network_id: [0u8; 32],
+        base_reserve: 0,
+        min_temp_entry_ttl: 0,
+        min_persistent_entry_ttl: 0,
+        max_entry_ttl: 1_000_000,
+    });
+
+    ctx.client.withdraw(&stream_id, &receiver);
+
+    // A stranger cannot archive someone else's stream
+    let result = ctx.client.try_close_and_archive(&stream_id, &stranger);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_close_and_archive_fails_for_cancelled_stream() {
+    let ctx = setup_test();
+    let sender = Address::generate(&ctx.env);
+    let receiver = Address::generate(&ctx.env);
+
+    let amount = 500_i128;
+    ctx.token.mint(&sender, &amount);
+
+    let stream_id = ctx.client.create_stream(
+        &sender,
+        &receiver,
+        &ctx.token_id,
+        &amount,
+        &0,
+        &1000,
+        &CurveType::Linear,
+    );
+
+    ctx.client.cancel(&stream_id, &sender);
+
+    // Cancelled streams are already settled — archive must be rejected
+    let result = ctx.client.try_close_and_archive(&stream_id, &sender);
+    assert!(result.is_err());
+}
