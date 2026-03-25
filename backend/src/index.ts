@@ -103,6 +103,10 @@ app.get("/api/v1/search", rateLimitMiddleware, getSearch);
 // ── Core API router (streams, yield, snapshots, governance, audit-log) ────────
 app.use("/api/v1", apiRouter);
 
+// ── V2 API router ─────────────────────────────────────────────────────────────
+import apiV2Router from "./api/v2/index.js";
+app.use("/api/v2", apiV2Router);
+
 // ── Batch metadata + stream graph ─────────────────────────────────────────────
 app.use("/api/v1", batchRoutes);
 
