@@ -31,6 +31,7 @@ import { YieldAccrualWorker } from "./yield-accrual.worker.js";
 import { startWebhookWorker } from "./webhook-dispatcher.worker.js";
 import { bigintSerializer } from "./middleware/bigintSerializer.js";
 import { swaggerSpec } from "./swagger.js";
+import { swaggerV3Spec } from "./api/v3/swagger.js";
 import { initializeSchedulers } from "./schedulers.js";
 
 Sentry.init({
@@ -103,6 +104,12 @@ app.get("/", (_req: Request, res: Response) => {
 app.use("/api/v1/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get("/api/v1/docs.json", (_req: Request, res: Response) => {
   res.json(swaggerSpec);
+});
+
+// ── V3 Swagger UI ─────────────────────────────────────────────────────────────
+app.use("/api/v3/docs", swaggerUi.serve, swaggerUi.setup(swaggerV3Spec));
+app.get("/api/v3/docs.json", (_req: Request, res: Response) => {
+  res.json(swaggerV3Spec);
 });
 
 // ── Auth routes ───────────────────────────────────────────────────────────────
