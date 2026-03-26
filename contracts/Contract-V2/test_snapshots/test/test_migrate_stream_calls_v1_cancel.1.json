@@ -502,6 +502,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "cancellation_type"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "cancelled"
                       },
                       "val": {
@@ -518,6 +526,14 @@
                     },
                     {
                       "key": {
+                        "symbol": "cycle_duration"
+                      },
+                      "val": {
+                        "u64": 0
+                      }
+                    },
+                    {
+                      "key": {
                         "symbol": "end_time"
                       },
                       "val": {
@@ -527,6 +543,14 @@
                     {
                       "key": {
                         "symbol": "is_pending"
+                      },
+                      "val": {
+                        "bool": false
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "is_recurrent"
                       },
                       "val": {
                         "bool": false

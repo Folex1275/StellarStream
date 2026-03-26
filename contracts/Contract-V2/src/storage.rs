@@ -33,7 +33,7 @@ pub enum DataKeyV2 {
     // -- Time-locked Admin Actions -------------------------------
     ScheduledOp(crate::types::Operation), // 7
 
-    // -- Affiliate Fee Split (Issue: Tokenomics) -----------------
+    // -- Protocol Fees -------------------------------------------
     /// Protocol treasury address for fee collection
     Treasury, // 8
     /// Accumulated pending fees per (recipient, token) pair
@@ -323,7 +323,7 @@ pub fn clear_op(env: &Env, op: &crate::types::Operation) {
 }
 
 // ----------------------------------------------------------------
-// Affiliate Fee Split helpers (Issue: Tokenomics)
+// Protocol fee helpers
 // ----------------------------------------------------------------
 
 /// Set the protocol treasury address. Admin-only enforcement is in lib.rs.

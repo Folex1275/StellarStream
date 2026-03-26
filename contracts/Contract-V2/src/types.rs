@@ -48,7 +48,7 @@ pub struct StreamArgs {
     pub cycle_duration: u64,
     /// 0 = Unilateral, 1 = Mutual cancellation
     pub cancellation_type: u32,
-    /// Optional affiliate address for fee-split (Issue: Affiliate Fee Split)
+    /// Reserved for future routing extensions; protocol fees currently go to treasury only.
     pub affiliate: Option<Address>,
 }
 
@@ -311,7 +311,7 @@ pub struct StreamRefilledEvent {
 }
 
 // ----------------------------------------------------------------
-// Issue: Affiliate Fee Split Events
+// Issue: Protocol Fee Events
 // ----------------------------------------------------------------
 
 #[contracttype]
