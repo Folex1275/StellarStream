@@ -49,4 +49,12 @@ pub enum Error {
     StreamRequestAlreadyExecuted = 35,
     /// Overflow in arithmetic operation
     Overflow = 36,
+    /// Invalid metadata format for bridge-in
+    InvalidBridgeMetadata = 37,
+    /// No receiver address in bridge metadata
+    MissingReceiverAddress = 38,
+    /// No duration in bridge metadata
+    MissingDuration = 39,
+    /// Invalid duration value in bridge metadata
+    InvalidDuration = 40,
 }

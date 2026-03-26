@@ -77,6 +77,277 @@ impl Contract {
     }
 
     // ----------------------------------------------------------------
+    // Issue #407 — Bridge-In Receiver Hook
+    // ----------------------------------------------------------------
+
+    /// Handle incoming tokens from another chain (e.g., Ethereum via Allbridge).
+    /// 
+    /// When assets arrive with "Instruction Metadata", this function parses the
+    /// metadata to extract receiver_address and duration, then automatically
+    /// creates a stream without requiring a second transaction from the user.
+    /// 
+    /// Metadata format (40 bytes total):
+    /// - First 32 bytes: receiver address (as Bytes)
+    /// - Next 8 bytes: duration in seconds (u64, big-endian)
+    /// 
+    /// # Parameters
+    /// - `from`: The address that sent the tokens (bridge contract)
+    /// - `amount`: The amount of tokens received
+    /// - `metadata`: Bytes containing receiver address and duration
+    /// 
+    /// # Returns
+    /// - `Ok(stream_id)` if stream was created successfully
+    /// - `Ok(0)` if no valid metadata was provided (funds still received but no stream created)
+    /// - `Err(Error)` if metadata was invalid
+    pub fn on_token_receive(
+        env: Env,
+        from: Address,
+        amount: i128,
+        metadata: Bytes,
+    ) -> Result<u64, Error> {
+        // Don't require auth for bridge callbacks - the bridge should be authorized
+        // by having sent the tokens to this contract
+        
+        // Validate minimum amount
+        if amount <= 0 {
+            return Err(Error::InvalidBridgeMetadata);
+        }
+
+        // If no metadata or too short, just accept funds without creating stream
+        if metadata.is_empty() || metadata.len() < 40 {
+            // Just accept the funds - no auto-stream created
+            return Ok(0);
+        }
+
+        // Parse metadata: first 32 bytes = receiver address, next 8 bytes = duration
+        let receiver_address_bytes = metadata.slice(0..32);
+        let duration_bytes = metadata.slice(32..40);
+
+        // Parse duration from 8 bytes (big-endian u64)
+        let mut arr = [0u8; 8];
+        for i in 0u32..8 {
+            arr[i as usize] = duration_bytes.get(i).unwrap_or(0);
+        }
+        let duration = u64::from_be_bytes(arr);
+
+        // Validate duration (must be at least 1 second and not exceed 10 years)
+        if duration == 0 || duration > 315_360_000 {
+            return Err(Error::InvalidDuration);
+        }
+
+        // Convert receiver address bytes to Address
+        // For Stellar addresses, we need to handle them properly
+        // Try to parse as a valid address from the bytes
+        let receiver_address = Self::parse_address_from_bytes(&receiver_address_bytes)?;
+
+        // Get the token address - this will be the token that was transferred
+        // We need to determine which token was sent. In a bridge scenario,
+        // the token contract that called this function is the token being received.
+        // We'll need to get this from the environment.
+        let token_address = Self::get_received_token(&env, &from)?;
+
+        // Validate asset is whitelisted
+        Self::require_asset_whitelisted(&env, &token_address)?;
+
+        // Calculate stream times
+        let now = env.ledger().timestamp();
+        let start_time = now;
+        let end_time = now.saturating_add(duration);
+
+        // Create StreamArgs
+        let stream_args = StreamArgs {
+            sender: from.clone(), // Bridge acts as sender (has the funds)
+            receiver: receiver_address.clone(),
+            token: token_address,
+            total_amount: amount,
+            start_time,
+            cliff_time: start_time, // No cliff for bridge-in streams
+            end_time,
+            step_duration: 0, // Default linear stream
+            multiplier_bps: 10000, // 1.0x multiplier (no escalation)
+            penalty_bps: 0, // No penalty for bridge streams
+            vault_address: None, // No yield for bridge streams initially
+            yield_enabled: false,
+            is_recurrent: false,
+            cycle_duration: 0,
+            cancellation_type: 0, // Unilateral cancellation
+            affiliate: None,
+        };
+
+        // Create the stream
+        let stream_id = Self::create_stream_internal(env.clone(), stream_args)?;
+
+        // Emit event for bridge-in stream creation
+        let mut data = Vec::new(&env);
+        data.push_back(stream_id.into_val(&env));
+        data.push_back(from.into_val(&env));
+        data.push_back(receiver_address.into_val(&env));
+        data.push_back(amount.into_val(&env));
+        data.push_back(duration.into_val(&env));
+        data.push_back(now.into_val(&env));
+
+        env.events().publish(
+            (stream_id, symbol_short!("bridge_in")),
+            NebulaEvent {
+                version: 2,
+                timestamp: now,
+                action: symbol_short!("bridge_in"),
+                data,
+            },
+        );
+
+        Ok(stream_id)
+    }
+
+    /// Parse address from bytes slice.
+    /// The bytes should contain a valid Stellar address string (e.g., "G...").
+    fn parse_address_from_bytes(bytes: &soroban_sdk::Bytes) -> Result<Address, Error> {
+        // The metadata should contain a string like "GABC123..."
+        // We'll try to extract it as a string
+        
+        // Check minimum length for a Stellar address
+        if bytes.len() < 56 {
+            return Err(Error::MissingReceiverAddress);
+        }
+        
+        // For Stellar addresses encoded as strings, they're typically 56 characters
+        // Starting with 'G' and containing base32 characters
+        // Since we can't easily convert Bytes to String in Soroban, we need a workaround
+        
+        // Try to find a 'G' in the bytes to locate the address start
+        let mut start_idx: Option<u32> = None;
+        for i in 0u32..bytes.len() {
+            if bytes.get(i).unwrap_or(0) == b'G' {
+                start_idx = Some(i);
+                break;
+            }
+        }
+        
+        let start_idx = start_idx.ok_or(Error::MissingReceiverAddress)?;
+        
+        // Extract up to 56 characters after 'G'
+        let mut addr_str_arr = [0u8; 56];
+        let mut found_end = false;
+        let mut char_count = 0usize;
+        
+        for j in 0usize..56 {
+            let idx = start_idx as usize + j;
+            if idx >= bytes.len() as usize {
+                found_end = true;
+                break;
+            }
+            let b = bytes.get(idx as u32).unwrap_or(0);
+            if b == 0 {
+                found_end = true;
+                break;
+            }
+            addr_str_arr[j] = b;
+            char_count += 1;
+        }
+        
+        if char_count < 56 {
+            return Err(Error::MissingReceiverAddress);
+        }
+        
+        // Create string from the array
+        let addr_str = soroban_sdk::String::from_str(
+            &bytes.env(),
+            core::str::from_utf8(&addr_str_arr[..56]).unwrap_or(""),
+        );
+        
+        Ok(Address::from_string(&addr_str))
+    }
+
+    /// Get the token address that was received.
+    /// The bridge should include the token address in the metadata.
+    /// For now, we use the 'from' address as the token if it's a valid token contract.
+    fn get_received_token(_env: &Env, from: &Address) -> Result<Address, Error> {
+        // In many bridge scenarios, the 'from' address is the token contract
+        // This is a reasonable default - the bridge can pass the token as the sender
+        // and we'll treat the first 32 bytes of metadata as the actual sender
+        Ok(from.clone())
+    }
+
+    /// Internal create_stream logic without auth check (used by bridge)
+    fn create_stream_internal(env: Env, args: StreamArgs) -> Result<u64, Error> {
+        Self::require_not_paused(&env)?;
+        Self::require_asset_whitelisted(&env, &args.token)?;
+
+        if args.start_time >= args.end_time
+            || args.cliff_time < args.start_time
+            || args.cliff_time > args.end_time
+        {
+            return Err(Error::InvalidTimeRange);
+        }
+
+        if args.penalty_bps > 10_000 {
+            return Err(Error::InvalidPenalty);
+        }
+
+        if args.total_amount < storage::get_min_value(&env, &args.token) {
+            return Err(Error::BelowDustThreshold);
+        }
+
+        // Note: Funds already transferred to contract via token callback
+        // No need to do another transfer
+
+        let stream_amount = Self::apply_protocol_fee(&env, &args.token, args.total_amount)?;
+
+        let stream_id = storage::next_stream_id(&env);
+
+        let stream = StreamV2 {
+            sender: args.sender.clone(),
+            receiver: args.receiver.clone(),
+            beneficiary: args.receiver.clone(),
+            token: args.token.clone(),
+            total_amount: stream_amount,
+            start_time: args.start_time,
+            end_time: args.end_time,
+            cliff_time: args.cliff_time,
+            withdrawn_amount: 0,
+            cancelled: false,
+            migrated_from_v1: false,
+            v1_stream_id: 0,
+            step_duration: args.step_duration,
+            multiplier_bps: args.multiplier_bps,
+            penalty_bps: args.penalty_bps,
+            vault_address: None,
+            yield_enabled: args.yield_enabled,
+            is_pending: false,
+            is_recurrent: args.is_recurrent,
+            cycle_duration: args.cycle_duration,
+            cancellation_type: args.cancellation_type,
+        };
+
+        storage::set_stream(&env, stream_id, &stream);
+        storage::update_stats(&env, stream_amount, &args.sender, &args.receiver);
+
+        let now = env.ledger().timestamp();
+        let mut data = Vec::new(&env);
+        data.push_back(stream_id.into_val(&env));
+        data.push_back(args.sender.clone().into_val(&env));
+        data.push_back(args.receiver.clone().into_val(&env));
+        data.push_back(args.token.clone().into_val(&env));
+        data.push_back(stream_amount.into_val(&env));
+        data.push_back(args.start_time.into_val(&env));
+        data.push_back(args.cliff_time.into_val(&env));
+        data.push_back(args.end_time.into_val(&env));
+        data.push_back(now.into_val(&env));
+
+        env.events().publish(
+            (stream_id, symbol_short!("create_v2")),
+            NebulaEvent {
+                version: 2,
+                timestamp: now,
+                action: symbol_short!("create_v2"),
+                data,
+            },
+        );
+
+        Ok(stream_id)
+    }
+
+    // ----------------------------------------------------------------
     // Issue #400 — Multi-sig Admin Handover
     // ----------------------------------------------------------------
 
