@@ -81,4 +81,6 @@ export const config = {
   get maxPageSize() { return parseInt(process.env.MAX_PAGE_SIZE ?? "100", 10); },
   get discordWebhookUrl() { return process.env.DISCORD_WEBHOOK_URL ?? ""; },
   get megaStreamThreshold() { return BigInt(process.env.MEGA_STREAM_THRESHOLD ?? "1000000000000"); },
+  get minValueUsd() { return parseFloat(process.env.MIN_VALUE_USD ?? "0.10"); },
+  get redisUrl() { return process.env.REDIS_URL ?? "redis://localhost:6379"; },
 };

@@ -252,7 +252,7 @@ impl Contract {
             if let Some(stream) = storage::get_stream(&env, id) {
                 let unlocked = Self::calculate_unlocked_internal(&stream, now);
                 let remaining_unlocked = unlocked.saturating_sub(stream.withdrawn_amount);
-                
+
                 let status = if stream.cancelled {
                     StreamStatus::Cancelled
                 } else if now >= stream.end_time {
@@ -290,8 +290,7 @@ impl Contract {
         Self::require_not_paused(&env)?;
         beneficiary.require_auth();
 
-        let mut stream =
-            storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+        let mut stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
 
         if stream.beneficiary != beneficiary {
             return Err(Error::NotBeneficiary);
@@ -365,8 +364,7 @@ impl Contract {
     pub fn cancel(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
         Self::require_not_paused(&env)?;
 
-        let mut stream =
-            storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+        let mut stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
 
         if stream.cancelled {
             return Err(Error::AlreadyCancelled);
@@ -447,8 +445,7 @@ impl Contract {
     ) -> Result<(), Error> {
         Self::require_not_paused(&env)?;
 
-        let mut stream =
-            storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+        let mut stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
 
         stream.beneficiary.require_auth();
 
@@ -540,7 +537,12 @@ impl Contract {
         res
     }
 
-    pub fn top_up(env: Env, stream_id: u64, sender: Address, extra_amount: i128) -> Result<(), Error> {
+    pub fn top_up(
+        env: Env,
+        stream_id: u64,
+        sender: Address,
+        extra_amount: i128,
+    ) -> Result<(), Error> {
         Self::require_not_paused(&env)?;
         sender.require_auth();
 
@@ -548,8 +550,7 @@ impl Contract {
             return Err(Error::BelowDustThreshold);
         }
 
-        let mut stream =
-            storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+        let mut stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
 
         if stream.sender != sender {
             return Err(Error::NotStreamOwner);
@@ -567,11 +568,7 @@ impl Contract {
 
         // Pull the new funds into the contract.
         let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-        token_client.transfer(
-            &sender,
-            &env.current_contract_address(),
-            &extra_amount,
-        );
+        token_client.transfer(&sender, &env.current_contract_address(), &extra_amount);
 
         // Extend end_time proportionally: keep the same rate over the new remaining balance.
         let duration = (stream.end_time - stream.start_time) as i128;
@@ -1005,7 +1002,7 @@ impl Contract {
         for args in streams.iter() {
             // All streams must have the same sender
             if args.sender != sender {
-                return Err(Error::UnauthorizedSender); 
+                return Err(Error::UnauthorizedSender);
             }
 
             // Validate time ranges
@@ -1021,7 +1018,8 @@ impl Contract {
                 return Err(Error::BelowDustThreshold);
             }
 
-            total_amount = total_amount.checked_add(args.total_amount)
+            total_amount = total_amount
+                .checked_add(args.total_amount)
                 .ok_or(Error::InvalidTimeRange)?; // Overflow protection
         }
 
@@ -1029,12 +1027,9 @@ impl Contract {
         sender.require_auth();
 
         // Calculate total amount needed and transfer all tokens at once
-        let token_client = soroban_sdk::token::TokenClient::new(&env, &streams.get(0).unwrap().token);
-        token_client.transfer(
-            &sender,
-            &env.current_contract_address(),
-            &total_amount,
-        );
+        let token_client =
+            soroban_sdk::token::TokenClient::new(&env, &streams.get(0).unwrap().token);
+        token_client.transfer(&sender, &env.current_contract_address(), &total_amount);
 
         // Create all streams
         let mut stream_ids = Vec::new(&env);
@@ -1148,7 +1143,8 @@ impl Contract {
         let admin = storage::try_get_admin(&env)?;
         admin.require_auth();
 
-        let execution_time = storage::get_scheduled_op_time(&env, &op).ok_or(Error::OpNotScheduled)?;
+        let execution_time =
+            storage::get_scheduled_op_time(&env, &op).ok_or(Error::OpNotScheduled)?;
 
         if env.ledger().timestamp() < execution_time {
             return Err(Error::NotExecutionTime);
@@ -1204,8 +1200,7 @@ impl Contract {
     pub fn refill_stream(env: Env, stream_id: u64) -> Result<(), Error> {
         Self::require_not_paused(&env)?;
 
-        let mut stream =
-            storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+        let mut stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
 
         if !stream.is_recurrent {
             return Err(Error::NotRecurrent);

@@ -1,0 +1,27 @@
+This developer reference outlines the Real-Time Stream-Ticker States, a high-precision UI pattern designed for high-frequency financial data within the Ascent Framework. The system focuses on tabular clarity, visual haptics, and sub-millisecond update visualizations.
+
+Core Ticker States
+01. Increasing State (Inflow Active)
+Represents an active inflow with positive momentum indicators.
+
+Visuals: Large green typography for primary values with a "glow" specification.
+
+Glow Spec: drop-shadow: 0 0 25px rgba(34, 197, 94, 0.4); transition: filter 150ms ease;
+
+Motion Logic: Upward indicators use a 2Hz breathing animation. Main value increments at a 60fps frame rate.
+
+02. Decreasing State (Outflow Active)
+Represents a withdrawal or negative flow state.
+
+Visual Haptics: Reduced luminance. The focus shifts to a "White Glow" (#FFFFFF) to minimize cognitive alarm during expected withdrawals.
+
+Progress Tracking: Displays a "Floor" value vs. "Current" percentage (e.g., 89.2%).
+
+03. High-Freq Pulse (Live Buffer)
+Designed for sub-millisecond update visualization where data moves too fast for standard reading.
+
+Motion Spec: Uses a last_digits_blur: 2px and a container_pulse: scale(1.02).
+
+Refresh Interval: 16.6ms (60Hz).
+
+https://www.figma.com/design/I1wwFXb3dZjmuDzxo1oYca/Component-Easy?m=auto&t=xJ4MXTEXEvVD7pYA-6

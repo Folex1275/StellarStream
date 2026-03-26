@@ -126,10 +126,8 @@ exports.Prisma.StreamScalarFieldEnum = {
   id: 'id',
   streamId: 'streamId',
   txHash: 'txHash',
-  version: 'version',
   sender: 'sender',
   receiver: 'receiver',
-  contractId: 'contractId',
   tokenAddress: 'tokenAddress',
   amount: 'amount',
   duration: 'duration',
@@ -138,27 +136,6 @@ exports.Prisma.StreamScalarFieldEnum = {
   legacy: 'legacy',
   migrated: 'migrated',
   isPrivate: 'isPrivate',
-  yieldEnabled: 'yieldEnabled',
-  vaultContractId: 'vaultContractId',
-  vaultShareBalance: 'vaultShareBalance',
-  vaultRatioScale: 'vaultRatioScale',
-  accruedInterest: 'accruedInterest',
-  lastYieldAccrualAt: 'lastYieldAccrualAt',
-  createdAt: 'createdAt'
-};
-
-exports.Prisma.ContractEventScalarFieldEnum = {
-  id: 'id',
-  eventId: 'eventId',
-  contractId: 'contractId',
-  txHash: 'txHash',
-  eventType: 'eventType',
-  eventIndex: 'eventIndex',
-  ledgerSequence: 'ledgerSequence',
-  ledgerClosedAt: 'ledgerClosedAt',
-  topicXdr: 'topicXdr',
-  valueXdr: 'valueXdr',
-  decodedJson: 'decodedJson',
   createdAt: 'createdAt'
 };
 
@@ -286,13 +263,23 @@ exports.Prisma.NotificationSubscriptionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.AssetConfigScalarFieldEnum = {
+  id: 'id',
+  assetId: 'assetId',
+  symbol: 'symbol',
+  name: 'name',
+  decimals: 'decimals',
+  isVerified: 'isVerified',
+  isVisible: 'isVisible',
+  yieldEnabled: 'yieldEnabled',
+  iconUrl: 'iconUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
-};
-
-exports.Prisma.JsonNullValueInput = {
-  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -303,12 +290,6 @@ exports.Prisma.QueryMode = {
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
-};
-
-exports.Prisma.JsonNullValueFilter = {
-  DbNull: Prisma.DbNull,
-  JsonNull: Prisma.JsonNull,
-  AnyNull: Prisma.AnyNull
 };
 exports.StreamStatus = exports.$Enums.StreamStatus = {
   ACTIVE: 'ACTIVE',
@@ -325,7 +306,6 @@ exports.NotificationPlatform = exports.$Enums.NotificationPlatform = {
 
 exports.Prisma.ModelName = {
   Stream: 'Stream',
-  ContractEvent: 'ContractEvent',
   TokenPrice: 'TokenPrice',
   Webhook: 'Webhook',
   SyncState: 'SyncState',
@@ -336,7 +316,8 @@ exports.Prisma.ModelName = {
   Proposal: 'Proposal',
   ApiKey: 'ApiKey',
   LedgerHash: 'LedgerHash',
-  NotificationSubscription: 'NotificationSubscription'
+  NotificationSubscription: 'NotificationSubscription',
+  AssetConfig: 'AssetConfig'
 };
 
 /**

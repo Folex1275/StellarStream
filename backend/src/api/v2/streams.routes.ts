@@ -2,11 +2,13 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import asyncHandler from "../../utils/asyncHandler.js";
 import { StreamService } from "../../services/stream.service.js";
+import { ExportService } from "../../services/export.service.js";
 import stellarAddressSchema from "../../validation/stellar.js";
 import { prisma } from "../../lib/db.js";
 
 const router = Router();
 const streamService = new StreamService();
+const exportService = new ExportService();
 
 const getStreamsParamsSchema = z.object({
   address: stellarAddressSchema,
@@ -80,6 +82,50 @@ router.patch(
 
     res.json({ success: true, data: updated });
   }),
+);
+
+const exportFormatSchema = z.enum(["csv", "json"]).default("csv");
+
+/**
+ * GET /api/v2/streams/:id/export
+ * Exports stream audit log as CSV or JSON for tax/accounting purposes.
+ * Query param: format=csv|json (default: csv)
+ */
+router.get(
+    "/:id/export",
+    asyncHandler(async (req: Request, res: Response) => {
+        const streamId = req.params.id;
+        const formatResult = exportFormatSchema.safeParse(req.query.format);
+        const format = formatResult.success ? formatResult.data : "csv";
+
+        // Verify stream exists
+        const stream = await prisma.stream.findUnique({
+            where: { id: streamId },
+        });
+
+        if (!stream) {
+            res.status(404).json({ error: "Stream not found" });
+            return;
+        }
+
+        let data: string;
+        let contentType: string;
+        let filename: string;
+
+        if (format === "json") {
+            data = await exportService.exportStreamAsJSON(streamId);
+            contentType = "application/json";
+            filename = `stream-${streamId}-audit-log.json`;
+        } else {
+            data = await exportService.exportStreamAsCSV(streamId);
+            contentType = "text/csv";
+            filename = `stream-${streamId}-audit-log.csv`;
+        }
+
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.send(data);
+    })
 );
 
 export default router;

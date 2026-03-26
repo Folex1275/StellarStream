@@ -13,55 +13,25 @@ datasource db {
 
 // Mirrors the Stream state from the Soroban smart contract
 model Stream {
-  id                 String       @id @default(cuid())
-  streamId           String?      @unique // Contract-level Stream ID
-  txHash             String       @unique
-  version            Int          @default(1)
-  sender             String
-  receiver           String
-  contractId         String?      @map("contract_id")
-  tokenAddress       String?
-  amount             String // Store as string to handle large numbers safely
-  duration           Int?
-  status             StreamStatus @default(ACTIVE)
-  withdrawn          String?      @default("0")
-  legacy             Boolean      @default(false) // true = originated from V1 contract
-  migrated           Boolean      @default(false) // true = V1 stream superseded by V2
-  isPrivate          Boolean      @default(false)
-  yieldEnabled       Boolean      @default(false) @map("yield_enabled")
-  vaultContractId    String?
-  vaultShareBalance  String?
-  vaultRatioScale    String?
-  accruedInterest    String       @default("0")
-  lastYieldAccrualAt DateTime?
-  createdAt          DateTime     @default(now())
+  id           String       @id @default(cuid())
+  streamId     String?      @unique // Contract-level Stream ID
+  txHash       String       @unique
+  sender       String
+  receiver     String
+  tokenAddress String?
+  amount       String // Store as string to handle large numbers safely
+  duration     Int?
+  status       StreamStatus @default(ACTIVE)
+  withdrawn    String?      @default("0")
+  legacy       Boolean      @default(false) // true = originated from V1 contract
+  migrated     Boolean      @default(false) // true = V1 stream superseded by V2
+  isPrivate    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
 
   @@index([sender])
   @@index([receiver])
   @@index([streamId])
-  @@index([contractId])
   @@index([legacy])
-  @@index([yieldEnabled, status])
-}
-
-model ContractEvent {
-  id             String   @id @default(cuid())
-  eventId        String   @unique @map("event_id")
-  contractId     String   @map("contract_id")
-  txHash         String   @map("tx_hash")
-  eventType      String   @map("event_type")
-  eventIndex     Int      @default(0) @map("event_index")
-  ledgerSequence Int      @map("ledger_sequence")
-  ledgerClosedAt String?  @map("ledger_closed_at")
-  topicXdr       String[] @default([]) @map("topic_xdr")
-  valueXdr       String   @map("value_xdr")
-  decodedJson    Json     @map("decoded_json")
-  createdAt      DateTime @default(now()) @map("created_at")
-
-  @@unique([txHash, eventIndex])
-  @@index([contractId, ledgerSequence])
-  @@index([eventType])
-  @@index([txHash])
 }
 
 // Token prices for leaderboard volume calculations
@@ -239,4 +209,22 @@ model NotificationSubscription {
 enum NotificationPlatform {
   discord
   telegram
+}
+
+// Whitelisted assets visible in the StellarStream UI
+model AssetConfig {
+  id           String   @id @default(cuid())
+  assetId      String   @unique // Stellar asset identifier (e.g. "USDC:GABC...")
+  symbol       String
+  name         String
+  decimals     Int      @default(7)
+  isVerified   Boolean  @default(false)
+  isVisible    Boolean  @default(true)
+  yieldEnabled Boolean  @default(false) @map("yield_enabled")
+  iconUrl      String?  @map("icon_url")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isVerified])
+  @@index([isVisible])
 }

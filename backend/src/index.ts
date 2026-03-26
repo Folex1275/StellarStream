@@ -5,6 +5,9 @@ import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import swaggerUi from "swagger-ui-express";
 import { WebSocketService } from "./services/websocket.service.js";
+import { WarpService } from "./services/warp.service.js";
+import { BridgeObserverService } from "./services/bridge-observer.service.js";
+import { TTLArchivalMonitorService } from "./services/ttl-archival-monitor.service.js";
 import helmet from "helmet";
 import cors from "cors";
 import apiRouter from "./api/index.js";
@@ -25,8 +28,10 @@ import { scheduleSnapshotMaintenance } from "./services/snapshot.scheduler.js";
 import { StaleStreamCleanupWorker } from "./stale-stream-cleanup.worker.js";
 import { DataIntegrityWorker } from "./data-integrity.worker.js";
 import { YieldAccrualWorker } from "./yield-accrual.worker.js";
+import { startWebhookWorker } from "./webhook-dispatcher.worker.js";
 import { bigintSerializer } from "./middleware/bigintSerializer.js";
 import { swaggerSpec } from "./swagger.js";
+import { initializeSchedulers } from "./schedulers.js";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -45,6 +50,9 @@ const io = new SocketIOServer(server, {
 
 const PORT = process.env.PORT ?? 3000;
 export const wsService = new WebSocketService(io);
+export const warpService = new WarpService(wsService);
+export const bridgeObserver = new BridgeObserverService(wsService);
+export const ttlMonitor = new TTLArchivalMonitorService(wsService);
 const cleanupWorker = new StaleStreamCleanupWorker();
 const dataIntegrityWorker = new DataIntegrityWorker();
 const yieldAccrualWorker = new YieldAccrualWorker();
@@ -159,14 +167,22 @@ Sentry.setupExpressErrorHandler(app);
 async function start(): Promise<void> {
   await ensureRedis();
   scheduleSnapshotMaintenance();
+  initializeSchedulers();
   cleanupWorker.start();
   dataIntegrityWorker.start();
   yieldAccrualWorker.start();
+  startWebhookWorker();
+  
+  // Start background services
+  bridgeObserver.start();
+  ttlMonitor.start();
 
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📖 API docs: http://localhost:${PORT}/api/v1/docs`);
     console.log(`🔌 WebSocket ready`);
+    console.log(`🌉 Bridge observer active`);
+    console.log(`⏱️  TTL monitor active`);
   });
 }
 
@@ -175,6 +191,8 @@ function shutdown(signal: string): void {
   cleanupWorker.stop();
   dataIntegrityWorker.stop();
   yieldAccrualWorker.stop();
+  bridgeObserver.stop();
+  ttlMonitor.stop();
   closeRedis()
     .then(() => prisma.$disconnect())
     .then(() => {

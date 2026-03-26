@@ -5,7 +5,7 @@ use crate::types::{PermitArgs, StreamArgs};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
     token::TokenClient,
-    Address, Env, vec,
+    vec, Address, Env,
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -597,10 +597,10 @@ fn test_set_admins_replaces_list_and_threshold() {
     let op = crate::types::Operation::SetAdmins(new_admins, 2);
 
     client.schedule_op(&op);
-    
+
     // Advance time by 48 hours and 1 second
     env.ledger().set_timestamp(48 * 60 * 60 + 1);
-    
+
     client.execute_op(&op);
 
     assert_eq!(client.get_threshold(), 2u32);
@@ -1442,7 +1442,11 @@ impl MockVault {
     }
 
     pub fn withdraw(env: Env, amount: i128) -> i128 {
-        let is_paused = env.storage().instance().get::<Symbol, bool>(&symbol_short!("paused")).unwrap_or(false);
+        let is_paused = env
+            .storage()
+            .instance()
+            .get::<Symbol, bool>(&symbol_short!("paused"))
+            .unwrap_or(false);
         if is_paused {
             panic!("Vault is paused");
         }
@@ -1450,7 +1454,9 @@ impl MockVault {
     }
 
     pub fn set_paused(env: Env, paused: bool) {
-        env.storage().instance().set(&symbol_short!("paused"), &paused);
+        env.storage()
+            .instance()
+            .set(&symbol_short!("paused"), &paused);
     }
 }
 
@@ -1492,7 +1498,7 @@ fn test_yield_bearing_stream() {
 
     // Withdraw. Should call vault.
     v2_client.withdraw(&0, &receiver);
-    
+
     // Check balance
     assert_eq!(token_client.balance(&receiver), 250_000_000);
 
@@ -1502,7 +1508,7 @@ fn test_yield_bearing_stream() {
     // Try to withdraw remaining 250M. Should return 0 and set is_pending.
     env.ledger().set_timestamp(1000);
     let result = v2_client.withdraw(&0, &receiver);
-    
+
     assert_eq!(result, 0);
 
     // Verify stream is pending
@@ -1512,6 +1518,6 @@ fn test_yield_bearing_stream() {
     // Unpause and retry
     vault_client.set_paused(&false);
     v2_client.withdraw(&0, &receiver);
-    
+
     assert_eq!(token_client.balance(&receiver), 500_000_000);
 }

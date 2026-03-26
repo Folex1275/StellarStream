@@ -72,12 +72,16 @@ pub fn set_admin(env: &Env, admin: &Address) {
 /// Return the first admin (legacy helper used by existing callers).
 pub fn get_admin(env: &Env) -> Address {
     bump_instance(env);
-    get_admin_list(env).first().unwrap_or_else(|| env.panic_with_error(Error::ContractNotInitialized))
+    get_admin_list(env)
+        .first()
+        .unwrap_or_else(|| env.panic_with_error(Error::ContractNotInitialized))
 }
 
 pub fn try_get_admin(env: &Env) -> Result<Address, Error> {
     bump_instance(env);
-    get_admin_list(env).first().ok_or(Error::ContractNotInitialized)
+    get_admin_list(env)
+        .first()
+        .ok_or(Error::ContractNotInitialized)
 }
 
 /// Returns true if the admin list has been initialised.
@@ -318,7 +322,9 @@ pub fn get_scheduled_op_time(env: &Env, op: &crate::types::Operation) -> Option<
 }
 
 pub fn clear_op(env: &Env, op: &crate::types::Operation) {
-    env.storage().instance().remove(&DataKeyV2::ScheduledOp(op.clone()));
+    env.storage()
+        .instance()
+        .remove(&DataKeyV2::ScheduledOp(op.clone()));
     bump_instance(env);
 }
 
@@ -328,9 +334,7 @@ pub fn clear_op(env: &Env, op: &crate::types::Operation) {
 
 /// Set the protocol treasury address. Admin-only enforcement is in lib.rs.
 pub fn set_treasury(env: &Env, treasury: &Address) {
-    env.storage()
-        .instance()
-        .set(&DataKeyV2::Treasury, treasury);
+    env.storage().instance().set(&DataKeyV2::Treasury, treasury);
     bump_instance(env);
 }
 
