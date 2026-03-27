@@ -21,4 +21,8 @@ pub enum DataKey {
     VerifiedUsers(Address),
     /// persistent() — proposals keyed by id
     Proposal(u64),
+    /// instance() — next scheduled split id counter
+    NextSplitId,
+    /// persistent() — scheduled splits keyed by split_id
+    ScheduledSplit(u64),
 }

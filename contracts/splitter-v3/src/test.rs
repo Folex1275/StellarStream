@@ -196,3 +196,167 @@ fn test_split_uses_updated_fee() {
     // 0% fee → alice gets the full amount.
     assert_eq!(s.token.balance(&alice), 1_000_000);
 }
+
+// ── Scheduled split tests ─────────────────────────────────────────────────────
+
+use crate::{SplitStatus};
+use soroban_sdk::testutils::Ledger as _;
+
+#[test]
+fn test_schedule_and_execute_split() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+    let bob = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 6_000 });
+    recipients.push_back(Recipient { address: bob.clone(), share_bps: 4_000 });
+
+    let now = s.env.ledger().timestamp();
+    let release_time = now + 1_000;
+
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &1_000_000, &release_time)
+        .unwrap();
+
+    // Advance ledger past release_time.
+    s.env.ledger().with_mut(|l| l.timestamp = release_time + 1);
+
+    s.contract.execute_split(&split_id).unwrap();
+
+    // 1% fee (100 bps) → distributable = 990_000
+    // alice: 990_000 * 6000 / 10000 = 594_000
+    // bob:   990_000 * 4000 / 10000 = 396_000
+    assert_eq!(s.token.balance(&alice), 594_000);
+    assert_eq!(s.token.balance(&bob), 396_000);
+
+    let config = s.contract.get_split(split_id).unwrap();
+    assert_eq!(config.status, SplitStatus::Executed);
+}
+
+#[test]
+fn test_cancel_split_refunds_sender() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let release_time = now + 1_000;
+    let initial_balance = s.token.balance(&s.owner);
+
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &500_000, &release_time)
+        .unwrap();
+
+    // Tokens are locked — owner balance reduced.
+    assert_eq!(s.token.balance(&s.owner), initial_balance - 500_000);
+
+    // Cancel before release_time.
+    s.contract.cancel_split(&s.owner, &split_id).unwrap();
+
+    // Tokens fully refunded.
+    assert_eq!(s.token.balance(&s.owner), initial_balance);
+
+    let config = s.contract.get_split(split_id).unwrap();
+    assert_eq!(config.status, SplitStatus::Cancelled);
+}
+
+#[test]
+fn test_cancel_split_wrong_sender_rejected() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+    let attacker = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &100_000, &(now + 1_000))
+        .unwrap();
+
+    let result = s.contract.cancel_split(&attacker, &split_id);
+    assert_eq!(result, Err(Error::NotSplitSender));
+}
+
+#[test]
+fn test_cancel_split_after_release_time_rejected() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let release_time = now + 500;
+
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &100_000, &release_time)
+        .unwrap();
+
+    // Advance past release_time.
+    s.env.ledger().with_mut(|l| l.timestamp = release_time + 1);
+
+    let result = s.contract.cancel_split(&s.owner, &split_id);
+    assert_eq!(result, Err(Error::SplitNotYetDue));
+}
+
+#[test]
+fn test_execute_split_before_release_time_rejected() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &100_000, &(now + 1_000))
+        .unwrap();
+
+    let result = s.contract.execute_split(&split_id);
+    assert_eq!(result, Err(Error::SplitNotYetDue));
+}
+
+#[test]
+fn test_cancel_already_cancelled_split_rejected() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &100_000, &(now + 1_000))
+        .unwrap();
+
+    s.contract.cancel_split(&s.owner, &split_id).unwrap();
+
+    let result = s.contract.cancel_split(&s.owner, &split_id);
+    assert_eq!(result, Err(Error::SplitAlreadyCancelled));
+}
+
+#[test]
+fn test_cancel_executed_split_rejected() {
+    let s = setup();
+    let alice = Address::generate(&s.env);
+
+    let mut recipients = Vec::new(&s.env);
+    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
+
+    let now = s.env.ledger().timestamp();
+    let release_time = now + 500;
+
+    let split_id = s.contract
+        .schedule_split(&s.owner, &recipients, &100_000, &release_time)
+        .unwrap();
+
+    s.env.ledger().with_mut(|l| l.timestamp = release_time + 1);
+    s.contract.execute_split(&split_id).unwrap();
+
+    let result = s.contract.cancel_split(&s.owner, &split_id);
+    assert_eq!(result, Err(Error::SplitAlreadyExecuted));
+}

@@ -14,4 +14,9 @@ pub enum Error {
     ProposalNotFound = 9,
     AlreadyExecuted = 10,
     QuorumNotReached = 11,    // < 2 approvals
+    SplitNotFound = 12,       // no scheduled split with that id
+    NotSplitSender = 13,      // caller is not the original sender
+    SplitAlreadyCancelled = 14, // split was already cancelled
+    SplitAlreadyExecuted = 15,  // split was already executed
+    SplitNotYetDue = 16,      // release_time has not been reached
 }

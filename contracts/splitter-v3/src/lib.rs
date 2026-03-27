@@ -43,6 +43,30 @@ pub struct Proposal {
     pub executed: bool,
 }
 
+/// Status of a scheduled split.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum SplitStatus {
+    Pending,
+    Executed,
+    Cancelled,
+}
+
+/// A scheduled (future) split stored on-chain until its release_time.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SplitConfig {
+    /// The address that funded and scheduled this split.
+    pub sender: Address,
+    /// Recipients and their shares (must sum to 10_000 bps).
+    pub recipients: Vec<Recipient>,
+    /// Total tokens locked in the contract for this split.
+    pub total_amount: i128,
+    /// Ledger timestamp (seconds) after which the split can be executed.
+    pub release_time: u64,
+    pub status: SplitStatus,
+}
+
 // ── Contract ──────────────────────────────────────────────────────────────────
 
 #[contract]
@@ -74,6 +98,7 @@ impl SplitterV3 {
         env.storage().instance().set(&DataKey::StrictMode, &false);
         env.storage().instance().set(&DataKey::NextProposalId, &0u64);
         env.storage().instance().set(&DataKey::QuorumAdmins, &quorum_admins);
+        env.storage().instance().set(&DataKey::NextSplitId, &0u64);
 
         // Auto-verify the owner.
         Self::_set_verified(&env, &owner, true);
@@ -285,6 +310,186 @@ impl SplitterV3 {
         }
 
         Ok(())
+    }
+
+    // ── Scheduled splits ──────────────────────────────────────────────────────
+
+    /// Lock `total_amount` tokens and schedule a split for `release_time`.
+    ///
+    /// Tokens are transferred from `sender` to the contract immediately.
+    /// The split can be executed by anyone once `release_time` has passed,
+    /// or cancelled exclusively by `sender` before that point.
+    ///
+    /// Returns the new `split_id`.
+    pub fn schedule_split(
+        env: Env,
+        sender: Address,
+        recipients: Vec<Recipient>,
+        total_amount: i128,
+        release_time: u64,
+    ) -> Result<u64, Error> {
+        sender.require_auth();
+
+        // Validate shares sum to 10_000 bps.
+        let mut bps_sum: u32 = 0;
+        for r in recipients.iter() {
+            bps_sum = bps_sum.checked_add(r.share_bps).ok_or(Error::Overflow)?;
+        }
+        if bps_sum != 10_000 {
+            return Err(Error::InvalidSplit);
+        }
+
+        // Lock the tokens in the contract.
+        let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(&sender, &env.current_contract_address(), &total_amount);
+
+        // Assign and increment the split id counter.
+        let split_id: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::NextSplitId)
+            .unwrap_or(0);
+        env.storage()
+            .instance()
+            .set(&DataKey::NextSplitId, &(split_id + 1));
+
+        let config = SplitConfig {
+            sender,
+            recipients,
+            total_amount,
+            release_time,
+            status: SplitStatus::Pending,
+        };
+        env.storage()
+            .persistent()
+            .set(&DataKey::ScheduledSplit(split_id), &config);
+
+        env.events()
+            .publish((symbol_short!("sched"), split_id), release_time);
+
+        Ok(split_id)
+    }
+
+    /// Execute a scheduled split once its `release_time` has been reached.
+    ///
+    /// Anyone may call this — the auth check is on the ledger timestamp, not
+    /// the caller identity.
+    pub fn execute_split(env: Env, split_id: u64) -> Result<(), Error> {
+        let mut config: SplitConfig = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ScheduledSplit(split_id))
+            .ok_or(Error::SplitNotFound)?;
+
+        match config.status {
+            SplitStatus::Cancelled => return Err(Error::SplitAlreadyCancelled),
+            SplitStatus::Executed => return Err(Error::SplitAlreadyExecuted),
+            SplitStatus::Pending => {}
+        }
+
+        if env.ledger().timestamp() < config.release_time {
+            return Err(Error::SplitNotYetDue);
+        }
+
+        let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        let contract_addr = env.current_contract_address();
+
+        let fee_bps: u32 = env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0);
+        let fee_amount = if fee_bps > 0 {
+            let f = config
+                .total_amount
+                .checked_mul(fee_bps as i128)
+                .ok_or(Error::Overflow)?
+                / 10_000;
+            let treasury: Address = env.storage().instance().get(&DataKey::Treasury).unwrap();
+            if f > 0 {
+                token_client.transfer(&contract_addr, &treasury, &f);
+            }
+            f
+        } else {
+            0
+        };
+        let distributable = config
+            .total_amount
+            .checked_sub(fee_amount)
+            .ok_or(Error::Overflow)?;
+
+        Self::_distribute(
+            &env,
+            &token_client,
+            &contract_addr,
+            &config.recipients,
+            distributable,
+        )?;
+
+        config.status = SplitStatus::Executed;
+        env.storage()
+            .persistent()
+            .set(&DataKey::ScheduledSplit(split_id), &config);
+
+        Ok(())
+    }
+
+    /// Cancel a pending scheduled split and refund the locked tokens to the
+    /// original sender.
+    ///
+    /// Auth: only the `sender` stored in the `SplitConfig` may call this.
+    /// Reverts if the split has already been executed or cancelled, or if
+    /// the release_time has already passed.
+    pub fn cancel_split(env: Env, caller: Address, split_id: u64) -> Result<(), Error> {
+        caller.require_auth();
+
+        let mut config: SplitConfig = env
+            .storage()
+            .persistent()
+            .get(&DataKey::ScheduledSplit(split_id))
+            .ok_or(Error::SplitNotFound)?;
+
+        // Strict sender-only auth: only the original funder may cancel.
+        if config.sender != caller {
+            return Err(Error::NotSplitSender);
+        }
+
+        match config.status {
+            SplitStatus::Cancelled => return Err(Error::SplitAlreadyCancelled),
+            SplitStatus::Executed => return Err(Error::SplitAlreadyExecuted),
+            SplitStatus::Pending => {}
+        }
+
+        // Disallow cancellation once the release window has opened — at that
+        // point recipients have a legitimate claim and execute_split can be
+        // called by anyone.
+        if env.ledger().timestamp() >= config.release_time {
+            return Err(Error::SplitNotYetDue);
+        }
+
+        // Refund the full locked amount back to the sender.
+        let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+        let token_client = token::Client::new(&env, &token_addr);
+        token_client.transfer(
+            &env.current_contract_address(),
+            &config.sender,
+            &config.total_amount,
+        );
+
+        config.status = SplitStatus::Cancelled;
+        env.storage()
+            .persistent()
+            .set(&DataKey::ScheduledSplit(split_id), &config);
+
+        env.events()
+            .publish((symbol_short!("cancel"), split_id), config.sender);
+
+        Ok(())
+    }
+
+    /// View a scheduled split by id.
+    pub fn get_split(env: Env, split_id: u64) -> Option<SplitConfig> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ScheduledSplit(split_id))
     }
 
     // ── Views ─────────────────────────────────────────────────────────────────
