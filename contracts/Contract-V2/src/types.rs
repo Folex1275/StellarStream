@@ -549,3 +549,76 @@ pub struct RateUpdateCancelledEvent {
     pub reason: u32, // 0 = expired, 1 = manually cancelled
     pub timestamp: u64,
 }
+
+// ----------------------------------------------------------------
+// Issue #409 — Pre-Flight Simulation Helper
+// ----------------------------------------------------------------
+
+/// Result of a stream creation simulation.
+/// This is a read-only dry-run that checks if stream creation would succeed.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct SimulationResult {
+    /// Whether the stream creation would succeed
+    pub success: bool,
+    /// Estimated storage footprint in bytes
+    pub estimated_footprint_bytes: u32,
+    /// Estimated RAM usage in bytes
+    pub estimated_ram_bytes: u32,
+    /// Error code if simulation failed (0 = success)
+    pub error_code: u32,
+    /// Human-readable error message if simulation failed
+    pub error_message: String,
+    /// Current sender balance
+    pub sender_balance: i128,
+    /// Required balance (including protocol fee)
+    pub required_balance: i128,
+    /// Whether the sender has sufficient balance
+    pub has_sufficient_balance: bool,
+    /// Estimated protocol fee
+    pub estimated_protocol_fee: i128,
+}
+
+/// Detailed simulation report with all checks
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SimulationReport {
+    /// Overall success status
+    pub would_succeed: bool,
+    /// Balance check result
+    pub balance_check: SimulationCheck,
+    /// Storage check result
+    pub storage_check: SimulationCheck,
+    /// Parameter validation result
+    pub params_check: SimulationCheck,
+    /// Ledger footprint estimate
+    pub footprint: LedgerFootprint,
+}
+
+/// Individual simulation check result
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct SimulationCheck {
+    /// Whether this check passed
+    pub passed: bool,
+    /// Error code if failed
+    pub error_code: u32,
+    /// Error message if failed
+    pub error_message: String,
+}
+
+/// Estimated ledger footprint for a stream
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct LedgerFootprint {
+    /// Instance storage bytes
+    pub instance_bytes: u32,
+    /// Persistent storage bytes
+    pub persistent_bytes: u32,
+    /// Estimated read operations
+    pub estimated_reads: u32,
+    /// Estimated write operations
+    pub estimated_writes: u32,
+    /// Estimated emit events size
+    pub event_bytes: u32,
+}

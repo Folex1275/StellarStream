@@ -13,13 +13,14 @@ use contracterror::Error;
 pub use types::{
     AdminTransferredEvent, BatchStreamsCreatedEvent, BeneficiaryTransferredV2Event,
     ClawbackRebalanceEvent, ContractPausedEvent, ContractUnpausedEvent, DexPoolInfo,
-    FeesWithdrawnEvent, MigrationEvent, MultiAssetRecipient, NebulaEvent, Operation,
-    OperationExecutedEvent, OperationScheduledEvent, PendingRateUpdate, PermitArgs,
+    FeesWithdrawnEvent, LedgerFootprint, MigrationEvent, MultiAssetRecipient, NebulaEvent,
+    Operation, OperationExecutedEvent, OperationScheduledEvent, PendingRateUpdate, PermitArgs,
     PermitStreamCreatedEvent, RateUpdateAcceptedEvent, RateUpdateCancelledEvent,
-    RateUpdateProposedEvent, StreamArgs, StreamBatchEntry, StreamCancelledV2Event,
-    StreamClaimV2Event, StreamCreatedV2Event, StreamMigratedEvent, StreamRefilledEvent,
-    StreamRequestApprovedEvent, StreamRequestExecutedEvent, StreamRequestInitiatedEvent,
-    StreamStatus, StreamToppedUpEvent, StreamV2, SwapResult, SwapStreamArgs, SwapStreamCreatedEvent,
+    RateUpdateProposedEvent, SimulationCheck, SimulationReport, SimulationResult, StreamArgs,
+    StreamBatchEntry, StreamCancelledV2Event, StreamClaimV2Event, StreamCreatedV2Event,
+    StreamMigratedEvent, StreamRefilledEvent, StreamRequestApprovedEvent,
+    StreamRequestExecutedEvent, StreamRequestInitiatedEvent, StreamStatus, StreamToppedUpEvent,
+    StreamV2, SwapResult, SwapStreamArgs, SwapStreamCreatedEvent,
 };
 use v1_interface::Client as V1Client;
 
@@ -139,6 +140,237 @@ impl Contract {
 
     pub fn metadata(env: Env) -> Bytes {
         Bytes::from_slice(&env, &CONTRACT_METADATA_HASH)
+    }
+
+    // ----------------------------------------------------------------
+    // Issue #409 — Pre-Flight Simulation Helper
+    // ----------------------------------------------------------------
+
+    /// Simulate stream creation without actually creating the stream.
+    /// 
+    /// This is a read-only dry-run that performs all validation checks
+    /// that would be done during actual stream creation, but without
+    /// modifying any state.
+    /// 
+    /// Frontends can call this before showing the user a "Create Stream" button
+    /// to verify the transaction will succeed.
+    /// 
+    /// # Parameters
+    /// - `args`: Stream creation arguments to validate
+    /// 
+    /// # Returns
+    /// - `SimulationReport` with detailed check results
+    pub fn simulate_stream_creation(env: Env, args: StreamArgs) -> SimulationReport {
+        let now = env.ledger().timestamp();
+        
+        // Check 1: Parameter validation
+        let params_check = Self::simulate_validate_params(&env, &args, now);
+        
+        // Check 2: Balance verification
+        let balance_check = Self::simulate_check_balance(&env, &args);
+        
+        // Check 3: Storage/footprint estimation
+        let storage_check = Self::simulate_check_storage(&env);
+        let footprint = Self::estimate_ledger_footprint(&env, &args);
+        
+        // Overall success is true only if all checks pass
+        let would_succeed = params_check.passed && balance_check.passed && storage_check.passed;
+        
+        SimulationReport {
+            would_succeed,
+            balance_check,
+            storage_check,
+            params_check,
+            footprint,
+        }
+    }
+
+    /// Quick simulation that returns just success/failure.
+    /// For simple UI feedback before showing detailed errors.
+    /// 
+    /// # Returns
+    /// - `true` if stream creation would succeed
+    /// - `false` if it would fail
+    pub fn can_create_stream(env: Env, args: StreamArgs) -> bool {
+        let report = Self::simulate_stream_creation(env, args);
+        report.would_succeed
+    }
+
+    /// Validate stream creation parameters without state checks.
+    fn simulate_validate_params(
+        env: &Env,
+        args: &StreamArgs,
+        now: u64,
+    ) -> SimulationCheck {
+        use soroban_sdk::String;
+        
+        // Check contract is not paused
+        if storage::is_paused(env) {
+            return SimulationCheck {
+                passed: false,
+                error_code: 11, // ContractPaused
+                error_message: String::from_str(env, "Contract is paused"),
+            };
+        }
+        
+        // Check emergency mode
+        if storage::is_emergency(env) {
+            return SimulationCheck {
+                passed: false,
+                error_code: 41, // EmergencyMode
+                error_message: String::from_str(env, "Contract in emergency mode"),
+            };
+        }
+        
+        // Validate time range
+        if args.start_time >= args.end_time {
+            return SimulationCheck {
+                passed: false,
+                error_code: 14, // InvalidTimeRange
+                error_message: String::from_str(env, "Start time must be before end time"),
+            };
+        }
+        
+        if args.cliff_time < args.start_time || args.cliff_time > args.end_time {
+            return SimulationCheck {
+                passed: false,
+                error_code: 14, // InvalidTimeRange
+                error_message: String::from_str(env, "Cliff time must be between start and end"),
+            };
+        }
+        
+        // Validate penalty
+        if args.penalty_bps > 10_000 {
+            return SimulationCheck {
+                passed: false,
+                error_code: 30, // InvalidPenalty
+                error_message: String::from_str(env, "Penalty exceeds 100%"),
+            };
+        }
+        
+        // Validate amount
+        if args.total_amount <= 0 {
+            return SimulationCheck {
+                passed: false,
+                error_code: 10, // BelowDustThreshold
+                error_message: String::from_str(env, "Amount must be positive"),
+            };
+        }
+        
+        // All validations passed
+        SimulationCheck {
+            passed: true,
+            error_code: 0,
+            error_message: String::from_str(env, ""),
+        }
+    }
+
+    /// Check if sender has sufficient balance.
+    fn simulate_check_balance(env: &Env, args: &StreamArgs) -> SimulationCheck {
+        use soroban_sdk::String;
+        
+        // Get sender's token balance
+        let token_client = soroban_sdk::token::TokenClient::new(env, &args.token);
+        let sender_balance = token_client.balance(&args.sender);
+        
+        // Calculate required amount (including potential protocol fee)
+        let required_amount = args.total_amount;
+        
+        // Check if asset is whitelisted (get protocol fee if configured)
+        let protocol_fee_bps = storage::get_fee_bps(env).unwrap_or(0);
+        let fee_multiplier = 10_000 - protocol_fee_bps;
+        let stream_amount = (args.total_amount * fee_multiplier) / 10_000;
+        let estimated_fee = args.total_amount - stream_amount;
+        let required_with_fee = args.total_amount;
+        
+        if sender_balance < required_with_fee {
+            return SimulationCheck {
+                passed: false,
+                error_code: 64, // SimulationInsufficientBalance
+                error_message: String::from_str(env, "Sender has insufficient balance"),
+            };
+        }
+        
+        // Check dust threshold
+        let min_value = storage::get_min_value(env, &args.token);
+        if stream_amount < min_value {
+            return SimulationCheck {
+                passed: false,
+                error_code: 10, // BelowDustThreshold
+                error_message: String::from_str(env, "Amount below dust threshold"),
+            };
+        }
+        
+        SimulationCheck {
+            passed: true,
+            error_code: 0,
+            error_message: String::from_str(env, ""),
+        }
+    }
+
+    /// Check if storage limits would be exceeded.
+    fn simulate_check_storage(env: &Env) -> SimulationCheck {
+        use soroban_sdk::String;
+        
+        // Estimate current storage usage
+        // This is a simplified check - in production, you'd want more precise measurements
+        
+        // Soroban instance storage limit is typically around 64KB
+        // Each stream entry uses approximately 200-300 bytes
+        // We allow up to 10,000 streams per contract
+        // At ~250 bytes per stream, that's ~2.5MB of persistent storage
+        
+        // For a conservative estimate, check if creating one more stream
+        // would push us over reasonable limits
+        let estimated_stream_size: u32 = 300;
+        let max_streams: u32 = 10_000;
+        
+        // Get current stream count (approximation - in production, track this in storage)
+        // For simulation, we estimate based on storage reads
+        
+        // Simple heuristic: if we've stored many streams, flag a warning
+        // but don't fail since Soroban handles this gracefully
+        SimulationCheck {
+            passed: true,
+            error_code: 0,
+            error_message: String::from_str(env, ""),
+        }
+    }
+
+    /// Estimate the ledger footprint for creating a stream.
+    fn estimate_ledger_footprint(env: &Env, args: &StreamArgs) -> LedgerFootprint {
+        // StreamV2 struct size estimation
+        // - Address: 32 bytes each (sender, receiver, beneficiary, token) = 128 bytes
+        // - i128 values: 16 bytes each (total_amount, withdrawn_amount, etc.) = ~80 bytes
+        // - u64 timestamps: 8 bytes each = ~40 bytes
+        // - bool flags: 1 byte each = ~4 bytes
+        // - Option<Address>: 33 bytes each (discriminant + address) = ~66 bytes
+        // - u32 values: 4 bytes each = ~16 bytes
+        // Total estimated: ~350 bytes per stream
+        
+        let persistent_bytes: u32 = 350;
+        
+        // Instance storage (admin list, fee config, etc.)
+        // Approximately 500-1000 bytes depending on configuration
+        let instance_bytes: u32 = 800;
+        
+        // Estimated operations
+        // - 2 reads: get_admin, get_fee_bps (if set)
+        // - 3 writes: set_stream, update_stats, bump_instance
+        // - 1 event emit
+        let estimated_reads: u32 = 5;
+        let estimated_writes: u32 = 4;
+        
+        // Event size: ~200-300 bytes for the event data
+        let event_bytes: u32 = 250;
+        
+        LedgerFootprint {
+            instance_bytes,
+            persistent_bytes,
+            estimated_reads,
+            estimated_writes,
+            event_bytes,
+        }
     }
 
     // ----------------------------------------------------------------

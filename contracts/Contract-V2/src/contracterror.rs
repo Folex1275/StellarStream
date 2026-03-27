@@ -104,4 +104,11 @@ pub enum Error {
     NotReceiver = 62,
     /// Stream is not active (already completed or cancelled)
     StreamNotActive = 63,
+    // Issue #409 — Pre-Flight Simulation Helper
+    /// Simulation: Sender has insufficient balance for the stream
+    SimulationInsufficientBalance = 64,
+    /// Simulation: Stream creation would exceed storage limits
+    SimulationStorageLimitExceeded = 65,
+    /// Simulation: Invalid parameters for stream creation
+    SimulationInvalidParams = 66,
 }
