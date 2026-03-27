@@ -73,4 +73,8 @@ pub enum Error {
     TreasurySplitAlreadyExecuted = 47,
     /// Reentrancy detected: contract is already executing a multi-transfer
     Reentrant = 48,
+    /// Stream not fully withdrawn: cannot archive until withdrawn_amount == total_amount
+    StreamNotFullyWithdrawn = 49,
+    /// Fee exceeds protocol maximum (protects users from excessive admin-set fees)
+    FeeTooHigh = 50,
 }

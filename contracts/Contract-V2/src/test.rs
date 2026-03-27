@@ -2491,3 +2491,129 @@ fn test_event_log_circular_eviction_at_cap() {
     let expected_newest = soroban_sdk::Bytes::from_slice(&env, &51u32.to_be_bytes());
     assert_eq!(log.get(49).unwrap(), expected_newest);
 }
+
+#[test]
+#[should_panic(expected = "StreamNotFullyWithdrawn")]
+fn test_close_and_archive_fails_partial_withdraw() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, _, asset_client) = create_token(&env, &token_admin);
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.add_to_whitelist(&token_id);
+
+    asset_client.mint(&sender, &100_000_000);
+
+    let sid = v2_client.create_stream(&StreamArgs {
+        sender: sender.clone(),
+        receiver: receiver.clone(),
+        token: token_id.clone(),
+        total_amount: 100_000_000,
+        start_time: 0,
+        cliff_time: 0,
+        end_time: 100,
+        step_duration: 0,
+        multiplier_bps: 0,
+        penalty_bps: 0,
+        vault_address: None,
+        yield_enabled: false,
+        is_recurrent: false,
+        cycle_duration: 0,
+        cancellation_type: 0,
+        affiliate: None,
+        yield_recipient: 0,
+        split_address: None,
+        split_bps: 0,
+    });
+
+    // Withdraw only 50% 
+    env.ledger().with_mut(|li| li.timestamp = 50);
+    let withdrawn = v2_client.withdraw(&sid, &receiver);
+    assert_eq!(withdrawn, 50_000_000);
+
+    // Fail: not fully withdrawn
+    v2_client.close_and_archive(&sid, &receiver);
+}
+
+#[test]
+fn test_close_and_archive_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.add_to_whitelist(&token_id);
+
+    asset_client.mint(&sender, &100_000_000);
+
+    let sid = v2_client.create_stream(&StreamArgs {
+        sender: sender.clone(),
+        receiver: receiver.clone(),
+        token: token_id.clone(),
+        total_amount: 100_000_000,
+        start_time: 0,
+        cliff_time: 0,
+        end_time: 100,
+        step_duration: 0,
+        multiplier_bps: 0,
+        penalty_bps: 0,
+        vault_address: None,
+        yield_enabled: false,
+        is_recurrent: false,
+        cycle_duration: 0,
+        cancellation_type: 0,
+        affiliate: None,
+        yield_recipient: 0,
+        split_address: None,
+        split_bps: 0,
+    });
+
+    // Withdraw fully
+    env.ledger().with_mut(|li| li.timestamp = 100);
+    let withdrawn = v2_client.withdraw(&sid, &receiver);
+    assert_eq!(withdrawn, 100_000_000);
+    assert_eq!(token_client.balance(&receiver), 100_000_000);
+
+    // Verify stream still exists
+    let stream = v2_client.get_stream(&sid).unwrap();
+    assert_eq!(stream.withdrawn_amount, 100_000_000);
+    assert_eq!(stream.total_amount, 100_000_000);
+
+    // Archive
+    v2_client.close_and_archive(&sid, &receiver);
+
+    // Stream gone
+    assert!(v2_client.get_stream(&sid).is_none());
+}
+
+#[test]
+fn test_set_fee_bps_respects_cap() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let (_, v2_client) = setup_v2(&env, &admin);
+
+    // Below cap (4%) OK
+    v2_client.set_fee_bps(&400);
+    assert_eq!(v2_client.get_fee_bps(), 400);
+
+    // At cap (5%) OK  
+    v2_client.set_fee_bps(&500);
+    assert_eq!(v2_client.get_fee_bps(), 500);
+
+    // Above cap (6%) fails
+    let result = v2_client.try_set_fee_bps(&600);
+    assert_eq!(result, Err(Ok(Error::FeeTooHigh)));
+    
+    // Still at 500
+    assert_eq!(v2_client.get_fee_bps(), 500);
+}

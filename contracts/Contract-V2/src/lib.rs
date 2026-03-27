@@ -16,8 +16,8 @@ pub use types::{
     MigrationEvent, MultiAssetRecipient, NebulaEvent, Operation, OperationExecutedEvent,
     OperationScheduledEvent, PermitArgs, PermitStreamCreatedEvent, StreamArgs, StreamBatchEntry,
     StreamCancelledV2Event, StreamClaimV2Event, StreamCreatedV2Event, StreamMigratedEvent,
-    StreamRefilledEvent, StreamStatus, StreamToppedUpEvent, StreamV2, StreamRequestInitiatedEvent,
-    StreamRequestApprovedEvent, StreamRequestExecutedEvent,
+    StreamRefilledEvent, StreamRequestApprovedEvent, StreamRequestExecutedEvent,
+    StreamRequestInitiatedEvent, StreamStatus, StreamToppedUpEvent, StreamV2,
 };
 use v1_interface::Client as V1Client;
 
@@ -28,11 +28,12 @@ const CONTRACT_VERSION: u32 = 2;
 /// SHA-256 of the contract-metadata.json file, stored as raw bytes.
 /// Avoids embedding a long URL string in the WASM binary.
 const CONTRACT_METADATA_HASH: [u8; 32] = [
-    0x9f, 0x86, 0xd0, 0x81, 0x88, 0x4c, 0x7d, 0x65,
-    0x9a, 0x2f, 0xea, 0xa0, 0xc5, 0x5a, 0xd0, 0x15,
-    0xa3, 0xbf, 0x4f, 0x1b, 0x2b, 0x0b, 0x82, 0x2c,
-    0xd1, 0x5d, 0x6c, 0x15, 0xb0, 0xf0, 0x0a, 0x08,
+    0x9f, 0x86, 0xd0, 0x81, 0x88, 0x4c, 0x7d, 0x65, 0x9a, 0x2f, 0xea, 0xa0, 0xc5, 0x5a, 0xd0, 0x15,
+    0xa3, 0xbf, 0x4f, 0x1b, 0x2b, 0x0b, 0x82, 0x2c, 0xd1, 0x5d, 0x6c, 0x15, 0xb0, 0xf0, 0x0a, 0x08,
 ];
+
+/// Maximum protocol fee (5%) - protects users from admin abuse (Issue #415)
+pub const MAX_FEE_BPS: u32 = 500;
 
 #[soroban_sdk::contractclient(name = "VaultClient")]
 pub trait VaultTrait {
@@ -88,20 +89,20 @@ impl Contract {
     // ----------------------------------------------------------------
 
     /// Handle incoming tokens from another chain (e.g., Ethereum via Allbridge).
-    /// 
+    ///
     /// When assets arrive with "Instruction Metadata", this function parses the
     /// metadata to extract receiver_address and duration, then automatically
     /// creates a stream without requiring a second transaction from the user.
-    /// 
+    ///
     /// Metadata format (40 bytes total):
     /// - First 32 bytes: receiver address (as Bytes)
     /// - Next 8 bytes: duration in seconds (u64, big-endian)
-    /// 
+    ///
     /// # Parameters
     /// - `from`: The address that sent the tokens (bridge contract)
     /// - `amount`: The amount of tokens received
     /// - `metadata`: Bytes containing receiver address and duration
-    /// 
+    ///
     /// # Returns
     /// - `Ok(stream_id)` if stream was created successfully
     /// - `Ok(0)` if no valid metadata was provided (funds still received but no stream created)
@@ -114,7 +115,7 @@ impl Contract {
     ) -> Result<u64, Error> {
         // Don't require auth for bridge callbacks - the bridge should be authorized
         // by having sent the tokens to this contract
-        
+
         // Validate minimum amount
         if amount <= 0 {
             return Err(Error::InvalidBridgeMetadata);
@@ -170,10 +171,10 @@ impl Contract {
             start_time,
             cliff_time: start_time, // No cliff for bridge-in streams
             end_time,
-            step_duration: 0, // Default linear stream
+            step_duration: 0,      // Default linear stream
             multiplier_bps: 10000, // 1.0x multiplier (no escalation)
-            penalty_bps: 0, // No penalty for bridge streams
-            vault_address: None, // No yield for bridge streams initially
+            penalty_bps: 0,        // No penalty for bridge streams
+            vault_address: None,   // No yield for bridge streams initially
             yield_enabled: false,
             is_recurrent: false,
             cycle_duration: 0,
@@ -211,16 +212,16 @@ impl Contract {
     fn parse_address_from_bytes(bytes: &soroban_sdk::Bytes) -> Result<Address, Error> {
         // The metadata should contain a string like "GABC123..."
         // We'll try to extract it as a string
-        
+
         // Check minimum length for a Stellar address
         if bytes.len() < 56 {
             return Err(Error::MissingReceiverAddress);
         }
-        
+
         // For Stellar addresses encoded as strings, they're typically 56 characters
         // Starting with 'G' and containing base32 characters
         // Since we can't easily convert Bytes to String in Soroban, we need a workaround
-        
+
         // Try to find a 'G' in the bytes to locate the address start
         let mut start_idx: Option<u32> = None;
         for i in 0u32..bytes.len() {
@@ -229,14 +230,14 @@ impl Contract {
                 break;
             }
         }
-        
+
         let start_idx = start_idx.ok_or(Error::MissingReceiverAddress)?;
-        
+
         // Extract up to 56 characters after 'G'
         let mut addr_str_arr = [0u8; 56];
         let mut found_end = false;
         let mut char_count = 0usize;
-        
+
         for j in 0usize..56 {
             let idx = start_idx as usize + j;
             if idx >= bytes.len() as usize {
@@ -251,17 +252,17 @@ impl Contract {
             addr_str_arr[j] = b;
             char_count += 1;
         }
-        
+
         if char_count < 56 {
             return Err(Error::MissingReceiverAddress);
         }
-        
+
         // Create string from the array
         let addr_str = soroban_sdk::String::from_str(
             &bytes.env(),
             core::str::from_utf8(&addr_str_arr[..56]).unwrap_or(""),
         );
-        
+
         Ok(Address::from_string(&addr_str))
     }
 
@@ -670,7 +671,7 @@ impl Contract {
         // Fallback for demo: use the Symbol's internal value if it's treated as a short ID
         // or just return 0 for now. In a real project, we'd use soroban_sdk::Symbol::to_string()
         // if alloc was enabled, or iterate bytes.
-        0 
+        0
     }
 
     pub fn get_stream(env: Env, stream_id: u64) -> Option<StreamV2> {
@@ -737,7 +738,11 @@ impl Contract {
     /// ```ignore
     /// let predicted = contract.predict_balance_at(&env, &stream_id, &future_time)?;
     /// ```
-    pub fn predict_balance_at(env: Env, stream_id: u64, future_timestamp: u64) -> Result<i128, Error> {
+    pub fn predict_balance_at(
+        env: Env,
+        stream_id: u64,
+        future_timestamp: u64,
+    ) -> Result<i128, Error> {
         let stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
         Ok(Self::calculate_unlocked_internal(&stream, future_timestamp))
     }
@@ -794,7 +799,8 @@ impl Contract {
         Self::require_compliant(&env, &stream.beneficiary)?;
 
         let now = env.ledger().timestamp();
-        let to_withdraw = Self::calculate_unlocked_internal(&stream, now).saturating_sub(stream.withdrawn_amount);
+        let to_withdraw =
+            Self::calculate_unlocked_internal(&stream, now).saturating_sub(stream.withdrawn_amount);
 
         if to_withdraw <= 0 {
             return Err(Error::NothingToWithdraw);
@@ -822,11 +828,7 @@ impl Contract {
                     _ => stream.beneficiary.clone(), // 1 = Receiver (default)
                 };
                 let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-                token_client.transfer(
-                    &env.current_contract_address(),
-                    &interest_dest,
-                    &interest,
-                );
+                token_client.transfer(&env.current_contract_address(), &interest_dest, &interest);
             }
         }
 
@@ -934,7 +936,11 @@ impl Contract {
         }
 
         // Verify nonce to prevent replay attacks
-        let nonce_key = (symbol_short!("W_NONCE"), stream.beneficiary.clone(), stream_id);
+        let nonce_key = (
+            symbol_short!("W_NONCE"),
+            stream.beneficiary.clone(),
+            stream_id,
+        );
         let stored_nonce: u64 = env.storage().instance().get(&nonce_key).unwrap_or(0u64);
 
         if nonce != stored_nonce {
@@ -942,7 +948,8 @@ impl Contract {
         }
 
         // Calculate unlocked amount (Issue #403 — nanosecond domain)
-        let unlocked = Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
+        let unlocked =
+            Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
         let available = unlocked.saturating_sub(stream.withdrawn_amount);
 
         if withdrawal_amount > available {
@@ -1088,7 +1095,8 @@ impl Contract {
         }
 
         let now = env.ledger().timestamp();
-        let unlocked = Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
+        let unlocked =
+            Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
         let earned = unlocked.saturating_sub(stream.withdrawn_amount);
         let sender_remaining = stream.total_amount.saturating_sub(unlocked);
 
@@ -1146,6 +1154,47 @@ impl Contract {
                 version: 2,
                 timestamp: now,
                 action: symbol_short!("cancel"),
+                data,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Archive and recover storage rent for a fully-withdrawn stream (Issue #380).
+    /// Only callable by stream sender or beneficiary.
+    /// Frees persistent storage bytes, returning rent to the caller.
+    pub fn close_and_archive(env: Env, stream_id: u64, caller: Address) -> Result<(), Error> {
+        Self::require_not_paused(&env)?;
+
+        let stream = storage::get_stream(&env, stream_id).ok_or(Error::StreamNotFound)?;
+
+        if stream.sender != caller && stream.beneficiary != caller {
+            return Err(Error::NotStreamOwner);
+        }
+        caller.require_auth();
+
+        if stream.withdrawn_amount != stream.total_amount {
+            return Err(Error::StreamNotFullyWithdrawn);
+        }
+
+        let key = DataKeyV2::Stream(stream_id);
+        env.storage().persistent().remove(&key);
+
+        let now = env.ledger().timestamp();
+        let mut data = Vec::new(&env);
+        data.push_back(stream_id.into_val(&env));
+        data.push_back(stream.total_amount.into_val(&env));
+        data.push_back(stream.withdrawn_amount.into_val(&env));
+        data.push_back(caller.into_val(&env));
+        data.push_back(now.into_val(&env));
+
+        env.events().publish(
+            (stream_id, symbol_short!("archived")),
+            NebulaEvent {
+                version: 2,
+                timestamp: now,
+                action: symbol_short!("archived"),
                 data,
             },
         );
@@ -1369,7 +1418,8 @@ impl Contract {
         let now = env.ledger().timestamp();
 
         // Checkpoint: calculate what's already unlocked so the rate stays consistent.
-        let unlocked_at_now = Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
+        let unlocked_at_now =
+            Self::calculate_unlocked_internal(&stream, Self::ledger_timestamp_nanos(&env));
         let remaining = stream.total_amount.saturating_sub(unlocked_at_now);
 
         // Pull the new funds into the contract.
@@ -1380,7 +1430,7 @@ impl Contract {
         let duration = (stream.end_time - stream.start_time) as i128;
         let new_remaining = remaining + extra_amount;
         let rate = stream.total_amount; // tokens per `duration` seconds
-        // new_end_time = now + (new_remaining * duration / rate)
+                                        // new_end_time = now + (new_remaining * duration / rate)
         let extra_seconds = (new_remaining * duration) / rate;
         let new_end_time = now + extra_seconds as u64;
 
@@ -1934,7 +1984,7 @@ impl Contract {
             v1_stream_id: 0,
             step_duration: args.step_duration,
             multiplier_bps: args.multiplier_bps,
-            penalty_bps: 0, // permit streams default to no penalty
+            penalty_bps: 0,      // permit streams default to no penalty
             vault_address: None, // No vault support by permit yet
             yield_enabled: false,
             is_pending: false,
@@ -2179,13 +2229,17 @@ impl Contract {
 
     /// Approve a pending stream request. When approvals reach the threshold,
     /// the stream is automatically created.
-    pub fn approve_stream_request(env: Env, request_id: u64, approver: Address) -> Result<u64, Error> {
+    pub fn approve_stream_request(
+        env: Env,
+        request_id: u64,
+        approver: Address,
+    ) -> Result<u64, Error> {
         Self::require_not_paused(&env)?;
 
         // Get the admin list and threshold
         let admin_list = storage::get_admin_list(&env);
         let threshold = storage::get_threshold(&env);
-        
+
         // Verify the approver is in the admin list and require auth
         if !admin_list.contains(&approver) {
             return Err(Error::NotEnoughSigners);
@@ -2547,8 +2601,14 @@ impl Contract {
     }
 
     /// Set the protocol fee in basis points (e.g. 100 = 1%). Admin-only.
+    /// Cannot exceed MAX_FEE_BPS = 500 (5%).
     pub fn set_fee_bps(env: Env, bps: u32) -> Result<(), Error> {
         storage::try_get_admin(&env)?.require_auth();
+
+        if bps > MAX_FEE_BPS {
+            return Err(Error::FeeTooHigh);
+        }
+
         storage::set_fee_bps(&env, bps);
         Ok(())
     }
@@ -2875,8 +2935,11 @@ impl Contract {
             let total_fee = fee_per_recipient
                 .checked_mul(n as i128)
                 .ok_or(Error::Overflow)?;
-            soroban_sdk::token::TokenClient::new(&env, fee_token_addr.as_ref().unwrap())
-                .transfer(&from, fee_collector.as_ref().unwrap(), &total_fee);
+            soroban_sdk::token::TokenClient::new(&env, fee_token_addr.as_ref().unwrap()).transfer(
+                &from,
+                fee_collector.as_ref().unwrap(),
+                &total_fee,
+            );
         }
 
         // Issue #604 — detect homogeneous batch: if all entries share the same
@@ -2892,8 +2955,11 @@ impl Contract {
             }
         } else {
             for entry in recipients.iter() {
-                soroban_sdk::token::TokenClient::new(&env, &entry.asset)
-                    .transfer(&from, &entry.address, &entry.amount);
+                soroban_sdk::token::TokenClient::new(&env, &entry.asset).transfer(
+                    &from,
+                    &entry.address,
+                    &entry.amount,
+                );
             }
         }
 
@@ -2944,5 +3010,5 @@ impl Contract {
 }
 
 mod test;
-mod v1_to_v2_integration_test;
 mod token_security_test;
+mod v1_to_v2_integration_test;
