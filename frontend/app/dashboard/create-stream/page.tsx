@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldAlert, ArrowLeftRight } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
+import { Can } from "@/components/Can";
 import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
 import { TransactionPrioritySelector } from "@/components/transaction-priority-selector";
 import { useTransactionPriority, type PriorityTier } from "@/lib/use-transaction-priority";
@@ -810,24 +811,36 @@ function Step3({
         />
       )}
 
-      <button
-        onClick={onSign}
-        disabled={signing}
-        className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
-        style={{ boxShadow: signing ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
+      <Can
+        permission="submit_to_ledger"
+        fallback={
+          <button
+            disabled
+            className="w-full rounded-2xl bg-white/10 py-4 font-body text-base font-bold text-white/25 cursor-not-allowed"
+          >
+            Submit to Ledger — Insufficient Role
+          </button>
+        }
       >
-        {signing ? (
-          <span className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-            Awaiting Signature…
-          </span>
-        ) : (
-          "Sign & Create Stream ✦"
-        )}
-      </button>
+        <button
+          onClick={onSign}
+          disabled={signing}
+          className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ boxShadow: signing ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
+        >
+          {signing ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              Awaiting Signature…
+            </span>
+          ) : (
+            "Sign & Create Stream ✦"
+          )}
+        </button>
+      </Can>
 
       <p className="text-center font-body text-[11px] text-white/20">
         You will be prompted to sign this transaction in your wallet
@@ -1092,12 +1105,14 @@ export default function CreateStreamPage() {
                   )}
 
                   {step === 3 && (
-                    <button
-                      onClick={goBack}
-                      className="w-full mt-3 rounded-2xl border border-white/10 bg-white/[0.03] py-3 font-body text-sm text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
-                    >
-                      ← Edit Details
-                    </button>
+                    <Can permission="edit_draft">
+                      <button
+                        onClick={goBack}
+                        className="w-full mt-3 rounded-2xl border border-white/10 bg-white/[0.03] py-3 font-body text-sm text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+                      >
+                        ← Edit Details
+                      </button>
+                    </Can>
                   )}
                 </SlidePanel>
               )}

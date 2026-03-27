@@ -1,6 +1,7 @@
 "use client";
 
 import SecurityPrivacyPage from "@/components/settings/SecurityPrivacyPage";
+import GasManagementTile from "@/components/settings/GasManagementTile";
 
 export default function SettingsPage() {
   return (
@@ -18,6 +19,9 @@ export default function SettingsPage() {
           Manage wallet profile, notifications, and governance-related defaults.
         </p>
       </section>
+
+      {/* ── Gas Management (#683) ── */}
+      <GasManagementTile />
 
       {/* ── Security & Privacy Suite (#157) ── */}
       <SecurityPrivacyPage />

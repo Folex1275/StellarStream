@@ -133,6 +133,18 @@ export interface UnrestrictAddressParams {
   address: string;
 }
 
+export interface DepositGasBufferParams {
+  amount: bigint;
+  /** Caller / payer address */
+  from: string;
+}
+
+export interface WithdrawGasBufferParams {
+  amount: bigint;
+  /** Destination address for the withdrawn XLM */
+  to: string;
+}
+
 // ============================================================================
 // Contract Interface
 // ============================================================================
@@ -225,6 +237,25 @@ export interface StellarStreamContractClient {
    * Claim a receipt NFT for a stream
    */
   claimReceipt(streamId: bigint): Promise<void>;
+
+  // ========== Gas Buffer Functions ==========
+
+  /**
+   * Deposit XLM into the organisation's gas buffer.
+   * TreasuryManager or Admin only.
+   */
+  depositGasBuffer(params: DepositGasBufferParams): Promise<void>;
+
+  /**
+   * Withdraw XLM from the organisation's gas buffer.
+   * TreasuryManager or Admin only.
+   */
+  withdrawGasBuffer(params: WithdrawGasBufferParams): Promise<void>;
+
+  /**
+   * Query the current gas buffer balance in stroops.
+   */
+  getGasBufferBalance(): Promise<bigint>;
 
   // ========== RBAC Functions ==========
 

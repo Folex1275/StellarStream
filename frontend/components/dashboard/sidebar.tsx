@@ -8,6 +8,7 @@ import {
   CirclePlus,
   ClipboardCheck,
   Gauge,
+  Inbox,
   Settings,
   Waves,
   PanelLeftClose,
@@ -69,6 +70,12 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       href: "/dashboard/pending",
       icon: ClipboardCheck,
       badge: 2,
+    },
+    {
+      label: "Approval Inbox",
+      href: "/dashboard/approval-inbox",
+      icon: Inbox,
+      badge: 3,
     },
     {
       label: "History",

@@ -15,6 +15,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useAdminGuard } from "@/lib/use-admin-guard";
+import { Can } from "@/components/Can";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -353,9 +354,18 @@ function SignatureQueueCard({ entry }: { entry: SignatureEntry }) {
 
       {/* Execute button — only shown when ready */}
       {entry.status === "ready" && (
-        <button className="w-full rounded-xl border border-emerald-400/30 bg-emerald-400/10 py-2 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-400/20">
-          Execute Action
-        </button>
+        <Can
+          permission="execute_action"
+          fallback={
+            <button disabled className="w-full rounded-xl border border-dashed border-white/10 py-2 text-xs text-white/25 cursor-not-allowed">
+              Execute Action — Insufficient Role
+            </button>
+          }
+        >
+          <button className="w-full rounded-xl border border-emerald-400/30 bg-emerald-400/10 py-2 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-400/20">
+            Execute Action
+          </button>
+        </Can>
       )}
     </div>
   );
