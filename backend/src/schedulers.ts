@@ -3,6 +3,7 @@ import { PriceService } from "./services/price.service.js";
 import { TvlAggregatorService } from "./services/tvl-aggregator.service.js";
 import { AssetMetadataService } from "./services/asset-metadata.service.js";
 import { AutopilotService } from "./services/autopilot.service.js";
+import { MultisigNotifierService } from "./services/multisig-notifier.service.js";
 import { archiveOldDisbursements } from "./services/disbursement-archive.service.js";
 import { LedgerConsistencyChecker } from "./services/ledger-consistency.service.js";
 import { logger } from "./logger.js";
@@ -89,6 +90,7 @@ export function initializeSchedulers() {
   scheduleDailyTvlSnapshot();
   scheduleAssetDiscovery();
   scheduleAutopilot();
+  scheduleMultisigNotifier();
   scheduleDisbursementArchive();
   scheduleLedgerConsistencyCheck();
 }
@@ -108,6 +110,26 @@ export function scheduleAutopilot() {
   });
 
   logger.info("Autopilot scheduler started (every hour)");
+}
+
+/**
+ * Multi-sig notifier: ping signers 24 hours before a scheduled split's release time.
+ * Runs every hour — idempotent (notifiedAt prevents duplicate alerts).
+ */
+export function scheduleMultisigNotifier() {
+  const notifier = new MultisigNotifierService();
+
+  cron.schedule("0 * * * *", async () => {
+    try {
+      logger.info("[MultisigNotifier] Starting 24-hour window scan");
+      await notifier.notifyPendingSigners();
+      logger.info("[MultisigNotifier] 24-hour window scan completed");
+    } catch (error) {
+      logger.error("[MultisigNotifier] Scan failed", error);
+    }
+  });
+
+  logger.info("Multi-sig notifier scheduler started (every hour)");
 }
 
 /**

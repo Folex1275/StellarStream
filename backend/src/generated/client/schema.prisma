@@ -381,11 +381,20 @@ model AutopilotSchedule {
   lastRun         DateTime? @map("last_run")
   lastTxHash      String?   @map("last_tx_hash")
   lastError       String?   @map("last_error")
+  /// ISO-8601 timestamp of the scheduled release / execution time.
+  /// Used by the multi-sig notifier to detect the 24-hour window.
+  releaseTime     DateTime? @map("release_time")
+  /// JSON array of Stellar G-addresses that must co-sign before execution.
+  /// e.g. ["GABC...", "GDEF..."]
+  signers         String[]  @default([]) @map("signers")
+  /// Tracks whether the 24-hour pre-release notification has been sent.
+  notifiedAt      DateTime? @map("notified_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@index([lastRun])
+  @@index([releaseTime])
   @@map("AutopilotSchedule")
 }
 
