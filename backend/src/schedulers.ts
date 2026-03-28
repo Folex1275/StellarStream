@@ -3,6 +3,8 @@ import { PriceService } from "./services/price.service.js";
 import { TvlAggregatorService } from "./services/tvl-aggregator.service.js";
 import { AssetMetadataService } from "./services/asset-metadata.service.js";
 import { AutopilotService } from "./services/autopilot.service.js";
+import { archiveOldDisbursements } from "./services/disbursement-archive.service.js";
+import { LedgerConsistencyChecker } from "./services/ledger-consistency.service.js";
 import { logger } from "./logger.js";
 
 const priceService = new PriceService();
@@ -87,6 +89,8 @@ export function initializeSchedulers() {
   scheduleDailyTvlSnapshot();
   scheduleAssetDiscovery();
   scheduleAutopilot();
+  scheduleDisbursementArchive();
+  scheduleLedgerConsistencyCheck();
 }
 
 /**
@@ -104,4 +108,42 @@ export function scheduleAutopilot() {
   });
 
   logger.info("Autopilot scheduler started (every hour)");
+}
+
+/**
+ * Disbursement Archive (#845): move EventLog rows older than 1 year to cold storage.
+ * Runs on the 1st of every month at 02:00 UTC.
+ */
+export function scheduleDisbursementArchive() {
+  cron.schedule("0 2 1 * *", async () => {
+    try {
+      logger.info("[DisbursementArchive] Starting monthly archive job");
+      await archiveOldDisbursements();
+      logger.info("[DisbursementArchive] Monthly archive job completed");
+    } catch (error) {
+      logger.error("[DisbursementArchive] Monthly archive job failed", error);
+    }
+  });
+
+  logger.info("Disbursement archive scheduler started (1st of each month, 02:00 UTC)");
+}
+
+/**
+ * Ledger Consistency Checker (#849): verify DB entries against the Stellar ledger.
+ * Runs every 6 hours.
+ */
+export function scheduleLedgerConsistencyCheck() {
+  const checker = new LedgerConsistencyChecker();
+
+  cron.schedule("0 */6 * * *", async () => {
+    try {
+      logger.info("[LedgerConsistency] Starting consistency audit");
+      await checker.run();
+      logger.info("[LedgerConsistency] Consistency audit completed");
+    } catch (error) {
+      logger.error("[LedgerConsistency] Consistency audit failed", error);
+    }
+  });
+
+  logger.info("Ledger consistency checker started (every 6 hours)");
 }
