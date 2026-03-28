@@ -9,9 +9,16 @@ import {
   Plus, 
   Trash2, 
   CreditCard,
-  CheckCircle2
+  CheckCircle2,
+  Activity
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePriceSlippage } from "@/lib/use-price-slippage";
+import { PriceSlippageWarning } from "@/components/price-slippage-warning";
+
+// Asset used for volatile-price tracking in this splitter.
+// XLM is the only volatile asset currently supported in the V3 splitter.
+const VOLATILE_ASSET = "XLM";
 
 function SplitWizard() {
   const { 
@@ -22,6 +29,14 @@ function SplitWizard() {
     nextStep, 
     prevStep 
   } = useSplit();
+
+  const {
+    priceAtStart,
+    priceNow,
+    delta,
+    slippageExceeded,
+    acknowledgeRefresh,
+  } = usePriceSlippage(VOLATILE_ASSET);
 
   // Step 1: Add Recipients
   const renderStep1 = () => (
@@ -127,7 +142,33 @@ function SplitWizard() {
                 <div className="py-12 text-center space-y-4">
                   <Activity className="h-12 w-12 text-cyan-400 mx-auto animate-pulse" />
                   <p className="font-body text-white/50">Step {step} implementation in progress...</p>
-                  <button onClick={prevStep} className="text-xs font-bold text-cyan-400 underline uppercase tracking-widest">Go Back</button>
+
+                  {/* Slippage warning shown at confirmation step */}
+                  {step === 3 && slippageExceeded && priceAtStart !== null && priceNow !== null && delta !== null && (
+                    <div className="text-left">
+                      <PriceSlippageWarning
+                        assetCode={VOLATILE_ASSET}
+                        delta={delta}
+                        priceAtStart={priceAtStart}
+                        priceNow={priceNow}
+                        onRefresh={acknowledgeRefresh}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-center gap-3">
+                    <button onClick={prevStep} className="text-xs font-bold text-cyan-400 underline uppercase tracking-widest">Go Back</button>
+                    {step === 3 && (
+                      <button
+                        disabled={slippageExceeded}
+                        className="flex items-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30 transition-all"
+                        title={slippageExceeded ? "Refresh the price before confirming" : undefined}
+                      >
+                        Confirm Split
+                        <CheckCircle2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
              </motion.div>
           )}
