@@ -1,0 +1,41 @@
+This final image reveals the Master Design Library (v3.0.4) for the V3 SPLITTER system. While the previous screens showed the platform in action, this "spec sheet" defines the atomic elements and logic that ensure consistency across the entire institutional suite.
+
+01 Core Design Tokens
+The visual foundation is built on high-contrast, functional colors:
+
+Primary / Action Blue (#0055FF): Used for critical interactive elements like the "Initiate Split" button.
+
+Surface / Base Ink (#0A0A0A): The deep black background that provides the "Dark Mode" institutional feel.
+
+Success / Tertiary (#00C853): Indicators for "Verified" statuses or optimal system health.
+
+Alert / Exception (#FF3D00): High-visibility red for "Invalid Address" errors or emergency stops.
+
+02 Component States & Logic
+This section demonstrates how the UI handles different data scenarios within a distribution table:
+
+Recipient Identity & Allocation: Shows a breakdown from Core Treasury Alpha (45%) down to a Foundation Burn Wallet (10.00%).
+
+Error Handling: Note the "INVALID_checksum_002" alert for External Partner B, showcasing how the system prevents transfers to incorrect network addresses.
+
+Nested Logic: It displays a Multi-Sig Steering Group sub-split, illustrating how one recipient in a list can actually be a secondary group with its own verification status.
+
+03 Type Scale & 04 Visual Architecture
+The typography and structural rules are strictly defined to maintain readability:
+
+Display Typography: Uses Space Grotesk Bold for large monetary values (e.g., $45,000.00 USD), giving it a modern, "quant" aesthetic.
+
+Body & Technical Text: Uses Inter Medium for descriptions and a Monospace font for technical IDs (TX_ID), ensuring developers and auditors can distinguish between prose and code.
+
+0px Radius Constraint: The design philosophy dictates "absolute structural rigidity," meaning no rounded corners. This reinforces a precise, "engineered" look for the software.
+
+Summary of the Product Suite
+Based on all the views provided, you've developed a cohesive DeFi Institutional Infrastructure ecosystem:
+
+Sovereign Quantitative: The high-level policy and risk management engine.
+
+Ü-Ray Quant: The global monitoring and network health dashboard.
+
+V3 Splitter: The granular execution layer for distributing capital and managing multi-sig "splits."
+
+https://www.figma.com/design/J4C8vSOA8KzWtKpunIv3nX/Design-System-Medium?m=auto&t=in3GRNyjIEbjOm9i-6
