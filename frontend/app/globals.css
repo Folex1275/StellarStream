@@ -760,3 +760,70 @@ body {
 .animate-ghost-pulse {
   animation: ghost-pulse 3s ease-in-out infinite;
 }
+/* ============================================= */
+/* Aria-Glow High Contrast Mode (Accessibility)  */
+/* ============================================= */
+
+.high-contrast {
+  --glass-bg: #ffffff;
+  --glass-border: #000000;
+}
+
+/* Remove glassmorphism effects */
+.high-contrast .glass,
+.high-contrast [class*="glass"] {
+  background: #ffffff !important;
+  border: 2px solid #000000 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.high-contrast .dark .glass,
+.high-contrast .dark [class*="glass"] {
+  background: #000000 !important;
+  border: 2px solid #ffffff !important;
+  color: #ffffff;
+}
+
+/* Stronger buttons */
+.high-contrast button,
+.high-contrast .btn,
+.high-contrast [role="button"] {
+  border: 2px solid #000000 !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 600;
+}
+
+.high-contrast .dark button,
+.high-contrast .dark .btn,
+.high-contrast .dark [role="button"] {
+  border: 2px solid #ffffff !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Better focus rings for keyboard users */
+.high-contrast *:focus-visible {
+  outline: 3px solid #000000 !important;
+  outline-offset: 4px;
+}
+
+.high-contrast .dark *:focus-visible {
+  outline: 3px solid #ffffff !important;
+}
+
+/* Cards and containers */
+.high-contrast .card,
+.high-contrast .stream-card,
+.high-contrast [class*="card"] {
+  border: 2px solid #000000 !important;
+  background: #ffffff !important;
+}
+
+.high-contrast .dark .card,
+.high-contrast .dark .stream-card,
+.high-contrast .dark [class*="card"] {
+  border: 2px solid #ffffff !important;
+  background: #000000 !important;
+}
