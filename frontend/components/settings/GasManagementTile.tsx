@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, RefreshCw } from "lucide-react";
 import { useGasBuffer } from "@/lib/use-gas-buffer";
 import { toast } from "@/lib/toast";
+import { QuickRefillButton } from "@/components/quick-refill-button";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,13 @@ function AmountInput({
 
 // ─── GasManagementTile ────────────────────────────────────────────────────────
 
-export default function GasManagementTile() {
+interface GasManagementTileProps {
+    /** XLM required by the currently drafted split. When provided and > current
+     *  balance, the Quick-Refill button is shown (Issue #792). */
+    requiredXlm?: number;
+}
+
+export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTileProps) {
     const { status, loading, error, pendingOp, deposit, withdraw, refresh } = useGasBuffer();
     const [depositAmt, setDepositAmt] = useState("");
     const [withdrawAmt, setWithdrawAmt] = useState("");
@@ -183,6 +190,11 @@ export default function GasManagementTile() {
                             </p>
                         </div>
                     </div>
+                )}
+
+                {/* ── Quick Refill (Issue #792) ── */}
+                {!loading && requiredXlm > 0 && (
+                    <QuickRefillButton requiredXlm={requiredXlm} />
                 )}
 
                 {/* ── Smart Prompt: suggest top-up when balance < 10 XLM ── */}

@@ -1,0 +1,804 @@
+{
+  "info": {
+    "name": "StellarStream V3 — Disbursement Engine",
+    "_postman_id": "stellarstream-v3-disbursement-engine",
+    "description": "Interactive API reference for the StellarStream V3 backend.\n\nCovers every POST, GET, and DELETE route in the /api/v3/ namespace, plus the Organisation RBAC endpoints (/api/v1/orgs) and the Multi-Sig Governance routes (/api/v1/governance).\n\n## Authentication\nAll /api/v3/ routes require an API key sent in the `X-Api-Key` header.\nOrg-member and wallet-auth routes require a Stellar wallet signature JWT in the `Authorization: Bearer <token>` header.\n\n## Variables\n| Variable | Default | Description |\n|---|---|---|\n| baseUrl | http://localhost:3000 | Backend base URL |\n| apiKey | your-api-key-here | API key for V3 routes |\n| walletJwt | | JWT from /api/wallet-auth/verify |\n| orgAddress | | Shared G-address for the organisation |\n| memberAddress | | Individual member G-address |\n| txHash | | Transaction hash for export/history lookups |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",       "value": "http://localhost:3000", "type": "string" },
+    { "key": "apiKey",        "value": "your-api-key-here",     "type": "string" },
+    { "key": "walletJwt",     "value": "",                      "type": "string" },
+    { "key": "orgAddress",    "value": "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN", "type": "string" },
+    { "key": "memberAddress", "value": "GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB", "type": "string" },
+    { "key": "txHash",        "value": "abc123def456abc123def456abc123def456abc123def456abc123def456abc1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1 · Disbursement File Pre-Processor",
+      "description": "POST /api/v3/process-disbursement-file\n\nSanitizes and normalizes a bulk recipient file (up to 1,000+ rows). Validates Stellar G-address checksums, strips whitespace, and converts decimal amounts to 7-decimal stroops. Returns a split payload ready for on-chain interaction.\n\nRate-limited per organisation (draftRateLimitMiddleware). Requires API key.",
+      "item": [
+        {
+          "name": "Process JSON Recipients — happy path",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "json", "description": "Input format: json | csv (default: json)" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amount\": \"100.50\" },\n  { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amount\": \"200.1234567\" },\n  { \"address\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\", \"amount\": \"50.00\" }\n]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Submit a JSON array of recipients. Each object must contain:\n- `address` — a valid Stellar G-address (56 chars, valid checksum)\n- `amount`  — a decimal string (max 7 decimal places)\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"valid\": [\n      { \"address\": \"GAAZI4...\", \"amountStroops\": \"1005000000\" },\n      { \"address\": \"GBVVJJ...\", \"amountStroops\": \"2001234567\" },\n      { \"address\": \"GDQOE2...\", \"amountStroops\": \"500000000\" }\n    ],\n    \"errors\": [],\n    \"totalRows\": 3\n  }\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — All rows valid",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"valid\": [\n      { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amountStroops\": \"1005000000\" },\n      { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amountStroops\": \"2001234567\" },\n      { \"address\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\", \"amountStroops\": \"500000000\" }\n    ],\n    \"errors\": [],\n    \"totalRows\": 3\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Process JSON Recipients — with invalid rows",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "json" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amount\": \"100.50\" },\n  { \"address\": \"INVALID_ADDRESS\", \"amount\": \"50.00\" },\n  { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amount\": \"99999999.12345678\" }\n]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Demonstrates partial validation. Invalid rows are collected in the `errors` array; valid rows are still returned in `valid`. The third row has 8 decimal places (exceeds the 7-decimal stroop limit) and will also appear in `errors`.\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"valid\": [\n      { \"address\": \"GAAZI4...\", \"amountStroops\": \"1005000000\" }\n    ],\n    \"errors\": [\n      { \"row\": 2, \"address\": \"INVALID_ADDRESS\", \"reason\": \"Invalid G-address checksum\" },\n      { \"row\": 3, \"address\": \"GBVVJJ...\", \"reason\": \"Amount exceeds 7 decimal places\" }\n    ],\n    \"totalRows\": 3\n  }\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Mixed valid/invalid rows",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"valid\": [\n      { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amountStroops\": \"1005000000\" }\n    ],\n    \"errors\": [\n      { \"row\": 2, \"address\": \"INVALID_ADDRESS\", \"reason\": \"Invalid G-address checksum\" },\n      { \"row\": 3, \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"reason\": \"Amount exceeds 7 decimal places\" }\n    ],\n    \"totalRows\": 3\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Process CSV Recipients — happy path",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "text/csv" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "csv" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "address,amount\nGAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN,100.50\nGBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB,200.00\nGDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP,50.75",
+              "options": { "raw": { "language": "text" } }
+            },
+            "description": "Submit a raw CSV body. The first row must be the header `address,amount`. Set `Content-Type: text/csv`.\n\nThe body must be a non-empty string — sending an empty body returns `400 CSV body must be a non-empty string`."
+          },
+          "response": [
+            {
+              "name": "200 — CSV processed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"valid\": [\n      { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amountStroops\": \"1005000000\" },\n      { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amountStroops\": \"2000000000\" },\n      { \"address\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\", \"amountStroops\": \"507500000\" }\n    ],\n    \"errors\": [],\n    \"totalRows\": 3\n  }\n}"
+            },
+            {
+              "name": "400 — Empty CSV body",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"CSV body must be a non-empty string. Set Content-Type: text/csv\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 · Verify Address List",
+      "description": "POST /api/v3/verify-list\n\nBulk-checks up to 200 Stellar addresses against the Redis identity cache (with PostgreSQL fallback) and returns a verified/unverified flag for each. Useful for pre-flight KYC checks before submitting a disbursement.",
+      "item": [
+        {
+          "name": "Bulk Verify Addresses",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/verify-list",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "verify-list"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addresses\": [\n    \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n    \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\",\n    \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\"\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "**Request body:**\n```json\n{ \"addresses\": [\"G...\", \"G...\"] }\n```\n- Maximum 200 addresses per request. Exceeding this returns `400`.\n- Non-string entries are silently filtered out.\n\n**Expected 200 response:**\n```json\n{\n  \"results\": [\n    { \"address\": \"GAAZI4...\", \"verified\": true },\n    { \"address\": \"GBVVJJ...\", \"verified\": false },\n    { \"address\": \"GDQOE2...\", \"verified\": true }\n  ]\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Verification results",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"results\": [\n    { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"verified\": true },\n    { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"verified\": false },\n    { \"address\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\", \"verified\": true }\n  ]\n}"
+            },
+            {
+              "name": "400 — addresses is not an array",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"addresses must be an array\" }"
+            },
+            {
+              "name": "400 — Exceeds 200-address limit",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Maximum 200 addresses per request\" }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 · Safe-Vault Re-Routing",
+      "description": "POST /api/v3/resolve-vault-routes\n\nDetects whether each recipient address is a known Soroban vault contract (C-address) or a plain Stellar wallet (G-address) and returns the correct disbursement route for each. G-addresses get a `transfer` route; registered vault C-addresses get an `invoke_contract` route with the correct deposit function and arguments.",
+      "item": [
+        {
+          "name": "Resolve Vault Routes — mixed G and C addresses",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/resolve-vault-routes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "resolve-vault-routes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipients\": [\n    { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amountStroops\": \"10000000\" },\n    { \"address\": \"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4\", \"amountStroops\": \"50000000\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "**Request constraints:**\n- `recipients` array: 1–1000 items\n- `address`: exactly 56 characters\n- `amountStroops`: whole-number string (no decimals)\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"routes\": [\n      {\n        \"type\": \"transfer\",\n        \"recipient\": \"GAAZI4...\",\n        \"amountStroops\": \"10000000\"\n      },\n      {\n        \"type\": \"invoke_contract\",\n        \"contractId\": \"CAAAAA...\",\n        \"functionName\": \"deposit\",\n        \"args\": { \"recipient\": \"CAAAAA...\", \"amountStroops\": \"50000000\" },\n        \"vault\": {\n          \"contractId\": \"CAAAAA...\",\n          \"name\": \"StellarStream Vault\",\n          \"depositFunction\": \"deposit\",\n          \"minDepositStroops\": null\n        }\n      }\n    ]\n  }\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Routes resolved",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"routes\": [\n      {\n        \"type\": \"transfer\",\n        \"recipient\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n        \"amountStroops\": \"10000000\"\n      },\n      {\n        \"type\": \"invoke_contract\",\n        \"contractId\": \"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4\",\n        \"functionName\": \"deposit\",\n        \"args\": {\n          \"recipient\": \"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4\",\n          \"amountStroops\": \"50000000\"\n        },\n        \"vault\": {\n          \"contractId\": \"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4\",\n          \"name\": \"StellarStream Vault\",\n          \"depositFunction\": \"deposit\",\n          \"minDepositStroops\": null\n        }\n      }\n    ]\n  }\n}"
+            },
+            {
+              "name": "400 — Validation error (amountStroops not a whole number)",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Must be a whole number string\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 · Split History",
+      "description": "GET /api/v3/history/:address\n\nReturns paginated split history for a sender or receiver address. Supports filtering by asset, date range, and minimum volume. Page size is fixed at 50.",
+      "item": [
+        {
+          "name": "Get History — basic",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/history/{{orgAddress}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "history", "{{orgAddress}}"]
+            },
+            "description": "Returns the first page (50 rows) of stream history for the given address, ordered by `createdAt` descending."
+          },
+          "response": [
+            {
+              "name": "200 — History page 1",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n    \"page\": 1,\n    \"pageSize\": 50,\n    \"total\": 120,\n    \"totalPages\": 3,\n    \"results\": [\n      {\n        \"id\": \"clxyz001\",\n        \"streamId\": \"stream-001\",\n        \"txHash\": \"abc123...\",\n        \"sender\": \"GAAZI4...\",\n        \"receiver\": \"GBVVJJ...\",\n        \"tokenAddress\": \"USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN\",\n        \"amount\": \"1000000000\",\n        \"status\": \"COMPLETED\",\n        \"withdrawn\": \"1000000000\",\n        \"createdAt\": \"2026-03-01T09:00:00.000Z\",\n        \"affiliateId\": null\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get History — filtered by asset and date range",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/history/{{orgAddress}}?asset=USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN&date_from=2026-01-01T00:00:00Z&date_to=2026-03-31T23:59:59Z&page=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "history", "{{orgAddress}}"],
+              "query": [
+                { "key": "asset",     "value": "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN", "description": "Filter by token address" },
+                { "key": "date_from", "value": "2026-01-01T00:00:00Z", "description": "ISO-8601 lower bound (inclusive)" },
+                { "key": "date_to",   "value": "2026-03-31T23:59:59Z", "description": "ISO-8601 upper bound (inclusive)" },
+                { "key": "page",      "value": "1", "description": "1-based page number (default: 1)" }
+              ]
+            },
+            "description": "All query params are optional and combinable:\n- `asset` — filter by token address string\n- `date_from` / `date_to` — ISO-8601 with timezone offset\n- `min_total_volume` — minimum stream amount as a decimal number (applied in-memory after DB query)\n- `page` — 1-based, default 1, page size fixed at 50"
+          },
+          "response": []
+        },
+        {
+          "name": "Get History — min_total_volume filter",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/history/{{orgAddress}}?min_total_volume=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "history", "{{orgAddress}}"],
+              "query": [
+                { "key": "min_total_volume", "value": "100", "description": "Minimum stream amount as a decimal number. Internally converted to stroops (×10^7) and compared against the BigInt `amount` field." }
+              ]
+            },
+            "description": "Filters out streams below 100 units (1,000,000,000 stroops). Note: this filter is applied in-memory after the DB query, so `total` in the response reflects the pre-filter DB count."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 · Split Audit Export",
+      "description": "GET /api/v3/export/:tx_hash\n\nGenerates a professional split-audit report for a single disbursement event identified by its transaction hash. Supports PDF and XLSX output formats.",
+      "item": [
+        {
+          "name": "Export Audit Report — PDF",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/export/{{txHash}}?format=pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "export", "{{txHash}}"],
+              "query": [{ "key": "format", "value": "pdf", "description": "Output format: pdf (default) | xlsx" }]
+            },
+            "description": "Returns a binary PDF stream.\n\n**Response headers:**\n```\nContent-Type: application/pdf\nContent-Disposition: attachment; filename=\"split-audit-<tx_hash_prefix>.pdf\"\nContent-Length: <bytes>\n```\n\nThe report includes: TX hash, timestamp, sender address, asset, total amount, and a per-recipient breakdown with individual amounts and payout status."
+          },
+          "response": [
+            {
+              "name": "404 — Disbursement not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Disbursement not found\",\n  \"code\": \"NOT_FOUND\"\n}"
+            },
+            {
+              "name": "400 — Invalid format param",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Invalid enum value. Expected 'pdf' | 'xlsx', received 'docx'\",\n  \"code\": \"INVALID_PARAMS\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export Audit Report — XLSX",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/export/{{txHash}}?format=xlsx",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "export", "{{txHash}}"],
+              "query": [{ "key": "format", "value": "xlsx" }]
+            },
+            "description": "Returns a binary XLSX stream.\n\n**Response headers:**\n```\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\nContent-Disposition: attachment; filename=\"split-audit-<tx_hash_prefix>.xlsx\"\nContent-Length: <bytes>\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6 · Invoice Report",
+      "description": "POST /api/v3/reports/invoice\n\nGenerates a professional invoice-style PDF for a disbursement. Accepts full invoice metadata including org branding, recipient breakdown, and an optional base64 logo.",
+      "item": [
+        {
+          "name": "Generate Invoice PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/reports/invoice",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "reports", "invoice"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orgName\": \"Acme Corp\",\n  \"invoiceNumber\": \"INV-2026-0042\",\n  \"issuedAt\": \"2026-03-29T17:00:00Z\",\n  \"asset\": \"USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN\",\n  \"sender\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"recipients\": [\n    { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amount\": \"500.00\", \"label\": \"Alice — March salary\" },\n    { \"address\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\", \"amount\": \"300.00\", \"label\": \"Bob — March salary\" }\n  ],\n  \"totalAmount\": \"800.00\",\n  \"txHash\": \"abc123def456abc123def456abc123def456abc123def456abc123def456abc1\",\n  \"note\": \"March 2026 payroll disbursement\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "**Required fields:** `orgName`, `invoiceNumber`, `issuedAt`, `asset`, `sender`, `recipients` (min 1), `totalAmount`\n\n**Optional fields:** `logoBase64` (PNG/JPEG as base64 string), `txHash`, `note`\n\n**Response:** Binary PDF stream\n```\nContent-Type: application/pdf\nContent-Disposition: attachment; filename=\"invoice-INV-2026-0042.pdf\"\n```\n\n**Validation errors return 400** with Zod issue details."
+          },
+          "response": [
+            {
+              "name": "400 — Missing required field",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Required\",\n  \"details\": {\n    \"fieldErrors\": { \"invoiceNumber\": [\"Required\"] },\n    \"formErrors\": []\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7 · Autopilot Scheduler",
+      "description": "The Autopilot service manages periodic split schedules stored in the `AutopilotSchedule` table. The scheduler runs every hour via cron (`0 * * * *`) and executes any schedule whose `lastRun` is older than 55 minutes or has never run.\n\nBefore executing, it verifies the operator wallet has sufficient XLM (≥ `minGasTankXlm`) via Horizon. If the gas tank is insufficient the schedule is skipped and `lastError` is updated.\n\n**Note:** There are no direct HTTP endpoints for triggering Autopilot execution — it is driven entirely by the server-side cron. The endpoints below are for managing schedule records via the admin/internal API.",
+      "item": [
+        {
+          "name": "List All Autopilot Schedules (V2 Admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "health"]
+            },
+            "description": "Use the V2 health endpoint to confirm the backend (and therefore the Autopilot cron) is running before inspecting schedule state.\n\n**Expected 200 response:**\n```json\n{\n  \"status\": \"ok\",\n  \"uptime\": 3600,\n  \"version\": \"2.0.0\"\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Backend healthy",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"status\": \"ok\", \"uptime\": 3600, \"version\": \"2.0.0\" }"
+            }
+          ]
+        },
+        {
+          "name": "Autopilot Schedule — Data Model Reference",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "health"]
+            },
+            "description": "**AutopilotSchedule schema** (PostgreSQL `AutopilotSchedule` table):\n\n| Field | Type | Description |\n|---|---|---|\n| `id` | string (cuid) | Primary key |\n| `name` | string | Human-readable label, e.g. `\"Weekly Payroll\"` |\n| `frequency` | string | Cron expression, e.g. `\"0 9 * * 1\"` (every Monday 9am) |\n| `splitConfigId` | string | Reference to the split configuration to execute |\n| `operatorAddress` | string | Stellar G-address of the signing operator |\n| `minGasTankXlm` | float | Minimum XLM balance required before execution (default: 1.0) |\n| `isActive` | boolean | Whether the schedule is eligible for execution |\n| `lastRun` | datetime \\| null | Timestamp of the last successful execution |\n| `lastTxHash` | string \\| null | Transaction hash from the last execution |\n| `lastError` | string \\| null | Error message if the last execution failed or was skipped |\n\n**Execution eligibility:** A schedule is \"due\" if `isActive = true` AND (`lastRun IS NULL` OR `now() - lastRun >= 55 minutes`).\n\n**Gas tank check:** Before executing, the service calls Horizon to load the operator account and verifies `nativeBalance >= minGasTankXlm`. If insufficient, `lastError` is set to `\"Gas tank insufficient\"` and the schedule is skipped without updating `lastRun`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8 · Organisation RBAC (Multi-Sig Proposals)",
+      "description": "Endpoints for managing Organisation Role-Based Access Control (RBAC) and Multi-Sig governance proposals.\n\n**Authentication:** All org-member routes require a Stellar wallet signature JWT in `Authorization: Bearer {{walletJwt}}`.\n\n**Roles:**\n| Role | Permissions |\n|---|---|\n| `DRAFTER` | Create and edit draft splits |\n| `APPROVER` | Approve or reject pending splits |\n| `EXECUTOR` | Submit approved splits to the ledger; manage org membership |\n\n**Base path:** `/api/v1/orgs/:orgAddress`",
+      "item": [
+        {
+          "name": "Get My Role in Org",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{walletJwt}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "role"]
+            },
+            "description": "Resolves the caller's role in the given organisation. Used by the frontend `useRole` hook.\n\n**Expected 200 response:**\n```json\n{\n  \"orgAddress\": \"GAAZI4...\",\n  \"memberAddress\": \"GBVVJJ...\",\n  \"role\": \"EXECUTOR\"\n}\n```\n\n**404** is returned if the caller is not a member of the org."
+          },
+          "response": [
+            {
+              "name": "200 — Role found",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"orgAddress\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"memberAddress\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\",\n  \"role\": \"EXECUTOR\"\n}"
+            },
+            {
+              "name": "404 — Not a member",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"error\": \"Not a member\", \"code\": \"NOT_A_MEMBER\" }"
+            }
+          ]
+        },
+        {
+          "name": "List Org Members",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{walletJwt}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "members"]
+            },
+            "description": "Lists all active members of the organisation. Requires at least `DRAFTER` role.\n\n**Expected 200 response:**\n```json\n{\n  \"orgAddress\": \"GAAZI4...\",\n  \"members\": [\n    { \"memberAddress\": \"GBVVJJ...\", \"role\": \"EXECUTOR\", \"addedBy\": \"GAAZI4...\", \"isActive\": true },\n    { \"memberAddress\": \"GDQOE2...\", \"role\": \"DRAFTER\",  \"addedBy\": \"GAAZI4...\", \"isActive\": true }\n  ]\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Members list",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"orgAddress\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"members\": [\n    {\n      \"memberAddress\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\",\n      \"role\": \"EXECUTOR\",\n      \"addedBy\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n      \"isActive\": true\n    },\n    {\n      \"memberAddress\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\",\n      \"role\": \"DRAFTER\",\n      \"addedBy\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n      \"isActive\": true\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Add / Update Org Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{walletJwt}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "members"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberAddress\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\",\n  \"role\": \"APPROVER\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Adds a new member or updates an existing member's role. Requires `EXECUTOR` role.\n\n**Request body:**\n- `memberAddress` — Stellar G-address (must start with `G`, min 56 chars)\n- `role` — one of `DRAFTER` | `APPROVER` | `EXECUTOR`\n\n**Expected 201 response:**\n```json\n{\n  \"orgAddress\": \"GAAZI4...\",\n  \"memberAddress\": \"GDQOE2...\",\n  \"role\": \"APPROVER\"\n}\n```"
+          },
+          "response": [
+            {
+              "name": "201 — Member upserted",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"orgAddress\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"memberAddress\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\",\n  \"role\": \"APPROVER\"\n}"
+            },
+            {
+              "name": "400 — Invalid role",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Invalid request\",\n  \"details\": {\n    \"fieldErrors\": { \"role\": [\"Invalid enum value. Expected 'DRAFTER' | 'APPROVER' | 'EXECUTOR'\"] },\n    \"formErrors\": []\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Remove Org Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{walletJwt}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "members"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"memberAddress\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Deactivates (soft-deletes) a member from the organisation. Requires `EXECUTOR` role.\n\n**Expected 200 response:**\n```json\n{\n  \"orgAddress\": \"GAAZI4...\",\n  \"memberAddress\": \"GDQOE2...\",\n  \"status\": \"removed\"\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Member removed",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"orgAddress\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"memberAddress\": \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\",\n  \"status\": \"removed\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Draft a Split (DRAFTER role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{walletJwt}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/splits/draft",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "splits", "draft"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a draft split for the organisation. Requires `DRAFTER` role.\n\n**Status:** `501 Not Implemented` — endpoint stub, wiring to split draft service is pending."
+          },
+          "response": [
+            {
+              "name": "501 — Not yet implemented",
+              "status": "Not Implemented",
+              "code": 501,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"message\": \"Draft split — not yet implemented\" }"
+            }
+          ]
+        },
+        {
+          "name": "Approve a Split (APPROVER role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{walletJwt}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/splits/split-001/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "splits", "split-001", "approve"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Approves a pending split. Requires `APPROVER` role.\n\n**Status:** `501 Not Implemented` — endpoint stub."
+          },
+          "response": [
+            {
+              "name": "501 — Not yet implemented",
+              "status": "Not Implemented",
+              "code": 501,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"message\": \"Approve split — not yet implemented\" }"
+            }
+          ]
+        },
+        {
+          "name": "Execute a Split (EXECUTOR role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{walletJwt}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orgs/{{orgAddress}}/splits/split-001/execute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orgs", "{{orgAddress}}", "splits", "split-001", "execute"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Submits an approved split to the Stellar ledger. Requires `EXECUTOR` role.\n\n**Status:** `501 Not Implemented` — endpoint stub."
+          },
+          "response": [
+            {
+              "name": "501 — Not yet implemented",
+              "status": "Not Implemented",
+              "code": 501,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"message\": \"Execute split — not yet implemented\" }"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9 · Multi-Sig Governance Proposals",
+      "description": "Endpoints for creating and querying DAO governance proposals used in multi-sig transaction flows.\n\n**Authentication:** Requires API key (`X-Api-Key`).\n\n**Base path:** `/api/v1/governance`\n\nProposals are stored in the `Proposal` table and indexed from DAO contract events. The `txHash` field stores the Base64-encoded transaction XDR until the proposal is executed on-chain.",
+      "item": [
+        {
+          "name": "Create Multi-Sig Proposal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/proposals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "proposals"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"creator\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"description\": \"Approve Q1 2026 payroll disbursement of 50,000 USDC to 120 employees\",\n  \"action\": \"bulk_disbursement\",\n  \"txData\": \"AAAAAgAAAAA...(Base64 XDR)\",\n  \"signers\": [\n    \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n    \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\",\n    \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\"\n  ],\n  \"requiredSignatures\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Creates a new multi-sig governance proposal.\n\n**Request body:**\n| Field | Type | Constraints |\n|---|---|---|\n| `creator` | string | Valid Stellar G-address |\n| `description` | string | 1–1000 characters |\n| `action` | string | 1–100 characters |\n| `txData` | string | Base64-encoded transaction XDR |\n| `signers` | string[] | Min 1 valid Stellar G-addresses |\n| `requiredSignatures` | integer | 1–20 |\n\n**Idempotency:** Uses `ON CONFLICT (id) DO NOTHING` — submitting the same proposal ID twice is a no-op (returns the original). If a duplicate is detected at the application layer, the response will be `409 Conflict`.\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"proposal\": {\n    \"id\": \"prop-1711728000000-abc1234\",\n    \"creator\": \"GAAZI4...\",\n    \"description\": \"Approve Q1 2026 payroll...\",\n    \"action\": \"bulk_disbursement\",\n    \"txData\": \"AAAAAgAAAAA...\",\n    \"signers\": [\"GAAZI4...\", \"GBVVJJ...\", \"GDQOE2...\"],\n    \"requiredSignatures\": 2,\n    \"status\": \"pending\",\n    \"createdAt\": \"2026-03-29T17:00:00.000Z\"\n  }\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Proposal created",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"proposal\": {\n    \"id\": \"prop-1711728000000-abc1234\",\n    \"creator\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n    \"description\": \"Approve Q1 2026 payroll disbursement of 50,000 USDC to 120 employees\",\n    \"action\": \"bulk_disbursement\",\n    \"txData\": \"AAAAAgAAAAA...(Base64 XDR)\",\n    \"signers\": [\n      \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n      \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\",\n      \"GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP\"\n    ],\n    \"requiredSignatures\": 2,\n    \"status\": \"pending\",\n    \"createdAt\": \"2026-03-29T17:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "400 — Validation error",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Request validation failed\",\n  \"details\": {\n    \"fieldErrors\": { \"requiredSignatures\": [\"Number must be less than or equal to 20\"] },\n    \"formErrors\": []\n  }\n}"
+            },
+            {
+              "name": "409 — Idempotency conflict (duplicate proposal)",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"A proposal with this ID already exists\",\n  \"code\": \"IDEMPOTENCY_CONFLICT\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Governance Proposals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/proposals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "proposals"]
+            },
+            "description": "Returns all governance proposals ordered by `createdAt` descending. No pagination — returns the full list.\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"count\": 2,\n  \"proposals\": [\n    {\n      \"id\": \"prop-1711728000000-abc1234\",\n      \"creator\": \"GAAZI4...\",\n      \"description\": \"Approve Q1 2026 payroll...\",\n      \"quorum\": 2,\n      \"votesFor\": 1,\n      \"votesAgainst\": 0,\n      \"txHash\": \"AAAAAgAAAAA...\",\n      \"createdAt\": \"2026-03-29T17:00:00.000Z\",\n      \"updatedAt\": \"2026-03-29T17:05:00.000Z\"\n    }\n  ]\n}\n```"
+          },
+          "response": [
+            {
+              "name": "200 — Proposals list",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": true,\n  \"count\": 1,\n  \"proposals\": [\n    {\n      \"id\": \"prop-1711728000000-abc1234\",\n      \"creator\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n      \"description\": \"Approve Q1 2026 payroll disbursement of 50,000 USDC to 120 employees\",\n      \"quorum\": 2,\n      \"votesFor\": 1,\n      \"votesAgainst\": 0,\n      \"txHash\": \"AAAAAgAAAAA...(Base64 XDR)\",\n      \"createdAt\": \"2026-03-29T17:00:00.000Z\",\n      \"updatedAt\": \"2026-03-29T17:05:00.000Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Voting Power for Address",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/voting-power/{{orgAddress}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "voting-power", "{{orgAddress}}"]
+            },
+            "description": "Returns the cached voting power for a Stellar address. Voting power is derived from staked balance + active streaming volume.\n\n**Expected 200 response:**\n```json\n{\n  \"success\": true,\n  \"votingPower\": {\n    \"address\": \"GAAZI4...\",\n    \"power\": 1500,\n    \"breakdown\": {\n      \"stakedBalance\": 1000,\n      \"streamingVolume\": 500\n    }\n  }\n}\n```\n\n**400** is returned if the address is not a valid Stellar G-address."
+          },
+          "response": [
+            {
+              "name": "400 — Invalid Stellar address",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Request validation failed\",\n  \"details\": {\n    \"fieldErrors\": { \"address\": [\"Invalid Stellar address\"] },\n    \"formErrors\": []\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 · Error Code Reference",
+      "description": "Complete reference for all error codes returned by the StellarStream V3 API.\n\nAll error responses follow the envelope:\n```json\n{ \"success\": false, \"error\": \"<message>\", \"code\": \"<ERROR_CODE>\" }\n```\nSome validation errors include a `details` field with per-field Zod issues.\n\n---\n\n## HTTP Status Codes\n\n| Status | Meaning |\n|---|---|\n| 200 | Success |\n| 201 | Resource created |\n| 400 | Bad request / validation failure |\n| 401 | Missing or invalid authentication |\n| 403 | Authenticated but insufficient role/permissions |\n| 404 | Resource not found |\n| 409 | Conflict — idempotency key already used |\n| 429 | Rate limit exceeded |\n| 500 | Internal server error |\n| 501 | Not implemented (endpoint stub) |\n\n---\n\n## Application Error Codes\n\n| Code | HTTP | Description |\n|---|---|---|\n| `ERR_INVALID_ADDRESS_FORMAT` | 400 | The provided Stellar address has an invalid format or checksum |\n| `INVALID_ADDRESS` | 400 | Invalid Stellar G-address (used in governance/org validation) |\n| `ERR_INVALID_PRIVACY_BODY` | 400 | Request body missing required `isPrivate` boolean |\n| `ERR_REQUEST_VALIDATION_FAILED` | 400 | Zod schema validation failed — see `details.fieldErrors` |\n| `INVALID_PARAMS` | 400 | Invalid query parameters (e.g. unsupported `format` value) |\n| `NOT_FOUND` | 404 | Requested resource does not exist (e.g. disbursement by tx_hash) |\n| `NOT_A_MEMBER` | 404 | Caller is not a member of the specified organisation |\n| `IDEMPOTENCY_CONFLICT` | 409 | A resource with the same idempotency key already exists |\n| `ERR_TOO_MANY_REQUESTS` | 429 | Per-org or global rate limit exceeded |\n| `MISSING_WALLET_AUTH` | 401 | Wallet auth JWT is missing from the Authorization header |\n| `INVALID_NONCE` | 401 | Wallet auth nonce is invalid or has expired |\n| `INVALID_SIGNATURE` | 401 | Stellar wallet signature verification failed |\n| `ERR_AUTH_UNAVAILABLE` | 503 | Auth service is temporarily unavailable |\n| `ERR_RATE_LIMIT_UNAVAILABLE` | 503 | Rate-limit service (Redis) is temporarily unavailable |\n| `ERR_NOT_IMPLEMENTED` | 501 | Endpoint exists but is not yet wired to a service |\n| `ERR_INTERNAL_SERVER_ERROR` | 500 | Unhandled server-side error |\n\n---\n\n## Idempotency (409 Conflict)\n\nThe `POST /api/v1/governance/proposals` endpoint uses `ON CONFLICT (id) DO NOTHING` at the database level. If the same proposal ID is submitted twice, the second request is silently ignored at the DB layer. If the conflict is detected before the DB write (e.g. via a cache check), the API returns `409 Conflict` with code `IDEMPOTENCY_CONFLICT`.\n\n## Rate Limiting (429)\n\nV3 split-draft endpoints (`/api/v3/process-disbursement-file`) are rate-limited per organisation via `draftRateLimitMiddleware`. Exceeding the limit returns `429` with code `ERR_TOO_MANY_REQUESTS`. The `Retry-After` header indicates when the limit resets.",
+      "item": [
+        {
+          "name": "Trigger 400 — Invalid CSV body",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "text/csv" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "csv" }]
+            },
+            "body": { "mode": "raw", "raw": "" },
+            "description": "Sending an empty body with `format=csv` triggers the 400 guard in the disbursement file route."
+          },
+          "response": [
+            {
+              "name": "400 — Empty CSV body",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"CSV body must be a non-empty string. Set Content-Type: text/csv\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Trigger 404 — Export unknown tx_hash",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/export/nonexistent-tx-hash-000000000000000000000000000000000000000000000000000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "export", "nonexistent-tx-hash-000000000000000000000000000000000000000000000000000000000000"]
+            },
+            "description": "Requesting an export for a tx_hash that does not exist in the `Disbursement` table returns 404."
+          },
+          "response": [
+            {
+              "name": "404 — Disbursement not found",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Disbursement not found\",\n  \"code\": \"NOT_FOUND\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Trigger 409 — Duplicate Governance Proposal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key",    "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/governance/proposals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "governance", "proposals"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"creator\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\",\n  \"description\": \"Duplicate proposal — submit twice to observe idempotency behaviour\",\n  \"action\": \"test_idempotency\",\n  \"txData\": \"AAAAAgAAAAA...\",\n  \"signers\": [\"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\"],\n  \"requiredSignatures\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Submit this request twice with the same payload to observe idempotency behaviour. The first call succeeds (200). The second call returns 409 if the conflict is caught before the DB write, or silently succeeds (200 with no-op) if the `ON CONFLICT DO NOTHING` path is taken."
+          },
+          "response": [
+            {
+              "name": "409 — Idempotency conflict",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"success\": false,\n  \"error\": \"A proposal with this ID already exists\",\n  \"code\": \"IDEMPOTENCY_CONFLICT\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
