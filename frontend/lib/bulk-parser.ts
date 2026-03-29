@@ -6,8 +6,15 @@ import type { RecipientRow } from "@/components/recipient-grid";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ParseError {
+  id: string;
   row: number;
   reason: string;
+  rawData: {
+    address: string;
+    amount: string;
+    memoType: string;
+    memo: string;
+  };
 }
 
 export interface BulkParseResult {
@@ -30,21 +37,30 @@ function resolveHeaders(headers: string[]): { addrIdx: number; amtIdx: number } 
 
 function validateRow(
   rowNum: number,
-  address: string,
-  amount: string,
+  rawData: { address: string; amount: string; memoType: string; memo: string },
   errors: ParseError[],
 ): boolean {
-  let ok = true;
+  const { address, amount } = rawData;
+  const reasons: string[] = [];
+  
   if (!StrKey.isValidEd25519PublicKey(address)) {
-    errors.push({ row: rowNum, reason: `Row ${rowNum}: Invalid Stellar address "${address}"` });
-    ok = false;
+    reasons.push(`Invalid Stellar address "${address}"`);
   }
   const num = parseFloat(amount);
   if (isNaN(num) || num <= 0 || !/^\d+(\.\d+)?$/.test(amount.trim())) {
-    errors.push({ row: rowNum, reason: `Row ${rowNum}: Invalid amount "${amount}" — must be a positive decimal` });
-    ok = false;
+    reasons.push(`Invalid amount "${amount}"`);
   }
-  return ok;
+  
+  if (reasons.length > 0) {
+    errors.push({
+      id: nextId(),
+      row: rowNum,
+      reason: `Row ${rowNum}: ${reasons.join(" and ")}`,
+      rawData
+    });
+    return false;
+  }
+  return true;
 }
 
 // ─── CSV parser ───────────────────────────────────────────────────────────────
@@ -60,7 +76,7 @@ export function parseCSV(raw: string): BulkParseResult {
   });
 
   if (parseErrors.length) {
-    errors.push({ row: 0, reason: `CSV parse error: ${parseErrors[0].message}` });
+    errors.push({ id: nextId(), row: 0, reason: `CSV parse error: ${parseErrors[0].message}`, rawData: { address: "", amount: "", memoType: "none", memo: "" } });
     return { valid, errors };
   }
 
@@ -69,7 +85,7 @@ export function parseCSV(raw: string): BulkParseResult {
   const { addrIdx, amtIdx } = resolveHeaders(Object.keys(data[0]));
 
   if (addrIdx === -1 || amtIdx === -1) {
-    errors.push({ row: 0, reason: 'Missing required columns: "Address" (or "Public Key") and "Amount"' });
+    errors.push({ id: nextId(), row: 0, reason: 'Missing required columns: "Address" (or "Public Key") and "Amount"', rawData: { address: "", amount: "", memoType: "none", memo: "" } });
     return { valid, errors };
   }
 
@@ -83,15 +99,19 @@ export function parseCSV(raw: string): BulkParseResult {
     const rowNum = i + 2; // 1-based + header row
     const address = (row[addrKey] ?? "").trim();
     const amount = (row[amtKey] ?? "").trim();
+    const memoTypeRaw = memoTypeKey ? row[memoTypeKey]?.trim() : "none";
+    const memoType = ["none", "text", "id"].includes(memoTypeRaw as MemoType) ? (memoTypeRaw as MemoType) : "none";
+    const memo = memoKey ? (row[memoKey]?.trim() ?? "") : "";
 
-    if (validateRow(rowNum, address, amount, errors)) {
-      const memoType = (memoTypeKey ? row[memoTypeKey]?.trim() : "none") as MemoType;
+    const rawData = { address, amount, memoType, memo };
+
+    if (validateRow(rowNum, rawData, errors)) {
       valid.push({
         id: nextId(),
         address,
         amount,
-        memoType: ["none", "text", "id"].includes(memoType) ? memoType : "none",
-        memo: memoKey ? (row[memoKey]?.trim() ?? "") : "",
+        memoType,
+        memo,
       });
     }
   });
@@ -109,19 +129,19 @@ export function parseJSON(raw: string): BulkParseResult {
   try {
     data = JSON.parse(raw);
   } catch {
-    errors.push({ row: 0, reason: "Invalid JSON — could not parse file" });
+    errors.push({ id: nextId(), row: 0, reason: "Invalid JSON — could not parse file", rawData: { address: "", amount: "", memoType: "none", memo: "" } });
     return { valid, errors };
   }
 
   if (!Array.isArray(data)) {
-    errors.push({ row: 0, reason: "JSON must be an array of recipient objects" });
+    errors.push({ id: nextId(), row: 0, reason: "JSON must be an array of recipient objects", rawData: { address: "", amount: "", memoType: "none", memo: "" } });
     return { valid, errors };
   }
 
   data.forEach((item: unknown, i) => {
     const rowNum = i + 1;
     if (typeof item !== "object" || item === null) {
-      errors.push({ row: rowNum, reason: `Row ${rowNum}: Entry is not an object` });
+      errors.push({ id: nextId(), row: rowNum, reason: `Row ${rowNum}: Entry is not an object`, rawData: { address: "", amount: "", memoType: "none", memo: "" } });
       return;
     }
 
@@ -134,15 +154,19 @@ export function parseJSON(raw: string): BulkParseResult {
 
     const address = find(["address", "public key", "public_key"]);
     const amount = find(["amount"]);
+    const memoTypeRaw = find(["memo_type"]) as MemoType;
+    const memoType = ["none", "text", "id"].includes(memoTypeRaw) ? memoTypeRaw : "none";
+    const memo = find(["memo"]);
 
-    if (validateRow(rowNum, address, amount, errors)) {
-      const memoType = find(["memo_type"]) as MemoType;
+    const rawData = { address, amount, memoType, memo };
+
+    if (validateRow(rowNum, rawData, errors)) {
       valid.push({
         id: nextId(),
         address,
         amount,
-        memoType: ["none", "text", "id"].includes(memoType) ? memoType : "none",
-        memo: find(["memo"]),
+        memoType,
+        memo,
       });
     }
   });

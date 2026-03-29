@@ -25,6 +25,11 @@ export interface StreamData {
   startTime: string; // ISO string — serialisable across server→client boundary
   endTime: string;
   apy?: number;
+  organization?: {
+    id: string;
+    name: string;
+    logo_url?: string;
+  };
 }
 
 // ─── Live counter ─────────────────────────────────────────────────────────────
@@ -64,7 +69,15 @@ export function ViewStreamClient({ stream }: { stream: StreamData }) {
       className="glass-card max-w-lg w-full mx-auto p-8 space-y-6"
     >
       {/* Verified Badge Header */}
-      <div className="flex justify-center -mt-12 mb-8">
+      <div className="flex flex-col items-center justify-center -mt-12 mb-8 gap-3">
+        {stream.organization?.logo_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={stream.organization.logo_url}
+            alt={`${stream.organization.name} logo`}
+            className="h-14 w-14 rounded-2xl border border-white/20 object-cover shadow-[0_0_24px_rgba(0,245,255,0.2)]"
+          />
+        )}
         <VerifiedNebulaBadge />
       </div>
 

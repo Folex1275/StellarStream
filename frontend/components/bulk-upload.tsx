@@ -2,8 +2,9 @@
 
 import { useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Upload } from "lucide-react";
-import { parseBulkFile, type BulkParseResult } from "@/lib/bulk-parser";
+import { parseBulkFile, type BulkParseResult, type ParseError } from "@/lib/bulk-parser";
 import type { RecipientRow } from "@/components/recipient-grid";
+import { ConflictResolver } from "@/components/conflict-resolver";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,10 @@ export function BulkUpload({ onImport }: BulkUploadProps) {
       const raw = e.target?.result as string;
       const parsed = parseBulkFile(raw, file.name);
       setResult(parsed);
-      if (parsed.valid.length) onImport(parsed.valid);
+      // If there are no errors, auto-import valid. If there are errors, wait for the user to resolve them or manually discard.
+      if (parsed.valid.length && parsed.errors.length === 0) {
+        onImport(parsed.valid);
+      }
     };
     reader.readAsText(file);
   }
@@ -83,15 +87,26 @@ export function BulkUpload({ onImport }: BulkUploadProps) {
             )}
           </div>
 
-          {/* Error list */}
+          {/* Conflict Resolver */}
           {result.errors.length > 0 && (
-            <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-red-400/10 bg-red-400/[0.03] px-3 py-2">
-              {result.errors.map((err, i) => (
-                <li key={i} className="font-body text-[11px] text-red-300/80">
-                  {err.reason}
-                </li>
-              ))}
-            </ul>
+            <div className="mt-4">
+              <ConflictResolver
+                errors={result.errors}
+                onResolve={(resolved, remaining) => {
+                  const newValid = [...result.valid, ...resolved];
+                  setResult({ valid: newValid, errors: remaining });
+                  if (newValid.length > 0) {
+                    onImport(newValid);
+                  }
+                }}
+                onDiscardAll={() => {
+                  setResult({ valid: result.valid, errors: [] });
+                  if (result.valid.length > 0) {
+                    onImport(result.valid);
+                  }
+                }}
+              />
+            </div>
           )}
         </div>
       )}

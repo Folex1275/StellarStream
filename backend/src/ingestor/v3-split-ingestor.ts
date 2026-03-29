@@ -11,9 +11,11 @@
 import { SorobanRpc, scValToNative } from "@stellar/stellar-sdk";
 import { PrismaClient } from "../generated/client/index.js";
 import { getLastLedgerSequence, saveLastLedgerSequence } from "../services/syncMetadata.service.js";
+import { WebhookDispatcherService } from "../services/webhook-dispatcher.service.js";
 import { logger } from "../logger.js";
 
 const prisma = new PrismaClient();
+const webhookDispatcher = new WebhookDispatcherService();
 
 const RPC_URL = process.env.STELLAR_RPC_URL ?? "";
 const V3_CONTRACT_ID = process.env.V3_CONTRACT_ID ?? "";
@@ -126,16 +128,31 @@ export class V3SplitIngestor {
    */
   private async handleSplitExecuted(event: SorobanRpc.Api.EventResponse): Promise<void> {
     const payload = this.decodePayload(event) as SplitExecutedPayload;
+    const splitId = payload.split_id == null ? null : String(payload.split_id);
+    const sender = String(payload.sender ?? "");
+    const totalAmount = String(payload.total_amount ?? "0");
+    const asset = String(payload.asset ?? "");
 
     await prisma.disbursement.upsert({
       where: { txHash: event.txHash },
       create: {
-        senderAddress: String(payload.sender ?? ""),
-        totalAmount:   String(payload.total_amount ?? "0"),
-        asset:         String(payload.asset ?? ""),
+        senderAddress: sender,
+        totalAmount,
+        asset,
         txHash:        event.txHash,
       },
       update: {}, // already exists — no-op
+    });
+
+    await webhookDispatcher.dispatch({
+      eventType: "split.completed",
+      splitId,
+      streamId: splitId,
+      txHash: event.txHash,
+      sender,
+      totalAmount,
+      asset,
+      timestamp: new Date().toISOString(),
     });
 
     logger.debug("[V3SplitIngestor] Upserted Disbursement", { txHash: event.txHash });

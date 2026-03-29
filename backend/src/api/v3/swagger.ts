@@ -155,9 +155,95 @@ const options: swaggerJsdoc.Options = {
             error: { type: "string", example: "Validation failed" },
           },
         },
+        WebhookRegistrationRequest: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              format: "uri",
+              example: "https://erp.example.com/stellarstream/webhooks",
+            },
+            eventType: {
+              type: "string",
+              example: "split.completed",
+              description: "Use '*' to receive every supported webhook event.",
+            },
+            description: {
+              type: "string",
+              example: "ERP split settlement callback",
+            },
+          },
+          required: ["url"],
+        },
+        WebhookRegistrationResponse: {
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: true },
+            data: {
+              type: "object",
+              properties: {
+                webhookId: { type: "string", example: "cm123abc" },
+                secretKey: {
+                  type: "string",
+                  example: "8f8d7f4a0ff9d6fbbbf0dbe2876ef0bc9efcad727674b81c82ee1d66fc8f8dd1",
+                },
+                eventType: { type: "string", example: "split.completed" },
+              },
+            },
+            message: {
+              type: "string",
+              example: "Webhook registered successfully. Store the secretKey securely.",
+            },
+          },
+        },
       },
     },
     paths: {
+      "/webhooks/register": {
+        post: {
+          summary: "Register a webhook for split completion updates",
+          description:
+            "Registers a third-party callback URL that will receive a signed POST request " +
+            "whenever a matching split completion event is indexed.",
+          operationId: "registerWebhook",
+          tags: ["Webhooks"],
+          security: [{ ApiKeyAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/WebhookRegistrationRequest" },
+              },
+            },
+          },
+          responses: {
+            "201": {
+              description: "Webhook registration created",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/WebhookRegistrationResponse" },
+                },
+              },
+            },
+            "400": {
+              description: "Invalid input",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            "401": {
+              description: "Missing or invalid API key",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+      },
       "/process-disbursement-file": {
         post: {
           summary: "Bulk-import CSV/JSON disbursement file",

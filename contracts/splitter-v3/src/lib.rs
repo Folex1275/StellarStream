@@ -17,7 +17,7 @@ mod test;
 
 /// A recipient and their share in basis points (0–10000).
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Recipient {
     pub address: Address,
     pub share_bps: u32,
@@ -25,7 +25,7 @@ pub struct Recipient {
 
 /// A recipient with a percentage share expressed in basis points for `split_percentage`.
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PercentRecipient {
     pub address: Address,
     pub bps: u32,
@@ -33,7 +33,7 @@ pub struct PercentRecipient {
 
 /// The protocol setting being changed by a quorum proposal.
 #[contracttype]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum AdminAction {
     /// Update the protocol fee (basis points).
     UpdateFee(u32),
@@ -43,7 +43,7 @@ pub enum AdminAction {
 
 /// A pending or executed quorum proposal.
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Proposal {
     pub action: AdminAction,
     /// Addresses that have approved so far.
@@ -53,7 +53,7 @@ pub struct Proposal {
 
 /// Status of a scheduled split.
 #[contracttype]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum SplitStatus {
     Pending,
     Executed,
@@ -62,15 +62,11 @@ pub enum SplitStatus {
 
 /// A scheduled (future) split stored on-chain until its release_time.
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SplitConfig {
-    /// The address that funded and scheduled this split.
     pub sender: Address,
-    /// Recipients and their shares (must sum to 10_000 bps).
     pub recipients: Vec<Recipient>,
-    /// Total tokens locked in the contract for this split.
     pub total_amount: i128,
-    /// Ledger timestamp (seconds) after which the split can be executed.
     pub release_time: u64,
     pub status: SplitStatus,
 }
