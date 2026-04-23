@@ -1,5 +1,4 @@
 #![cfg(test)]
-extern crate std;
 
 use soroban_sdk::{
     testutils::{Address as _},
@@ -8,7 +7,6 @@ use soroban_sdk::{
 };
 
 use crate::{errors::Error, AdminAction, Recipient, SplitterV3, SplitterV3Client};
-use soroban_sdk::BytesN;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -47,14 +45,8 @@ fn setup() -> Setup {
     quorum.push_back(admin_b.clone());
     quorum.push_back(admin_c.clone());
 
-    // council_keys: 7 addresses for 5-of-7 recovery (use dummy addresses in tests)
-    let mut council = Vec::new(&env);
-    for _ in 0..7 {
-        council.push_back(Address::generate(&env));
-    }
-
     contract
-        .initialize(&owner, &token_id.address(), &100u32, &treasury, &quorum, &council)
+        .initialize(&owner, &token_id.address(), &100u32, &treasury, &quorum)
         .unwrap();
 
     Setup { env, contract, token, owner, treasury, admin_a, admin_b, admin_c }
@@ -199,7 +191,7 @@ fn test_split_uses_updated_fee() {
     let mut recipients = Vec::new(&s.env);
     recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
 
-    s.contract.split(&s.owner, &recipients, &1_000_000, &None, &BytesN::from_array(&s.env, &[1u8; 32])).unwrap();
+    s.contract.split(&s.owner, &recipients, &1_000_000).unwrap();
 
     // 0% fee → alice gets the full amount.
     assert_eq!(s.token.balance(&alice), 1_000_000);
@@ -387,7 +379,7 @@ fn test_split_pull_credits_claimable_balances() {
     s.contract.approve_proposal(&s.admin_b, &id).unwrap();
     s.contract.execute_proposal(&s.admin_c, &id).unwrap();
 
-    s.contract.split_pull(&s.owner, &recipients, &1_000_000, &None).unwrap();
+    s.contract.split_pull(&s.owner, &recipients, &1_000_000).unwrap();
 
     // Tokens NOT yet in wallets — still in contract.
     assert_eq!(s.token.balance(&alice), 0);
@@ -411,7 +403,7 @@ fn test_claim_share_transfers_and_zeroes_balance() {
     s.contract.approve_proposal(&s.admin_b, &id).unwrap();
     s.contract.execute_proposal(&s.admin_c, &id).unwrap();
 
-    s.contract.split_pull(&s.owner, &recipients, &500_000, &None).unwrap();
+    s.contract.split_pull(&s.owner, &recipients, &500_000).unwrap();
 
     // Alice claims her share.
     s.contract.claim_share(&alice, &token_addr).unwrap();
@@ -441,7 +433,7 @@ fn test_split_pull_fee_deducted_before_crediting() {
     let mut recipients = Vec::new(&s.env);
     recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
 
-    s.contract.split_pull(&s.owner, &recipients, &1_000_000, &None).unwrap();
+    s.contract.split_pull(&s.owner, &recipients, &1_000_000).unwrap();
 
     // Fee = 10_000; distributable = 990_000 → alice gets 990_000.
     assert_eq!(s.contract.claimable_balance(&alice, &token_addr), 990_000);
@@ -462,170 +454,12 @@ fn test_multiple_split_pulls_accumulate_balance() {
     s.contract.approve_proposal(&s.admin_b, &id).unwrap();
     s.contract.execute_proposal(&s.admin_c, &id).unwrap();
 
-    s.contract.split_pull(&s.owner, &recipients, &200_000, &None).unwrap();
-    s.contract.split_pull(&s.owner, &recipients, &300_000, &None).unwrap();
+    s.contract.split_pull(&s.owner, &recipients, &200_000).unwrap();
+    s.contract.split_pull(&s.owner, &recipients, &300_000).unwrap();
 
     // Balances accumulate across multiple pulls before claiming.
     assert_eq!(s.contract.claimable_balance(&alice, &token_addr), 500_000);
 
     s.contract.claim_share(&alice, &token_addr).unwrap();
     assert_eq!(s.token.balance(&alice), 500_000);
-}
-
-// ── Task 1: Pre-flight balance check tests ────────────────────────────────────
-
-#[test]
-fn test_split_preflight_rejects_insufficient_balance() {
-    let s = setup();
-    let alice = Address::generate(&s.env);
-    s.contract.set_verification_status(&alice, &true).unwrap();
-
-    let mut recipients = Vec::new(&s.env);
-    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
-
-    // owner has 1_000_000_000; request more than available
-    let result = s.contract.split(
-        &s.owner,
-        &recipients,
-        &2_000_000_000i128,
-        &None,
-        &BytesN::from_array(&s.env, &[10u8; 32]),
-    );
-    assert_eq!(result, Err(Error::InsufficientBalance));
-}
-
-#[test]
-fn test_split_funds_preflight_rejects_insufficient_balance() {
-    let s = setup();
-    let alice = Address::generate(&s.env);
-
-    let mut recipients = Vec::new(&s.env);
-    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
-
-    let result = s.contract.split_funds(
-        &s.owner,
-        &s.token.address,
-        &recipients,
-        &2_000_000_000i128,
-    );
-    assert_eq!(result, Err(Error::InsufficientBalance));
-}
-
-// ── Task 2 & 4: Idempotency / double-spend prevention tests ──────────────────
-
-#[test]
-fn test_split_idempotency_rejects_replay() {
-    let s = setup();
-    let alice = Address::generate(&s.env);
-    s.contract.set_verification_status(&alice, &true).unwrap();
-
-    let mut recipients = Vec::new(&s.env);
-    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
-
-    let salt = BytesN::from_array(&s.env, &[42u8; 32]);
-
-    // First call succeeds.
-    s.contract
-        .split(&s.owner, &recipients, &100_000, &None, &salt)
-        .unwrap();
-
-    // Replay with same (sender, recipients, amount, salt) must fail.
-    let result = s.contract.split(&s.owner, &recipients, &100_000, &None, &salt);
-    assert_eq!(result, Err(Error::AlreadyProcessed));
-}
-
-#[test]
-fn test_split_different_salt_succeeds() {
-    let s = setup();
-    let alice = Address::generate(&s.env);
-    s.contract.set_verification_status(&alice, &true).unwrap();
-
-    let mut recipients = Vec::new(&s.env);
-    recipients.push_back(Recipient { address: alice.clone(), share_bps: 10_000 });
-
-    // Two calls with different salts are both valid.
-    s.contract
-        .split(&s.owner, &recipients, &100_000, &None, &BytesN::from_array(&s.env, &[1u8; 32]))
-        .unwrap();
-    s.contract
-        .split(&s.owner, &recipients, &100_000, &None, &BytesN::from_array(&s.env, &[2u8; 32]))
-        .unwrap();
-}
-
-// ── Task 3: 120-recipient performance baseline ────────────────────────────────
-
-#[test]
-fn test_120_recipient_split_baseline() {
-    let env = Env::default();
-    env.mock_all_auths();
-    env.budget().reset_unlimited(); // measure without hitting default limits
-
-    let owner = Address::generate(&env);
-    let treasury = Address::generate(&env);
-    let admin_a = Address::generate(&env);
-    let admin_b = Address::generate(&env);
-    let admin_c = Address::generate(&env);
-
-    let token_admin = Address::generate(&env);
-    let token_id = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token = soroban_sdk::token::Client::new(&env, &token_id.address());
-    let sac = soroban_sdk::token::StellarAssetClient::new(&env, &token_id.address());
-    // Mint enough for 120 recipients × 1_000 each = 120_000 + headroom
-    sac.mint(&owner, &10_000_000_000i128);
-
-    let contract_id = env.register(SplitterV3, ());
-    let contract = SplitterV3Client::new(&env, &contract_id);
-
-    let mut quorum = Vec::new(&env);
-    quorum.push_back(admin_a.clone());
-    quorum.push_back(admin_b.clone());
-    quorum.push_back(admin_c.clone());
-
-    let mut council = Vec::new(&env);
-    for _ in 0..7 {
-        council.push_back(Address::generate(&env));
-    }
-
-    contract
-        .initialize(&owner, &token_id.address(), &0u32, &treasury, &quorum, &council)
-        .unwrap();
-
-    // Build 120 recipients with equal shares (10_000 / 120 = 83 bps each,
-    // last recipient absorbs the 40 bps rounding remainder).
-    let n: u32 = 120;
-    let base_bps: u32 = 10_000 / n; // 83
-    let remainder_bps: u32 = 10_000 - base_bps * (n - 1);
-
-    let mut recipients = Vec::new(&env);
-    for i in 0..n {
-        let addr = Address::generate(&env);
-        contract.set_verification_status(&addr, &true).unwrap();
-        let bps = if i == n - 1 { remainder_bps } else { base_bps };
-        recipients.push_back(Recipient { address: addr, share_bps: bps });
-    }
-
-    let total_amount: i128 = 1_200_000;
-    let salt = BytesN::from_array(&env, &[99u8; 32]);
-
-    contract
-        .split(&owner, &recipients, &total_amount, &None, &salt)
-        .unwrap();
-
-    // Capture CPU and memory usage after the call.
-    let cpu = env.budget().cpu_instruction_count();
-    let mem = env.budget().memory_bytes_used();
-
-    // Log for baseline visibility (will appear in `cargo test -- --nocapture`).
-    std::println!(
-        "[Task 3 Baseline] 120-recipient split — CPU instructions: {}, Memory bytes: {}",
-        cpu,
-        mem
-    );
-
-    // If memory exceeds 40 MB, this assertion will fail and signal a refactor is needed.
-    assert!(
-        mem < 40_000_000,
-        "Memory usage {}B exceeds 40MB threshold — refactor Vec handling",
-        mem
-    );
 }

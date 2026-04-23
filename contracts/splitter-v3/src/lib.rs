@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, token, Address, Bytes, BytesN, Env, Vec,
+    contract, contractimpl, contracttype, symbol_short, token, Address, Env, Vec,
 };
 
 mod errors;
@@ -229,34 +229,15 @@ impl SplitterV3 {
 
     // ── Core: split ───────────────────────────────────────────────────────────
 
-    /// `affiliate` — optional partner address that receives 0.1% of `total_amount`
-    /// before the recipient list is processed.
-    ///
-    /// `salt` — caller-supplied nonce used to build the idempotency hash.
-    /// Pass a unique value per disbursement to prevent double-spend on retries.
     pub fn split(
         env: Env,
         sender: Address,
         recipients: Vec<Recipient>,
         total_amount: i128,
         affiliate: Option<Address>,
-        salt: BytesN<32>,
     ) -> Result<(), Error> {
         Self::_require_not_paused(&env)?;
         sender.require_auth();
-
-        // ── Idempotency: reject replayed disbursements ────────────────────────
-        let hash = Self::_compute_split_hash(&env, &sender, &recipients, total_amount, &salt)?;
-        if env.storage().temporary().has(&DataKey::ProcessedHash(hash.clone())) {
-            return Err(Error::AlreadyProcessed);
-        }
-
-        let strict: bool = env
-            .storage()
-            .instance()
-            .get(&DataKey::StrictMode)
-            .unwrap_or(false);
-
         let strict: bool = env.storage().instance().get(&DataKey::StrictMode).unwrap_or(false);
         let mut bps_sum: u32 = 0;
         for r in recipients.iter() {
@@ -266,10 +247,6 @@ impl SplitterV3 {
         let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
         let token_client = token::Client::new(&env, &token_addr);
         let contract_addr = env.current_contract_address();
-
-        // ── Pre-flight: read-only balance check before any cross-contract call ─
-        Self::check_balances_bulk(&env, &token_client, &sender, total_amount)?;
-
         token_client.transfer(&sender, &contract_addr, &total_amount);
         let affiliate_amount = if let Some(ref affiliate_addr) = affiliate {
             let a = total_amount.checked_mul(10).ok_or(Error::Overflow)? / 10_000;
@@ -315,10 +292,6 @@ impl SplitterV3 {
             }
             Self::_distribute(&env, &token_client, &contract_addr, &scaled, distributable)?;
         }
-
-        // ── Mark hash as processed (temporary storage, TTL ~1 day) ───────────
-        env.storage().temporary().set(&DataKey::ProcessedHash(hash), &true);
-
         Ok(())
     }
 
@@ -496,10 +469,6 @@ impl SplitterV3 {
 
         let token_client = token::Client::new(&env, &asset);
         let _ = token_client.decimals();
-
-        // ── Pre-flight: read-only balance check before any cross-contract call ─
-        Self::check_balances_bulk(&env, &token_client, &sender, total_amount)?;
-
         let contract_addr = env.current_contract_address();
 
         // Only pull tokens on the first chunk (next_index == 0).
@@ -770,85 +739,5 @@ impl SplitterV3 {
         }
         env.events().publish((symbol_short!("split"),), distributable);
         Ok(())
-    }
-
-    // ── Task 1: Read-only pre-flight balance check ────────────────────────────
-
-    /// Reads the sender's token balance in a single read-only call and reverts
-    /// with `InsufficientBalance` if it is less than `required`.
-    /// No cross-contract state mutation occurs here — pure CPU savings.
-    pub fn check_balances_bulk(
-        env: &Env,
-        token_client: &token::Client,
-        sender: &Address,
-        required: i128,
-    ) -> Result<(), Error> {
-        let balance = token_client.balance(sender);
-        if balance < required {
-            return Err(Error::InsufficientBalance);
-        }
-        Ok(())
-    }
-
-    // ── Task 2 & 4: Idempotency hash ─────────────────────────────────────────
-
-    /// Builds a SHA-256 hash over `(amount_be || salt || recipient_bps... || sender_xdr)`.
-    /// Used to detect replayed disbursements.
-    fn _compute_split_hash(
-        env: &Env,
-        sender: &Address,
-        recipients: &Vec<Recipient>,
-        amount: i128,
-        salt: &BytesN<32>,
-    ) -> Result<BytesN<32>, Error> {
-        let mut preimage = Bytes::new(env);
-
-        // amount as 16 big-endian bytes
-        let amount_u128 = amount as u128;
-        let a0 = ((amount_u128 >> 120) & 0xff) as u8;
-        let a1 = ((amount_u128 >> 112) & 0xff) as u8;
-        let a2 = ((amount_u128 >> 104) & 0xff) as u8;
-        let a3 = ((amount_u128 >> 96)  & 0xff) as u8;
-        let a4 = ((amount_u128 >> 88)  & 0xff) as u8;
-        let a5 = ((amount_u128 >> 80)  & 0xff) as u8;
-        let a6 = ((amount_u128 >> 72)  & 0xff) as u8;
-        let a7 = ((amount_u128 >> 64)  & 0xff) as u8;
-        let a8 = ((amount_u128 >> 56)  & 0xff) as u8;
-        let a9 = ((amount_u128 >> 48)  & 0xff) as u8;
-        let a10 = ((amount_u128 >> 40) & 0xff) as u8;
-        let a11 = ((amount_u128 >> 32) & 0xff) as u8;
-        let a12 = ((amount_u128 >> 24) & 0xff) as u8;
-        let a13 = ((amount_u128 >> 16) & 0xff) as u8;
-        let a14 = ((amount_u128 >> 8)  & 0xff) as u8;
-        let a15 = (amount_u128 & 0xff) as u8;
-        preimage.push_back(a0);  preimage.push_back(a1);
-        preimage.push_back(a2);  preimage.push_back(a3);
-        preimage.push_back(a4);  preimage.push_back(a5);
-        preimage.push_back(a6);  preimage.push_back(a7);
-        preimage.push_back(a8);  preimage.push_back(a9);
-        preimage.push_back(a10); preimage.push_back(a11);
-        preimage.push_back(a12); preimage.push_back(a13);
-        preimage.push_back(a14); preimage.push_back(a15);
-
-        // salt (32 bytes)
-        let salt_bytes: Bytes = salt.clone().into();
-        preimage.append(&salt_bytes);
-
-        // each recipient share_bps as 4 big-endian bytes
-        for r in recipients.iter() {
-            let b = r.share_bps;
-            preimage.push_back(((b >> 24) & 0xff) as u8);
-            preimage.push_back(((b >> 16) & 0xff) as u8);
-            preimage.push_back(((b >> 8)  & 0xff) as u8);
-            preimage.push_back((b & 0xff) as u8);
-        }
-
-        // sender: hash its contract-address bytes via a nested sha256
-        // We encode the sender as a BytesN<32> seed by hashing a fixed tag + index
-        // Instead, use the sender's address converted to bytes via soroban's to_xdr
-        let sender_bytes = sender.to_xdr(env);
-        preimage.append(&sender_bytes);
-
-        Ok(env.crypto().sha256(&preimage))
     }
 }

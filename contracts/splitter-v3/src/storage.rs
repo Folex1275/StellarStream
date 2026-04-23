@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, BytesN};
+use soroban_sdk::{contracttype, Address};
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
@@ -16,8 +16,6 @@ pub enum DataKey {
     ScheduledSplit(u64),
     ClaimableBalance(Address, Address),
     CouncilKeys,
-    /// Stores a processed split hash to prevent double-spend on retries.
-    ProcessedHash(BytesN<32>),
     // #919: affiliate revenue split
     AffiliateAddress,
     AffiliateBps,
