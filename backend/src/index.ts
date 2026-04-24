@@ -30,6 +30,7 @@ import { DataIntegrityWorker } from "./data-integrity.worker.js";
 import { YieldAccrualWorker } from "./yield-accrual.worker.js";
 import { startWebhookWorker } from "./webhook-dispatcher.worker.js";
 import { XlmBufferMonitorWorker } from "./xlm-buffer-monitor.worker.js";
+import { V3SplitIngestor } from "./ingestor/v3-split-ingestor.js";
 import { bigintSerializer } from "./middleware/bigintSerializer.js";
 import { swaggerSpec } from "./swagger.js";
 import { swaggerV3Spec } from "./api/v3/swagger.js";
@@ -61,6 +62,7 @@ const cleanupWorker = new StaleStreamCleanupWorker();
 const dataIntegrityWorker = new DataIntegrityWorker();
 const yieldAccrualWorker = new YieldAccrualWorker();
 const xlmBufferMonitor = new XlmBufferMonitorWorker();
+const v3SplitIngestor = new V3SplitIngestor();
 
 // ── Security middleware ────────────────────────────────────────────────────────
 app.use(
@@ -195,6 +197,7 @@ async function start(): Promise<void> {
   // Start background services
   bridgeObserver.start();
   ttlMonitor.start();
+  v3SplitIngestor.start();
 
   server.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
@@ -202,6 +205,7 @@ async function start(): Promise<void> {
     console.log(`🔌 WebSocket ready`);
     console.log(`🌉 Bridge observer active`);
     console.log(`⏱️  TTL monitor active`);
+    console.log(`📡 V3 Split ingestor active`);
   });
 }
 
@@ -213,6 +217,7 @@ function shutdown(signal: string): void {
   xlmBufferMonitor.stop();
   bridgeObserver.stop();
   ttlMonitor.stop();
+  v3SplitIngestor.stop();
   closeRedis()
     .then(() => prisma.$disconnect())
     .then(() => {
