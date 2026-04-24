@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useMemo } from "react";
 import Papa from "papaparse";
 import { Upload, AlertTriangle, CheckCircle2, ArrowRight, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { findFuzzyAddressMatches, truncateAddress, type DirectoryEntry } from "@/lib/fuzzy-address-match";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,6 +15,8 @@ export interface MappedRow {
 
 interface CsvUploadWizardProps {
   onComplete: (rows: MappedRow[]) => void;
+  /** Organization directory for fuzzy address matching */
+  directory?: DirectoryEntry[];
 }
 
 type WizardStep = "upload" | "map" | "preview";
@@ -45,7 +48,7 @@ function guessMapping(headers: string[]): Record<string, "address" | "amount" | 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function CsvUploadWizard({ onComplete }: CsvUploadWizardProps) {
+export function CsvUploadWizard({ onComplete, directory }: CsvUploadWizardProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<WizardStep>("upload");
   const [isDragging, setIsDragging] = useState(false);
@@ -144,11 +147,10 @@ export function CsvUploadWizard({ onComplete }: CsvUploadWizardProps) {
             exit={{ opacity: 0, y: -8 }}
           >
             <label
-              className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center transition-colors ${
-                isDragging
-                  ? "border-cyan-400/60 bg-cyan-400/[0.06]"
-                  : "border-white/[0.12] bg-white/[0.02] hover:border-cyan-400/30 hover:bg-white/[0.04]"
-              }`}
+              className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-10 text-center transition-colors ${isDragging
+                ? "border-cyan-400/60 bg-cyan-400/[0.06]"
+                : "border-white/[0.12] bg-white/[0.02] hover:border-cyan-400/30 hover:bg-white/[0.04]"
+                }`}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
@@ -302,6 +304,9 @@ export function CsvUploadWizard({ onComplete }: CsvUploadWizardProps) {
                 <tbody>
                   {mappedRows.map((r, i) => {
                     const valid = r.address.startsWith("G") && r.address.length === 56;
+                    const fuzzyMatches = !valid && directory
+                      ? findFuzzyAddressMatches(r.address, directory, 2, 0.25)
+                      : [];
                     return (
                       <tr key={i} className="border-b border-white/[0.04] last:border-0">
                         <td className="px-3 py-1.5 font-mono text-white/60 max-w-[180px] truncate">{r.address}</td>
@@ -310,7 +315,25 @@ export function CsvUploadWizard({ onComplete }: CsvUploadWizardProps) {
                           {valid ? (
                             <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                           ) : (
-                            <AlertTriangle className="h-3 w-3 text-amber-400" title="Invalid G-address" />
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3 text-amber-400" />
+                                <span className="text-[10px] text-amber-400/80">Invalid</span>
+                              </div>
+                              {fuzzyMatches.length > 0 && (
+                                <div className="flex flex-col gap-0.5">
+                                  {fuzzyMatches.map((m, idx) => (
+                                    <span key={idx} className="text-[10px] text-cyan-400/80">
+                                      Did you mean{" "}
+                                      <span className="font-medium text-cyan-300">
+                                        {m.name || truncateAddress(m.address)}
+                                      </span>
+                                      ?
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>

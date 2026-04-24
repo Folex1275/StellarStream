@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, Refresh
 import { useGasBuffer } from "@/lib/use-gas-buffer";
 import { toast } from "@/lib/toast";
 import { QuickRefillButton } from "@/components/quick-refill-button";
+import { GasTankRefillWizard } from "@/components/gas-tank-refill-wizard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
     const [depositAmt, setDepositAmt] = useState("");
     const [withdrawAmt, setWithdrawAmt] = useState("");
     const [promptDismissed, setPromptDismissed] = useState(false);
+    const [showRefillWizard, setShowRefillWizard] = useState(false);
 
     const isLowGas =
         status !== null &&
@@ -131,11 +133,10 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
 
     return (
         <div
-            className={`rounded-2xl border backdrop-blur-xl transition-colors duration-300 ${
-                isLowGas
+            className={`rounded-2xl border backdrop-blur-xl transition-colors duration-300 ${isLowGas
                     ? "border-orange-500/40 bg-orange-500/[0.03]"
                     : "border-white/10 bg-white/[0.03]"
-            }`}
+                }`}
         >
             {/* Low-gas top accent */}
             {isLowGas && (
@@ -147,11 +148,10 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                         <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
-                                isLowGas
+                            className={`flex h-10 w-10 items-center justify-center rounded-xl border ${isLowGas
                                     ? "border-orange-500/30 bg-orange-500/10"
                                     : "border-white/10 bg-white/[0.05]"
-                            }`}
+                                }`}
                         >
                             <Fuel
                                 size={18}
@@ -165,14 +165,23 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={refresh}
-                        disabled={loading}
-                        className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-white/40 hover:text-white transition-colors"
-                    >
-                        <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
-                        Refresh
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowRefillWizard(true)}
+                            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-[11px] text-cyan-300 hover:bg-cyan-400/20 transition-colors"
+                        >
+                            <Fuel size={11} />
+                            Fuel Up
+                        </button>
+                        <button
+                            onClick={refresh}
+                            disabled={loading}
+                            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-white/40 hover:text-white transition-colors"
+                        >
+                            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+                            Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Low Gas Warning ── */}
@@ -248,9 +257,8 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
                                     className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-center"
                                 >
                                     <p
-                                        className={`font-heading text-sm leading-tight ${
-                                            s.accent ? "text-orange-400" : "text-white"
-                                        }`}
+                                        className={`font-heading text-sm leading-tight ${s.accent ? "text-orange-400" : "text-white"
+                                            }`}
                                     >
                                         {s.value}
                                     </p>
@@ -335,6 +343,12 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
                     </div>
                 </div>
             </div>
+
+            {/* Gas Tank Refill Wizard */}
+            <GasTankRefillWizard
+                isOpen={showRefillWizard}
+                onClose={() => setShowRefillWizard(false)}
+            />
         </div>
     );
 }

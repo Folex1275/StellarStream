@@ -15,8 +15,10 @@
  *   Shift+Enter — insert row below current
  */
 
-import { useRef, useState, useCallback, useEffect, KeyboardEvent } from "react";
+import { useRef, useState, useCallback, useEffect, KeyboardEvent, useMemo } from "react";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { AddressFuzzyDropdown } from "@/components/AddressFuzzyDropdown";
+import { findFuzzyAddressMatches, type DirectoryEntry } from "@/lib/fuzzy-address-match";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,8 @@ export interface GridRow {
 interface VirtualRecipientGridProps {
   rows: GridRow[];
   onChange: (rows: GridRow[]) => void;
+  /** Organization directory for fuzzy address matching */
+  directory?: DirectoryEntry[];
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -71,7 +75,7 @@ type Col = (typeof COLS)[number];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function VirtualRecipientGrid({ rows, onChange }: VirtualRecipientGridProps) {
+export function VirtualRecipientGrid({ rows, onChange, directory }: VirtualRecipientGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Track which cell is focused: [rowIndex, colIndex]
   const [focused, setFocused] = useState<[number, number] | null>(null);
@@ -212,6 +216,7 @@ export function VirtualRecipientGrid({ rows, onChange }: VirtualRecipientGridPro
                 onKeyDown={handleKeyDown}
                 onDelete={deleteRow}
                 isFocused={focused?.[0] === rowIdx}
+                directory={directory}
               />
             ))}
           </tbody>
@@ -239,14 +244,20 @@ interface GridRowProps {
   onKeyDown: (e: KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onDelete: (rowIdx: number) => void;
   isFocused: boolean;
+  directory?: DirectoryEntry[];
 }
 
-function GridRowComponent({ row, rowIdx, onCellChange, onKeyDown, onDelete, isFocused }: GridRowProps) {
+function GridRowComponent({ row, rowIdx, onCellChange, onKeyDown, onDelete, isFocused, directory }: GridRowProps) {
+  const [showFuzzy, setShowFuzzy] = useState(false);
+
+  const fuzzyMatches = useMemo(() => {
+    if (!directory || !row.errors.address || !row.address) return [];
+    return findFuzzyAddressMatches(row.address, directory, 3, 0.3);
+  }, [directory, row.errors.address, row.address]);
   return (
     <tr
-      className={`border-b border-white/[0.04] last:border-0 transition-colors ${
-        isFocused ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"
-      }`}
+      className={`border-b border-white/[0.04] last:border-0 transition-colors ${isFocused ? "bg-white/[0.03]" : "hover:bg-white/[0.02]"
+        }`}
       // content-visibility for virtualization without react-window
       style={{ contentVisibility: "auto", containIntrinsicSize: "0 36px" } as React.CSSProperties}
     >
@@ -262,20 +273,37 @@ function GridRowComponent({ row, rowIdx, onCellChange, onKeyDown, onDelete, isFo
             data-row={rowIdx}
             data-col={0}
             value={row.address}
-            onChange={(e) => onCellChange(rowIdx, "address", e.target.value)}
+            onChange={(e) => {
+              onCellChange(rowIdx, "address", e.target.value);
+              setShowFuzzy(true);
+            }}
+            onFocus={() => setShowFuzzy(true)}
+            onBlur={() => {
+              // Delay hiding so the dropdown click can fire first
+              setTimeout(() => setShowFuzzy(false), 150);
+            }}
             onKeyDown={(e) => onKeyDown(e, rowIdx, 0)}
             placeholder="GABC…"
             spellCheck={false}
-            className={`w-full rounded-md border bg-transparent px-2 py-1 font-mono text-[11px] text-white/70 placeholder-white/20 focus:outline-none focus:ring-1 transition-colors ${
-              row.errors.address
-                ? "border-amber-400/40 focus:ring-amber-400/30"
-                : "border-white/[0.06] focus:border-cyan-400/40 focus:ring-cyan-400/20"
-            }`}
+            className={`w-full rounded-md border bg-transparent px-2 py-1 font-mono text-[11px] text-white/70 placeholder-white/20 focus:outline-none focus:ring-1 transition-colors ${row.errors.address
+              ? "border-amber-400/40 focus:ring-amber-400/30"
+              : "border-white/[0.06] focus:border-cyan-400/40 focus:ring-cyan-400/20"
+              }`}
           />
-          {row.errors.address && (
+          {row.errors.address && fuzzyMatches.length === 0 && (
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-amber-400/80">
               {row.errors.address}
             </span>
+          )}
+          {showFuzzy && fuzzyMatches.length > 0 && (
+            <AddressFuzzyDropdown
+              matches={fuzzyMatches}
+              onSelect={(addr) => {
+                onCellChange(rowIdx, "address", addr);
+                setShowFuzzy(false);
+              }}
+              onClose={() => setShowFuzzy(false)}
+            />
           )}
         </div>
       </td>
@@ -290,11 +318,10 @@ function GridRowComponent({ row, rowIdx, onCellChange, onKeyDown, onDelete, isFo
           onKeyDown={(e) => onKeyDown(e, rowIdx, 1)}
           placeholder="0.00"
           inputMode="decimal"
-          className={`w-full rounded-md border bg-transparent px-2 py-1 text-[11px] text-white/70 placeholder-white/20 focus:outline-none focus:ring-1 transition-colors ${
-            row.errors.amount
-              ? "border-amber-400/40 focus:ring-amber-400/30"
-              : "border-white/[0.06] focus:border-cyan-400/40 focus:ring-cyan-400/20"
-          }`}
+          className={`w-full rounded-md border bg-transparent px-2 py-1 text-[11px] text-white/70 placeholder-white/20 focus:outline-none focus:ring-1 transition-colors ${row.errors.amount
+            ? "border-amber-400/40 focus:ring-amber-400/30"
+            : "border-white/[0.06] focus:border-cyan-400/40 focus:ring-cyan-400/20"
+            }`}
         />
       </td>
 

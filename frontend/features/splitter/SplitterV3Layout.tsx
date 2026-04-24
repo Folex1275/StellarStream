@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { VirtualRecipientGrid, emptyRow, type GridRow } from "./VirtualRecipientGrid";
 import { CsvUploadWizard, type MappedRow } from "./CsvUploadWizard";
+import { useOrgMembers } from "@/lib/hooks/use-org-members";
+import type { DirectoryEntry } from "@/lib/fuzzy-address-match";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,6 +46,8 @@ function stepIndex(s: WorkflowStep) {
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 
+const DEFAULT_ORG_ADDRESS = "demo-org";
+
 export function SplitterV3Layout() {
   const [asset, setAsset] = useState<Asset>("USDC");
   const [mode, setMode] = useState<SplitMode>("push");
@@ -52,6 +56,17 @@ export function SplitterV3Layout() {
   const [executing, setExecuting] = useState(false);
   const [executed, setExecuted] = useState(false);
   const [showCsvWizard, setShowCsvWizard] = useState(false);
+
+  // ── Organization Directory (for fuzzy address matching) ────────────────────
+  const { members } = useOrgMembers(DEFAULT_ORG_ADDRESS);
+  const directory: DirectoryEntry[] = useMemo(
+    () =>
+      members.map((m) => ({
+        address: m.address,
+        name: m.displayName || undefined,
+      })),
+    [members],
+  );
 
   // ── Derived stats ──────────────────────────────────────────────────────────
 
@@ -116,11 +131,10 @@ export function SplitterV3Layout() {
               <button
                 key={a}
                 onClick={() => setAsset(a)}
-                className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-                  asset === a
-                    ? "bg-cyan-500/15 text-cyan-400"
-                    : "text-white/40 hover:text-white/60"
-                }`}
+                className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${asset === a
+                  ? "bg-cyan-500/15 text-cyan-400"
+                  : "text-white/40 hover:text-white/60"
+                  }`}
               >
                 {a}
               </button>
@@ -185,12 +199,12 @@ export function SplitterV3Layout() {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
                     >
-                      <CsvUploadWizard onComplete={handleCsvImport} />
+                      <CsvUploadWizard onComplete={handleCsvImport} directory={directory} />
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                <VirtualRecipientGrid rows={rows} onChange={setRows} />
+                <VirtualRecipientGrid rows={rows} onChange={setRows} directory={directory} />
               </div>
 
               {/* Right: Summary sidebar */}
@@ -340,9 +354,8 @@ function ModeButton({
     <button
       onClick={onClick}
       title={title}
-      className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-        active ? "bg-cyan-500/15 text-cyan-400" : "text-white/40 hover:text-white/60"
-      }`}
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold transition-all ${active ? "bg-cyan-500/15 text-cyan-400" : "text-white/40 hover:text-white/60"
+        }`}
     >
       {icon}
       {label}
@@ -360,8 +373,8 @@ function StepBreadcrumb({ current }: { current: WorkflowStep }) {
               s === current
                 ? "font-semibold text-cyan-400"
                 : stepIndex(s) < stepIndex(current)
-                ? "text-white/40"
-                : "text-white/20"
+                  ? "text-white/40"
+                  : "text-white/20"
             }
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
