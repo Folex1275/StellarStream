@@ -45,4 +45,6 @@ pub enum Error {
     // #911: authorization errors
     NotAuthorized = 33,
     InsufficientFunds = 34,
+    // #913: reentrancy detected
+    Reentrant = 35,
 }

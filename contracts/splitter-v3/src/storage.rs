@@ -33,4 +33,6 @@ pub enum DataKey {
     ProtocolVersion,
     // #911: protocol fee wallet (alias for Treasury used in init)
     FeeWallet,
+    // #913: reentrancy guard — set to true while split_funds is executing
+    Locked,
 }

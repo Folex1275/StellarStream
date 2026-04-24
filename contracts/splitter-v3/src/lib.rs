@@ -833,8 +833,11 @@ impl SplitterV3 {
         mode: SplitMode,
     ) -> Result<(), Error> {
         Self::_require_not_paused(&env)?;
+        // #913: acquire reentrancy lock before any external token calls.
+        Self::_check_and_lock(&env)?;
         sender.require_auth();
         if recipients.is_empty() {
+            Self::_unlock(&env);
             return Err(Error::EmptyRecipients);
         }
 
@@ -914,6 +917,8 @@ impl SplitterV3 {
             }
         }
 
+        // #913: release reentrancy lock after all external calls complete.
+        Self::_unlock(&env);
         Ok(())
     }
 
@@ -1136,6 +1141,28 @@ impl SplitterV3 {
             return Err(Error::ContractPaused);
         }
         Ok(())
+    }
+
+    // ── #913: Reentrancy guard ────────────────────────────────────────────────
+
+    /// Acquire the reentrancy lock. Returns `Err(Reentrant)` if already locked.
+    /// Must be paired with `_unlock` in every code path (including error paths).
+    fn _check_and_lock(env: &Env) -> Result<(), Error> {
+        let is_active: bool = env
+            .storage()
+            .instance()
+            .get(&DataKey::Locked)
+            .unwrap_or(false);
+        if is_active {
+            return Err(Error::Reentrant);
+        }
+        env.storage().instance().set(&DataKey::Locked, &true);
+        Ok(())
+    }
+
+    /// Release the reentrancy lock.
+    fn _unlock(env: &Env) {
+        env.storage().instance().set(&DataKey::Locked, &false);
     }
 
     /// #930: Validate that `asset` is a live SAC-compatible token contract.
