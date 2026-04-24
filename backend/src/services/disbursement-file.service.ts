@@ -1,4 +1,6 @@
 import { StrKey } from "@stellar/stellar-sdk";
+import { parse } from "csv-parse";
+import { Readable } from "stream";
 
 export interface RawRecipientRow {
   address: string;
@@ -30,13 +32,26 @@ function toStroops(amount: string): bigint {
   return BigInt(intPart) * STROOPS_PER_UNIT + BigInt(fracPart);
 }
 
-function parseCsv(raw: string): RawRecipientRow[] {
-  const lines = raw.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim());
-    return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ""])) as RawRecipientRow;
+function parseCsvStream(raw: string): Promise<RawRecipientRow[]> {
+  return new Promise((resolve, reject) => {
+    const rows: RawRecipientRow[] = [];
+    const parser = parse({
+      columns: (header: string[]) => header.map((h: string) => h.trim().toLowerCase()),
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+    });
+
+    parser.on("readable", () => {
+      let record: RawRecipientRow | null;
+      while ((record = parser.read() as RawRecipientRow | null) !== null) {
+        rows.push(record);
+      }
+    });
+    parser.on("error", reject);
+    parser.on("end", () => resolve(rows));
+
+    Readable.from(raw).pipe(parser);
   });
 }
 
@@ -71,14 +86,14 @@ export function processRows(rows: RawRecipientRow[]): ProcessFileResult {
   return { valid, errors, totalRows: rows.length };
 }
 
-export function processFile(
+export async function processFile(
   content: string,
   format: "csv" | "json"
-): ProcessFileResult {
+): Promise<ProcessFileResult> {
   let rows: RawRecipientRow[];
 
   if (format === "csv") {
-    rows = parseCsv(content);
+    rows = await parseCsvStream(content);
   } else {
     const parsed = JSON.parse(content) as RawRecipientRow[];
     if (!Array.isArray(parsed)) throw new Error("JSON input must be an array");

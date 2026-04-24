@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
-import { processFile } from "../services/disbursement-file.service.js";
-import asyncHandler from "../utils/asyncHandler.js";
+import { processFile } from "../../services/disbursement-file.service.js";
+import asyncHandler from "../../utils/asyncHandler.js";
 
 const router = Router();
 
@@ -45,7 +45,7 @@ router.post(
       rawContent = JSON.stringify(req.body);
     }
 
-    const result = processFile(rawContent, format);
+    const result = await processFile(rawContent, format);
 
     res.json({ success: true, data: result });
   })
