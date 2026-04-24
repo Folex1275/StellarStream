@@ -12,6 +12,16 @@ use storage::DataKey;
 #[cfg(test)]
 mod test;
 
+// ── #918: Identity Validator cross-contract interface ─────────────────────────
+
+/// Trait interface for an external identity validator contract.
+/// The validator must expose `is_verified(address: Address) -> bool`.
+/// If the validator returns false for any recipient, the transaction reverts.
+#[soroban_sdk::contractclient(name = "IdentityValidatorClient")]
+pub trait IdentityValidator {
+    fn is_verified(env: Env, address: Address) -> bool;
+}
+
 /// Minimum payment per recipient: 1 XLM equivalent in stroops (10^7).
 const MINIMUM_PAYMENT_AMOUNT: i128 = 10_000_000;
 
@@ -197,6 +207,34 @@ impl SplitterV3 {
             .persistent()
             .get(&DataKey::Whitelisted(address))
             .unwrap_or(false)
+    }
+
+    // ── #918: Identity Validator ──────────────────────────────────────────────
+
+    /// Set the external identity validator contract address. Admin only.
+    /// When set, `split_funds` and `split` will cross-call `is_verified` on
+    /// every recipient before processing. Any unverified recipient reverts the tx.
+    pub fn set_identity_validator(env: Env, validator: Address) -> Result<(), Error> {
+        Self::_require_admin(&env)?;
+        env.storage()
+            .instance()
+            .set(&DataKey::IdentityValidator, &validator);
+        Self::_bump_instance_ttl(&env);
+        Ok(())
+    }
+
+    /// Remove the identity validator (disables external compliance checks).
+    pub fn remove_identity_validator(env: Env) -> Result<(), Error> {
+        Self::_require_admin(&env)?;
+        env.storage()
+            .instance()
+            .remove(&DataKey::IdentityValidator);
+        Ok(())
+    }
+
+    /// View the currently configured identity validator address.
+    pub fn identity_validator(env: Env) -> Option<Address> {
+        env.storage().instance().get(&DataKey::IdentityValidator)
     }
 
     // ── #633: Verification management (single-admin) ──────────────────────────
@@ -749,6 +787,9 @@ impl SplitterV3 {
             }
         }
 
+        // #918: Cross-contract identity validation (default-strict: any failure reverts).
+        Self::_check_identity_validator(&env, &recipients)?;
+
         // #930: Verify asset is a valid SAC token.
         Self::_validate_sac_asset(&env, &asset)?;
         let token_client = token::Client::new(&env, &asset);
@@ -1006,6 +1047,23 @@ impl SplitterV3 {
             .get(&DataKey::Admin)
             .ok_or(Error::NotAdmin)?;
         admin.require_auth();
+        Ok(())
+    }
+
+    /// #918: If an identity validator is configured, cross-call it for every
+    /// recipient. Returns Err(RecipientNotVerified) on the first failure,
+    /// reverting the entire transaction (default-strict mode).
+    fn _check_identity_validator(env: &Env, recipients: &Vec<Recipient>) -> Result<(), Error> {
+        let validator_opt: Option<Address> =
+            env.storage().instance().get(&DataKey::IdentityValidator);
+        if let Some(validator_addr) = validator_opt {
+            let client = IdentityValidatorClient::new(env, &validator_addr);
+            for r in recipients.iter() {
+                if !client.is_verified(&r.address) {
+                    return Err(Error::RecipientNotVerified);
+                }
+            }
+        }
         Ok(())
     }
 

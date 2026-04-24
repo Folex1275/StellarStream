@@ -27,4 +27,6 @@ pub enum DataKey {
     // #927: whitelist map and flag
     Whitelisted(Address),
     WhitelistOnly,
+    // #918: external identity validator contract address
+    IdentityValidator,
 }
