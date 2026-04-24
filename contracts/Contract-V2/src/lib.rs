@@ -4305,30 +4305,51 @@ impl Contract {
         storage::get_fee_collector(&env)
     }
 
-    /// Sweep rounding dust accumulated in the contract into the fee collector (treasury).
+    /// Sweep rounding dust accumulated in the contract.
+    /// Rounding errors in integer math can result in fractional "dust" accumulating
+    /// in the contract over thousands of transactions. This function allows the
+    /// admin to sweep these unallocated orphan balances.
     ///
-    /// Transfers the entire on-contract balance of `asset` that exceeds the sum of
-    /// all pending protocol fees for that asset — i.e. the "dust" left behind by
-    /// fixed-point rounding — to the configured `fee_collector` address.
+    /// Logic: Verify that the amount requested is indeed unallocated (calculated by:
+    /// Contract_Balance - Total_Pending_Claims).
     ///
-    /// Auth: only the `fee_collector` itself may call this function.
-    pub fn reclaim_dust(env: Env, asset: Address) -> Result<i128, Error> {
-        let fee_collector = storage::get_fee_collector(&env).ok_or(Error::NoFeeCollector)?;
-        fee_collector.require_auth();
+    /// Auth: Gated by the Multi-Admin Quorum (Admin).
+    pub fn reclaim_dust(env: Env, asset: Address, amount: i128) -> Result<i128, Error> {
+        let admin = storage::try_get_admin(&env)?;
+        admin.require_auth();
 
-        let token_client = soroban_sdk::token::TokenClient::new(&env, &asset);
-        let contract_balance = token_client.balance(&env.current_contract_address());
+        if amount <= 0 {
+            return Err(Error::BelowDustThreshold);
+        }
 
-        let pending_fees = storage::get_pending_fees(&env, &fee_collector, &asset);
-        let dust = contract_balance - pending_fees;
+        let (contract_balance, sum_remaining) = Self::check_balance_integrity(env.clone(), asset.clone());
+        let unallocated = contract_balance.saturating_sub(sum_remaining);
 
-        if dust <= 0 {
+        if amount > unallocated {
             return Err(Error::NothingToWithdraw);
         }
 
-        token_client.transfer(&env.current_contract_address(), &fee_collector, &dust);
+        let token_client = soroban_sdk::token::TokenClient::new(&env, &asset);
+        token_client.transfer(&env.current_contract_address(), &admin, &amount);
 
-        Ok(dust)
+        let now = env.ledger().timestamp();
+        let mut data = Vec::new(&env);
+        data.push_back(asset.clone().into_val(&env));
+        data.push_back(amount.into_val(&env));
+        data.push_back(admin.clone().into_val(&env));
+        data.push_back(now.into_val(&env));
+
+        env.events().publish(
+            (symbol_short!("dust_out"), admin.clone()),
+            NebulaEvent {
+                version: 2,
+                timestamp: now,
+                action: symbol_short!("dust_out"),
+                data,
+            },
+        );
+
+        Ok(amount)
     }
 
     /// Set the token used to pay disbursement fees. Admin-only.
