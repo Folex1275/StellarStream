@@ -1,0 +1,26 @@
+## Summary
+
+- Add v3 splitter specification document outlining the "X-Ray" Multi-Splitter Protocol
+- Add timezone scheduler hook and update CI workflows for backend, contracts, and frontend
+- Update TimeZoneScheduler component with improvements
+
+## Changes
+
+### v3 Splitter Specification (`v3-splitter-spec.md`)
+- Stateless execution pattern for optimized Soroban resource usage
+- BPS math and residual allocation strategy for precise distribution
+- Interest distribution and vault integration details
+- Security model covering Admin, Council, and authorization flows
+- API interaction flow for disbursement processing
+
+### TimeZone Scheduler
+- New `TimeZoneScheduler.tsx` component and `use-timezone-scheduler.ts` hook
+- Updated component with refined logic
+
+### CI Workflows
+- Updated `.github/workflows/backend.yml`
+- Updated `.github/workflows/contracts.yml`
+- Updated `.github/workflows/frontend.yml`
+
+## Related Issues
+Closes #910
