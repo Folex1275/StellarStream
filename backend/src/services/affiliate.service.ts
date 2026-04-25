@@ -2,7 +2,6 @@ import { PrismaClient } from "../generated/client/index.js";
 import { logger } from "../logger.js";
 
 const prisma = new PrismaClient();
-const AFFILIATE_COMMISSION_RATE = 0.005; // 0.5%
 
 export class AffiliateService {
   /**

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
+import { useDevMode } from "@/lib/use-dev-mode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ModalAction = "withdraw" | "topup";
@@ -226,11 +227,13 @@ function StreamActionModal({
   onClose,
 }: StreamModalProps) {
   const { isEmergency } = useProtocolStatus();
+  const [devMode] = useDevMode();
   const cfg = ACTION_CONFIG[action];
   const maxAmt = action === "withdraw" ? availableBalance : walletBalance;
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [showXDR, setShowXDR] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Close on backdrop click
@@ -361,6 +364,26 @@ function StreamActionModal({
               ))}
             </div>
 
+            {/* View XDR button (Dev Mode) */}
+            {devMode && (
+              <button
+                onClick={() => setShowXDR(!showXDR)}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3 font-body text-sm font-bold text-white/60 transition hover:bg-white/[0.08] hover:text-white/80"
+              >
+                {showXDR ? "Hide XDR" : "View XDR"}
+              </button>
+            )}
+
+            {/* XDR Display */}
+            {showXDR && devMode && (
+              <div className="rounded-2xl border border-white/10 bg-black/50 p-4">
+                <p className="font-body text-xs text-white/60 mb-2">Transaction XDR:</p>
+                <pre className="font-mono text-xs text-white/80 overflow-x-auto whitespace-pre-wrap break-all">
+{`AAAAAgAAAADWJbkKz2rQWG5L6Z0qjML5kgK3HaHS9EaEjVxVjBqAAAAZAB8pVQAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAIhqhAAAAAAA`}
+                </pre>
+              </div>
+            )}
+
             {/* CTA */}
             {isEmergency && (
               <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 mb-2">
@@ -412,7 +435,6 @@ export default function StreamModalsDemo() {
   const handleConfirm = async (amount: number, action: ModalAction) => {
     // Simulate network delay
     await new Promise((r) => setTimeout(r, 1800));
-    console.log(`${action}: ${amount} USDC`);
   };
 
   return (

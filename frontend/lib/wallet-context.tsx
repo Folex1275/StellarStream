@@ -6,7 +6,7 @@ import { rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import { CONTRACT_ID, NEBULA_CONTRACT_ID } from "@/lib/providers";
 
 // Wallet types
-export type WalletType = "freighter" | "xbull" | null;
+export type WalletType = "freighter" | "xbull" | "albedo" | null;
 
 export interface BalanceInfo {
   v1: bigint | null;
@@ -28,6 +28,7 @@ export interface WalletState {
 interface WalletContextType extends WalletState {
   connectFreighter: () => Promise<void>;
   connectXBull: () => Promise<void>;
+  connectAlbedo: () => Promise<void>;
   disconnect: () => Promise<void>;
   openModal: () => void;
   closeModal: () => void;
@@ -45,6 +46,11 @@ interface XBullWallet {
   connect: () => Promise<{ publicKey: string }>;
   disconnect: () => Promise<void>;
   getNetwork: () => Promise<string>;
+}
+
+interface AlbedoPublicKeyResponse {
+  pubkey?: string;
+  public_key?: string;
 }
 
 declare global {
@@ -260,6 +266,45 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, [closeModal, refreshBalances]);
 
+  const connectAlbedo = useCallback(async () => {
+    setState((prev) => ({ ...prev, isConnecting: true, error: null }));
+
+    try {
+      const albedoModule = await import("@albedo-link/intent");
+      const albedo = albedoModule.default;
+      const result = (await albedo.publicKey({
+        token: "StellarStream",
+      })) as AlbedoPublicKeyResponse;
+
+      const address = result.pubkey ?? result.public_key;
+      if (!address) {
+        throw new Error("Albedo did not return a public key");
+      }
+
+      const configuredPassphrase = process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || "";
+      const network = configuredPassphrase.includes("Public") ? "PUBLIC" : "TESTNET";
+
+      setState({
+        isConnected: true,
+        address,
+        walletType: "albedo",
+        network,
+        isConnecting: false,
+        error: null,
+        balances: { v1: null, v2: null, combined: BigInt(0) },
+        isLoadingBalances: false,
+      });
+      closeModal();
+      setTimeout(() => refreshBalances(), 100);
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isConnecting: false,
+        error: error instanceof Error ? error.message : "Failed to connect Albedo wallet",
+      }));
+    }
+  }, [closeModal, refreshBalances]);
+
   const disconnect = useCallback(async () => {
     // Note: Freighter doesn't have a disconnect method
     // We just clear the local state
@@ -281,6 +326,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         ...state,
         connectFreighter,
         connectXBull,
+        connectAlbedo,
         disconnect,
         openModal,
         closeModal,

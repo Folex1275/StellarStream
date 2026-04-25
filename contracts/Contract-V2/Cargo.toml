@@ -13,3 +13,21 @@ soroban-sdk = "22.0.10"
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.10", features = ["testutils"] }
+
+# ── WASM Interface / Spec generation (Issue #406) ────────────────────────────
+# `stellar contract inspect --wasm <WASM> --output json` reads nothing from
+# here, but this table gives CI scripts and tooling a single source of truth
+# for where the generated spec lives and what the contract is called.
+[package.metadata.stellar]
+interface-output = "../../docs/specs/stellar_stream_v2.json"
+wasm-name        = "stellarstream_contracts_v2"          # crate name with hyphens → underscores
+
+# ── WASM size optimizations ──────────────────────────────────────────────────
+[profile.release]
+opt-level = "z"        # Optimize for size (smaller than "s")
+lto = true             # Link-time optimization — removes dead code across crates
+codegen-units = 1      # Single codegen unit enables maximum inlining + DCE
+strip = "symbols"      # Strip debug symbols from the final WASM
+overflow-checks = false # Disable overflow checks (Soroban host traps on overflow anyway)
+debug = false
+panic = "abort"        # Abort on panic — removes unwinding machinery (~10–20 KB)

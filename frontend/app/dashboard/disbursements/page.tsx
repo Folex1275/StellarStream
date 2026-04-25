@@ -6,6 +6,11 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { useDisbursementData, type MonthlyDisbursement } from "@/lib/use-disbursement-data";
 
 const fmtShort = (n: number) => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${n}`;
+import { TrendingDown, X, ChevronDown } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from "recharts";
+import { useDisbursementData, type MonthlyDisbursement } from "@/lib/use-disbursement-data";
+
+const fmt = (n: number) => n >= 1000 ? `$${(n/1000).toFixed(1)}k` : `$${n}`;
 const fmtFull = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 function CustomTooltip({ active, payload }: any) {
@@ -27,6 +32,12 @@ export default function DisbursementsPage() {
 
   return (
     <div className="space-y-6 p-6 pb-24 md:pb-6">
+
+  const avgMonthly = data ? data.totalUsd / data.months.length : 0;
+
+  return (
+    <div className="space-y-6 p-6 pb-24 md:pb-6">
+      {/* Header */}
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#00f5ff]/20 bg-[#00f5ff]/10">
           <TrendingDown className="h-6 w-6 text-[#00f5ff]" />
@@ -42,6 +53,12 @@ export default function DisbursementsPage() {
           { label: "Total Outflow", value: data ? fmtFull(data.totalUsd) : "—" },
           { label: "Peak Month",    value: data?.peakMonth ?? "—" },
           { label: "Avg Monthly",   value: data ? fmtFull(avg) : "—" },
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Total Outflow", value: data ? fmtFull(data.totalUsd) : "—" },
+          { label: "Peak Month", value: data?.peakMonth ?? "—" },
+          { label: "Avg Monthly", value: data ? fmtFull(avgMonthly) : "—" },
         ].map((s) => (
           <div key={s.label} className="glass-card p-4">
             <p className="font-body text-[10px] uppercase tracking-widest text-white/30">{s.label}</p>
@@ -50,6 +67,7 @@ export default function DisbursementsPage() {
         ))}
       </div>
 
+      {/* Chart */}
       <div className="glass-card p-5">
         <p className="font-body mb-4 text-xs font-medium uppercase tracking-widest text-white/30">Monthly Outflow (USD)</p>
         {isLoading ? (
@@ -62,6 +80,8 @@ export default function DisbursementsPage() {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data?.months} margin={{ top:4, right:4, left:0, bottom:0 }}
               onClick={(e: any) => { if (e?.activePayload?.[0]) setSelected(e.activePayload[0].payload); }}>
+            <BarChart data={data?.months} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+              onClick={(e) => { if (e?.activePayload?.[0]) setSelected(e.activePayload[0].payload); }}>
               <defs>
                 <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#00f5ff" stopOpacity={0.9} />
@@ -72,6 +92,9 @@ export default function DisbursementsPage() {
               <XAxis dataKey="label" tick={{ fill:"rgba(255,255,255,0.4)", fontSize:11 }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={fmtShort} tick={{ fill:"rgba(255,255,255,0.3)", fontSize:10 }} axisLine={false} tickLine={false} width={48} />
               <Tooltip content={<CustomTooltip />} cursor={{ fill:"rgba(255,255,255,0.04)" }} />
+              <XAxis dataKey="label" tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11, fontFamily: "Poppins" }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={fmt} tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10, fontFamily: "Poppins" }} axisLine={false} tickLine={false} width={48} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
               <Bar dataKey="totalUsd" fill="url(#barGrad)" radius={[6,6,0,0]} cursor="pointer">
                 {data?.months.map((m) => (
                   <Cell key={m.month}
@@ -88,6 +111,10 @@ export default function DisbursementsPage() {
       <AnimatePresence>
         {selected && (
           <motion.div key={selected.month} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:12 }}
+      {/* Drill-down panel */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div key={selected.month} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
             className="glass-card p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
@@ -96,6 +123,7 @@ export default function DisbursementsPage() {
               </div>
               <button onClick={() => setSelected(null)}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50 hover:text-white transition-colors">
+              <button onClick={() => setSelected(null)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-white/50 hover:text-white transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -108,6 +136,12 @@ export default function DisbursementsPage() {
                     <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-ticker text-[10px] text-white/40 shrink-0">{ev.token}</span>
                   </div>
                   <span className="font-ticker text-sm font-semibold text-[#00f5ff] shrink-0 ml-3">{fmtFull(ev.amountUsd)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-body text-xs text-white/30">{ev.date}</span>
+                    <span className="font-ticker text-xs text-white/60">{ev.recipient}</span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-ticker text-[10px] text-white/40">{ev.token}</span>
+                  </div>
+                  <span className="font-ticker text-sm font-semibold text-[#00f5ff]">{fmtFull(ev.amountUsd)}</span>
                 </div>
               ))}
             </div>

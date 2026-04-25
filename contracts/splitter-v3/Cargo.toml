@@ -1,0 +1,24 @@
+[package]
+name = "stellar-splitter-v3"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = "22.0.10"
+
+[dev-dependencies]
+soroban-sdk = { version = "22.0.10", features = ["testutils"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = "symbols"
+overflow-checks = false
+debug = false
+panic = "abort"

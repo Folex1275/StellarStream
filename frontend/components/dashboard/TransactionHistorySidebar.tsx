@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
+import { getExplorerLink } from "@/lib/explorer";
 import { 
   X, 
   History, 
@@ -16,7 +17,8 @@ import {
   Filter,
   Copy,
   Check,
-  Loader2
+  Loader2,
+  Download,
 } from "lucide-react";
 
 /**
@@ -269,6 +271,34 @@ function getStellarExpertAccountUrl(address: string, network: "public" | "testne
     ? "https://testnet.stellar.expert/explorer" 
     : "https://stellar.expert/explorer";
   return `${baseUrl}/account/${address}`;
+}
+
+/**
+ * Export transaction events to a CSV file and trigger browser download.
+ * Fields: Date, StreamID, Asset, Amount, Recipient, TX_Hash
+ */
+function exportEventsToCSV(events: TransactionEvent[], filename = "stream-history.csv"): void {
+  const headers = ["Date", "StreamID", "Asset", "Amount", "Recipient", "TX_Hash"];
+
+  const rows = events.map((e) => [
+    new Date(e.timestamp).toISOString(),
+    e.streamId ?? "",
+    e.token ?? "",
+    e.amount ?? "",
+    e.receiver ?? e.sender,
+    e.hash,
+  ]);
+
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map((row) => row.map(escape).join(",")).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -561,10 +591,11 @@ export function TransactionHistorySidebar({
                                   <div>
                                     <p className="text-xs text-gray-500 mb-0.5">From</p>
                                     <a
-                                      href={getStellarExpertAccountUrl(event.sender)}
+                                      href={getExplorerLink(event.hash, event.sender)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-sm text-cyan-400 hover:text-cyan-300 font-mono truncate block"
+                                      title={`View ${event.sender} on Stellar.Expert`}
                                     >
                                       {event.sender}
                                     </a>
@@ -573,10 +604,11 @@ export function TransactionHistorySidebar({
                                     <div>
                                       <p className="text-xs text-gray-500 mb-0.5">To</p>
                                       <a
-                                        href={getStellarExpertAccountUrl(event.receiver)}
+                                        href={getExplorerLink(event.hash, event.receiver)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-sm text-cyan-400 hover:text-cyan-300 font-mono truncate block"
+                                        title={`View ${event.receiver} on Stellar.Expert`}
                                       >
                                         {event.receiver}
                                       </a>
@@ -604,7 +636,7 @@ export function TransactionHistorySidebar({
                                   </div>
                                   
                                   <a
-                                    href={getStellarExpertUrl(event.hash)}
+                                    href={getExplorerLink(event.hash)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -637,10 +669,19 @@ export function TransactionHistorySidebar({
                     </div>
 
                     {/* Footer */}
-                    <div className="px-6 py-4 border-t border-white/10 bg-black/20">
-                      <p className="text-xs text-gray-500 text-center">
+                    <div className="px-6 py-4 border-t border-white/10 bg-black/20 flex items-center justify-between gap-3">
+                      <p className="text-xs text-gray-500">
                         Data from Global Audit Log • Updates automatically
                       </p>
+                      <button
+                        onClick={() => exportEventsToCSV(filteredEvents)}
+                        disabled={filteredEvents.length === 0}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-medium hover:bg-cyan-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Download history as CSV"
+                      >
+                        <Download size={13} />
+                        Download CSV
+                      </button>
                     </div>
                   </div>
                 </DialogPanel>

@@ -35,6 +35,9 @@ export type MockEventLogRow = {
   receiver: string | null;
   amount: bigint | null;
   metadata: string | null;
+  parentHash: string | null;
+  entryHash: string | null;
+  createdAt: Date;
 };
 
 type LedgerHashRow = { sequence: number; hash: string };
@@ -171,6 +174,8 @@ export function createMockPrismaClient() {
           existing.receiver = incoming.receiver ?? null;
           existing.amount = (incoming.amount ?? null) as any;
           existing.metadata = incoming.metadata ?? null;
+          existing.parentHash = incoming.parentHash ?? null;
+          existing.entryHash = incoming.entryHash ?? null;
           return existing;
         }
 
@@ -186,9 +191,34 @@ export function createMockPrismaClient() {
           receiver: incoming.receiver ?? null,
           amount: (incoming.amount ?? null) as any,
           metadata: incoming.metadata ?? null,
+          parentHash: incoming.parentHash ?? null,
+          entryHash: incoming.entryHash ?? null,
+          createdAt: incoming.createdAt ?? new Date(),
         };
         mockDb.eventLogs.push(row);
         return row;
+      }),
+
+      findFirst: jest.fn(async (arg: any) => {
+        const rows = [...mockDb.eventLogs];
+        if (arg?.orderBy?.createdAt === "desc") {
+          rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        } else if (arg?.orderBy?.createdAt === "asc") {
+          rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        }
+
+        const first = rows[0];
+        if (!first) return null;
+
+        if (arg?.select) {
+          return Object.fromEntries(
+            Object.entries(arg.select)
+              .filter(([, value]) => value)
+              .map(([key]) => [key, (first as Record<string, unknown>)[key]]),
+          );
+        }
+
+        return first;
       }),
 
       findMany: jest.fn(async (_arg: any) => {
@@ -254,8 +284,86 @@ export function createMockLibPrisma() {
       }),
     },
     eventLog: {
-      findMany: jest.fn(async () => mockDb.eventLogs),
+      upsert: jest.fn(async (arg: any) => {
+        const eventIndex: number = arg.where?.txHash_eventIndex?.eventIndex ?? 0;
+        const txHash: string = String(arg.where?.txHash_eventIndex?.txHash ?? "");
+        const existing = mockDb.eventLogs.find((event) => event.txHash === txHash && event.eventIndex === eventIndex);
+        const incoming = (existing ? arg.update : arg.create) as Partial<MockEventLogRow>;
+
+        if (existing) {
+          existing.eventType = String(incoming.eventType ?? existing.eventType);
+          existing.streamId = String(incoming.streamId ?? existing.streamId);
+          existing.ledger = Number(incoming.ledger ?? existing.ledger);
+          existing.ledgerClosedAt = String(incoming.ledgerClosedAt ?? existing.ledgerClosedAt);
+          existing.sender = incoming.sender ?? null;
+          existing.receiver = incoming.receiver ?? null;
+          existing.amount = (incoming.amount ?? null) as any;
+          existing.metadata = incoming.metadata ?? null;
+          existing.parentHash = incoming.parentHash ?? null;
+          existing.entryHash = incoming.entryHash ?? null;
+          return existing;
+        }
+
+        const row: MockEventLogRow = {
+          id: createId("event"),
+          eventType: String(incoming.eventType ?? ""),
+          streamId: String(incoming.streamId ?? ""),
+          txHash,
+          eventIndex,
+          ledger: Number(incoming.ledger ?? 0),
+          ledgerClosedAt: String(incoming.ledgerClosedAt ?? ""),
+          sender: incoming.sender ?? null,
+          receiver: incoming.receiver ?? null,
+          amount: (incoming.amount ?? null) as any,
+          metadata: incoming.metadata ?? null,
+          parentHash: incoming.parentHash ?? null,
+          entryHash: incoming.entryHash ?? null,
+          createdAt: incoming.createdAt ?? new Date(),
+        };
+
+        mockDb.eventLogs.push(row);
+        return row;
+      }),
+      findFirst: jest.fn(async (arg: any) => {
+        const rows = [...mockDb.eventLogs];
+        if (arg?.orderBy?.createdAt === "desc") {
+          rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        } else if (arg?.orderBy?.createdAt === "asc") {
+          rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        }
+
+        const first = rows[0];
+        if (!first) return null;
+
+        if (arg?.select) {
+          return Object.fromEntries(
+            Object.entries(arg.select)
+              .filter(([, value]) => value)
+              .map(([key]) => [key, (first as Record<string, unknown>)[key]]),
+          );
+        }
+
+        return first;
+      }),
+      findMany: jest.fn(async (arg: any) => {
+        let rows = [...mockDb.eventLogs];
+
+        if (arg?.where?.streamId) {
+          rows = rows.filter((row) => row.streamId === arg.where.streamId);
+        }
+
+        if (arg?.orderBy?.createdAt === "desc") {
+          rows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+        } else if (arg?.orderBy?.createdAt === "asc") {
+          rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        }
+
+        if (typeof arg?.take === "number") {
+          rows = rows.slice(0, arg.take);
+        }
+
+        return rows;
+      }),
     },
   };
 }
-

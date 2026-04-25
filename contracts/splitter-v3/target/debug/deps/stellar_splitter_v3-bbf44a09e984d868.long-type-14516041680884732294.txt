@@ -1,0 +1,2 @@
+UnsafeCell<BTreeMap<soroban_sdk::xdr::Hash, Rc<(dyn soroban_env_host::host::frame::ContractFunctionSet + 'static)>>>
+RefCell<BTreeMap<soroban_sdk::xdr::Hash, Rc<(dyn soroban_env_host::host::frame::ContractFunctionSet + 'static)>>>

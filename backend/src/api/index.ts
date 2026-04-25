@@ -2,8 +2,9 @@
 // Will contain REST API endpoints for querying stream data
 
 import { Router, Request, Response } from "express";
-import { AuditLogService } from "../services/audit-log.service";
-import { logger } from "../logger";
+import { AuditLogService } from "../services/audit-log.service.js";
+import { AuditChainVerificationService } from "../services/audit-chain-verification.service.js";
+import { logger } from "../logger.js";
 import streamsRouter from "./streams.routes";
 import yieldRouter from "./yield.routes.js";
 import snapshotRouter from "./snapshot.routes";
@@ -15,6 +16,12 @@ import notificationRouter from "./notification-subscription.routes.js";
 import invoiceLinkRouter from "./invoice-link.routes.js";
 import webhooksRouter from "./webhooks.routes.js";
 import cachedStatsRouter from "./cached-stats.routes.js";
+
+import orgMemberRouter from "./org-member.routes.js";
+import orgMemberSyncRouter from "./org-member-sync.routes.js";
+import assetMappingRouter from "./asset-mapping.routes.js";
+import dustAuditRouter from "./dust-audit.routes.js";
+import recipientRouter from "./recipient.routes.js";
 
 const router = Router();
 
@@ -30,8 +37,14 @@ router.use("/notifications", notificationRouter);
 router.use("/invoice-links", invoiceLinkRouter);
 router.use("/webhooks", webhooksRouter);
 router.use("/stats", cachedStatsRouter);
+router.use("/", orgMemberRouter);
+router.use("/", orgMemberSyncRouter);
+router.use("/asset-mapping", assetMappingRouter);
+router.use("/dust-audit", dustAuditRouter);
+router.use("/recipient", recipientRouter);
 
 const auditLogService = new AuditLogService();
+const chainVerificationService = new AuditChainVerificationService();
 
 /**
  * GET /api/v1/audit-log
@@ -58,6 +71,29 @@ router.get("/audit-log", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to retrieve audit log",
+    });
+  }
+});
+
+/**
+ * GET /api/v1/audit-log/chain/verify
+ * Verify the integrity of the audit log hash chain.
+ * Returns verification result including any broken links.
+ */
+router.get("/audit-log/chain/verify", async (req: Request, res: Response) => {
+  try {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+    const result = await chainVerificationService.verifyChain(limit);
+
+    res.json({
+      success: true,
+      verification: result,
+    });
+  } catch (error) {
+    logger.error("Failed to verify audit log chain", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to verify audit log chain",
     });
   }
 });

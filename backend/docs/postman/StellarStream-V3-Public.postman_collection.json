@@ -1,0 +1,107 @@
+{
+  "info": {
+    "name": "StellarStream V3 API",
+    "_postman_id": "stellarstream-v3-public",
+    "description": "Public Postman collection for StellarStream V3 API.\n\nIncludes:\n- Bulk CSV/JSON disbursement file pre-processor\n- Autopilot periodic split scheduler\n- Safe-Vault re-routing logic\n\nSet the `baseUrl` variable to your deployment URL (default: http://localhost:3000).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "apiKey", "value": "your-api-key-here", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Disbursement File Pre-Processor",
+      "item": [
+        {
+          "name": "Process JSON Recipients",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "json" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amount\": \"100.50\" },\n  { \"address\": \"INVALID_ADDRESS\", \"amount\": \"50.00\" },\n  { \"address\": \"GBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB\", \"amount\": \"200.1234567\" }\n]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Submit a JSON array of recipients. Each row must have `address` (Stellar G-address) and `amount` (decimal string). Returns validated recipients with amounts converted to stroops."
+          }
+        },
+        {
+          "name": "Process CSV Recipients",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "text/csv" },
+              { "key": "X-Api-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/process-disbursement-file?format=csv",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "process-disbursement-file"],
+              "query": [{ "key": "format", "value": "csv" }]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "address,amount\nGAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN,100.50\nGBVVJJWT3JTHKBZISFYIGR7QRKNSENTRY3BNKFNZOMKVLBXGKBCXBXBB,200.00",
+              "options": { "raw": { "language": "text" } }
+            },
+            "description": "Submit a CSV file with `address` and `amount` columns. Set Content-Type to text/csv."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Safe-Vault Re-Routing",
+      "item": [
+        {
+          "name": "Resolve Vault Routes",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Api-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v3/resolve-vault-routes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v3", "resolve-vault-routes"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipients\": [\n    { \"address\": \"GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN\", \"amountStroops\": \"10000000\" },\n    { \"address\": \"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4\", \"amountStroops\": \"50000000\" }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Resolves the correct disbursement route for each recipient. G-addresses get a plain `transfer` route. Known vault C-addresses get an `invoke_contract` route with the correct deposit function."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Autopilot Scheduler",
+      "item": [
+        {
+          "name": "Health Check (V2)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Api-Key", "value": "{{apiKey}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v2", "health"]
+            },
+            "description": "Verify the backend is running before testing Autopilot endpoints."
+          }
+        }
+      ]
+    }
+  ]
+}

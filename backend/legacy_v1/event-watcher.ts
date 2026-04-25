@@ -22,6 +22,7 @@ import {
 } from "./services/stream-lifecycle-service";
 import { WebhookService } from "./services/webhook.service";
 import * as Sentry from "@sentry/node";
+import { sanitizeText, sanitizeUnknown } from "./security/sanitize.js";
 
 const prisma = new PrismaClient();
 
@@ -582,9 +583,16 @@ export class EventWatcher {
       votesAgainst: number;
     },
   ): Promise<void> {
+    const safeProposal = {
+      ...proposal,
+      id: sanitizeText(proposal.id),
+      creator: sanitizeText(proposal.creator),
+      description: sanitizeText(proposal.description),
+    };
+
     await prisma.$executeRaw`
       INSERT INTO "Proposal" ("id", "creator", "description", "quorum", "votesFor", "votesAgainst", "txHash", "updatedAt")
-      VALUES (${proposal.id}, ${proposal.creator}, ${proposal.description}, ${proposal.quorum}, ${proposal.votesFor}, ${proposal.votesAgainst}, ${event.txHash}, NOW())
+      VALUES (${safeProposal.id}, ${safeProposal.creator}, ${safeProposal.description}, ${safeProposal.quorum}, ${safeProposal.votesFor}, ${safeProposal.votesAgainst}, ${event.txHash}, NOW())
       ON CONFLICT ("id")
       DO UPDATE SET
         "creator" = EXCLUDED."creator",

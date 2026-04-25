@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, type ComponentType } from "react";
+import { useWallet } from "@/lib/wallet-context";
+import { isSplitterV3EnabledForNetwork } from "@/lib/feature-flags";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CirclePlus,
   ClipboardCheck,
   Gauge,
+  Inbox,
   Settings,
   Waves,
+  Split,
   PanelLeftClose,
   PanelLeftOpen,
   History as HistoryIcon,
@@ -17,9 +21,20 @@ import {
   TrendingDown,
   LayoutTemplate,
   Users,
+  ShieldAlert,
+  ShieldCheck,
   Menu,
   X,
+  ScrollText,
+  Rocket,
+  Coins,
+  FileText,
+  Share2,
+  ArrowRightLeft,
 } from "lucide-react";
+import { TransactionQueueManager } from "@/components/dashboard/TransactionQueueManager";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavSyncIndicator } from "@/components/SyncStatusIndicator";
 
 type NavItem = {
   label: string;
@@ -42,6 +57,7 @@ function isActive(pathname: string, href: string) {
 export function Sidebar({ onOpenAuditLog }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { network } = useWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Close mobile menu on route change
@@ -72,6 +88,37 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       badge: 2,
     },
     {
+      label: "Approval Inbox",
+      href: "/dashboard/approval-inbox",
+      icon: Inbox,
+      badge: 3,
+    },
+    {
+      label: "Invoice Links",
+      href: "/dashboard/invoice-links",
+      icon: ClipboardCheck,
+    },
+    {
+      label: "Splitter",
+      href: "/dashboard/splitter",
+      icon: Share2,
+    },
+    {
+      label: "Compare Splits",
+      href: "/dashboard/split-comparison",
+      icon: ArrowRightLeft,
+    },
+    {
+      label: "Transparency",
+      href: "/dashboard/transparency",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Reports",
+      href: "/dashboard/disbursement-report",
+      icon: FileText,
+    },
+    {
       label: "History",
       onClick: onOpenAuditLog,
       icon: HistoryIcon,
@@ -84,7 +131,38 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
     { label: "Disbursements", href: "/dashboard/disbursements", icon: TrendingDown },
     { label: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
+    { label: "Disbursements", href: "/dashboard/disbursements", icon: TrendingDown },
+    { label: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
+    {
+      label: "Approval Policies",
+      href: "/dashboard/policies",
+      icon: ScrollText,
+    },
+    {
+      label: "Security Vault",
+      href: "/dashboard/security-vault",
+      icon: ShieldAlert,
+    },
+    {
+      label: "Emergency Stop",
+      href: "/dashboard/emergency-stop",
+      icon: ShieldAlert,
+    },
+    {
+      label: "Deploy Splitter",
+      href: "/dashboard/deploy-splitter",
+      icon: Rocket,
+    },
+    {
+      label: "Dust Recovery",
+      href: "/dashboard/dust-recovery",
+      icon: Coins,
+    },
   ];
+
+  const visibleNavItems = isSplitterV3EnabledForNetwork(network)
+    ? [...navItems, { label: "Splitter V3", href: "/dashboard/v3/splitter", icon: Split }]
+    : navItems;
 
   return (
     <>
@@ -102,12 +180,11 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
               <Menu className="h-5 w-5" />
             )}
           </button>
-          
+
           <Link href="/" className="font-heading text-base text-white">
             StellarStream
           </Link>
 
-          {/* Spacer to balance layout */}
           <div className="w-10" />
         </div>
       </div>
@@ -116,7 +193,6 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       <AnimatePresence>
         {mobileMenuOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -126,7 +202,6 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
               onClick={() => setMobileMenuOpen(false)}
             />
 
-            {/* Slide-in Menu */}
             <motion.aside
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
@@ -135,7 +210,6 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
               className="fixed top-0 left-0 bottom-0 z-50 w-[280px] border-r border-white/10 bg-black/95 backdrop-blur-2xl md:hidden overflow-y-auto"
             >
               <div className="flex flex-col h-full p-4">
-                {/* Header */}
                 <div className="mb-6 pt-2">
                   <Link href="/" onClick={() => setMobileMenuOpen(false)}>
                     <p className="font-heading text-xl text-white mb-1">
@@ -147,27 +221,23 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
                   </Link>
                 </div>
 
-                {/* Nav links */}
                 <nav className="flex flex-1 flex-col gap-2">
-                  {navItems.map((item) => {
+                  {visibleNavItems.map((item) => {
                     const Icon = item.icon;
                     const active = item.href ? isActive(pathname, item.href) : false;
                     const content = (
                       <>
                         <span
-                          className={`absolute inset-y-1 left-2 w-8 rounded-lg blur-md transition-all duration-200 ${
-                            active ? "bg-[#8A00FF]/45 opacity-100" : "opacity-0"
-                          }`}
+                          className={`absolute inset-y-1 left-2 w-8 rounded-lg blur-md transition-all duration-200 ${active ? "bg-[#8A00FF]/45 opacity-100" : "opacity-0"
+                            }`}
                         />
                         <Icon
-                          className={`relative h-5 w-5 shrink-0 ${
-                            active ? "text-[#E9C8FF]" : "text-white/70 group-hover:text-white"
-                          }`}
+                          className={`relative h-5 w-5 shrink-0 ${active ? "text-[#E9C8FF]" : "text-white/70 group-hover:text-white"
+                            }`}
                         />
                         <span
-                          className={`font-body relative text-base flex-1 ${
-                            active ? "text-white font-medium" : "text-white/78"
-                          }`}
+                          className={`font-body relative text-base flex-1 ${active ? "text-white font-medium" : "text-white/78"
+                            }`}
                         >
                           {item.label}
                         </span>
@@ -179,11 +249,10 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
                       </>
                     );
 
-                    const className = `group relative flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 ${
-                      active
+                    const className = `group relative flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 ${active
                         ? "border-white/20 bg-white/8"
                         : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
-                    }`;
+                      }`;
 
                     if (item.href) {
                       return (
@@ -213,7 +282,10 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
                   })}
                 </nav>
 
-                {/* Wallet card */}
+                <div className="mt-4">
+                  <ThemeToggle className="w-full justify-between" />
+                </div>
+
                 <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#00F5FF]/35 bg-[#00F5FF]/12 text-sm font-semibold text-[#CCFAFF]">
@@ -240,7 +312,6 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
         className={`hidden flex-col border-r border-white/10 bg-white/5 p-4 backdrop-blur-2xl md:flex transition-all duration-300 ease-in-out ${collapsed ? "w-[72px]" : "w-[248px]"
           }`}
       >
-        {/* Header + toggle */}
         <div className="mb-6 flex items-center justify-between">
           <Link
             href="/"
@@ -268,9 +339,8 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
           </button>
         </div>
 
-        {/* Nav links */}
         <nav className="flex flex-1 flex-col gap-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const active = item.href ? isActive(pathname, item.href) : false;
             const content = (
@@ -280,17 +350,12 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
                     } ${collapsed ? "inset-1" : "inset-y-1 left-2 w-8"}`}
                 />
                 <Icon
-                  className={`relative h-4.5 w-4.5 shrink-0 ${active
-                      ? "text-[#E9C8FF]"
-                      : "text-white/70 group-hover:text-white"
+                  className={`relative h-4.5 w-4.5 shrink-0 ${active ? "text-[#E9C8FF]" : "text-white/70 group-hover:text-white"
                     }`}
                 />
                 <span
                   className={`font-body relative text-sm whitespace-nowrap transition-all duration-300 ease-in-out flex-1 ${active ? "text-white" : "text-white/78"
-                    } ${collapsed
-                      ? "w-0 overflow-hidden opacity-0"
-                      : "w-auto opacity-100"
-                    }`}
+                    } ${collapsed ? "w-0 overflow-hidden opacity-0" : "w-auto opacity-100"}`}
                 >
                   {item.label}
                 </span>
@@ -308,12 +373,9 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
             );
 
             const className = `group relative flex items-center rounded-xl border transition-all duration-200 ${active
-              ? "border-white/20 bg-white/8"
-              : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
-              } ${collapsed
-                ? "h-10 w-10 justify-center p-0"
-                : "gap-3 justify-start px-3 py-2.5"
-              }`;
+                ? "border-white/20 bg-white/8"
+                : "border-transparent hover:border-white/10 hover:bg-white/[0.03]"
+              } ${collapsed ? "h-10 w-10 justify-center p-0" : "gap-3 justify-start px-3 py-2.5"}`;
 
             if (item.href) {
               return (
@@ -341,15 +403,18 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
           })}
         </nav>
 
-        {/* Wallet card */}
+        {/* Theme toggle — hidden when collapsed */}
+        {!collapsed && (
+          <div className="mt-4">
+            <ThemeToggle className="w-full justify-between" />
+          </div>
+        )}
+
         <div
           className={`mt-5 rounded-2xl border border-white/10 bg-black/25 transition-all duration-300 ease-in-out ${collapsed ? "h-10 w-10 flex items-center justify-center p-0" : "p-3"
             }`}
         >
-          <div
-            className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""
-              }`}
-          >
+          <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#00F5FF]/35 bg-[#00F5FF]/12 text-xs font-semibold text-[#CCFAFF]">
               G
             </div>
@@ -366,12 +431,17 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
             </div>
           </div>
         </div>
+
+        <div className="px-3 pb-2">
+          <NavSyncIndicator />
+        </div>
+        <TransactionQueueManager collapsed={collapsed} />
       </aside>
 
       {/* ── Mobile bottom bar ── */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/80 px-3 py-2 backdrop-blur-2xl md:hidden">
         <nav className="mx-auto flex max-w-xl items-center justify-around gap-1">
-          {navItems.map((item) => {
+          {visibleNavItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = item.href ? isActive(pathname, item.href) : false;
             const content = (
@@ -381,8 +451,7 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
                     }`}
                 />
                 <Icon
-                  className={`relative h-4.5 w-4.5 ${active ? "text-[#EED7FF]" : "text-white/70"
-                    }`}
+                  className={`relative h-4.5 w-4.5 ${active ? "text-[#EED7FF]" : "text-white/70"}`}
                 />
                 <span
                   className={`font-body relative mt-1 text-[9px] whitespace-nowrap ${active ? "text-white" : "text-white/72"
@@ -397,27 +466,20 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
 
             if (item.href) {
               return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={className}
-                >
+                <Link key={item.href} href={item.href} className={className}>
                   {content}
                 </Link>
               );
             } else {
               return (
-                <button
-                  key={item.label}
-                  onClick={item.onClick}
-                  className={className}
-                >
+                <button key={item.label} onClick={item.onClick} className={className}>
                   {content}
                 </button>
               );
             }
           })}
         </nav>
+        <TransactionQueueManager collapsed />
       </div>
     </>
   );

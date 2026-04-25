@@ -10,6 +10,7 @@ export interface Signer {
     address: string;
     status: SignatureStatus;
     signedAt?: Date;
+    rejectionNote?: string;
 }
 
 export interface PendingStream {
@@ -94,32 +95,84 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
         hasCurrentUserSigned: true,
         currentUserAddress: MOCK_CURRENT_USER,
     },
+    {
+        id: "pending-4",
+        streamId: "0xd1a5…b903",
+        recipient: "GHIJ...5VWX",
+        sender: "GABC...7XYZ",
+        amount: 25000,
+        token: "USDC",
+        ratePerSecond: 0.01447,
+        duration: 30,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 16),
+        requiredSignatures: 3,
+        signers: [
+            { address: "GABC...7XYZ", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 7) },
+            { address: MOCK_CURRENT_USER, status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 6) },
+            { address: "GCQR...2STU", status: "rejected", rejectionNote: "Amount exceeds the approved Q2 budget ceiling of $20,000. Please revise and resubmit." },
+        ],
+        hasCurrentUserSigned: true,
+        currentUserAddress: MOCK_CURRENT_USER,
+    },
 ];
 
 // ─── Soroban contract simulation ─────────────────────────────────────────────
 
 /**
- * Simulates calling the Soroban `approve_stream_request` contract function.
- * Replace this with the real Soroban SDK call when integrating with the chain.
+ * Signs a pending stream approval via the connected wallet (Freighter or Albedo).
  *
- * @example Real integration would look like:
- * ```ts
- * import { Contract, SorobanRpc } from "@stellar/stellar-sdk";
- * const server = new SorobanRpc.Server(RPC_URL);
- * const contract = new Contract(CONTRACT_ADDRESS);
- * const tx = await contract.call("approve_stream_request", streamId);
- * const result = await server.sendTransaction(tx);
- * ```
+ * Flow:
+ *  1. Build a Soroban transaction XDR for `approve_stream_request(streamId)`.
+ *  2. Request the wallet extension to sign it.
+ *  3. Submit the signed XDR to the Soroban RPC and return the tx hash.
+ *
+ * The XDR construction and submission are stubbed here; replace the marked
+ * sections with real Soroban SDK calls when integrating with the chain.
  */
 async function callApproveStreamRequest(streamId: string): Promise<{ txHash: string }> {
-    // Simulate network latency
-    await new Promise((resolve) => setTimeout(resolve, 1800 + Math.random() * 800));
+    // ── 1. Build unsigned XDR (stub) ──────────────────────────────────────────
+    // Real implementation:
+    //   const server = new SorobanRpc.Server(process.env.NEXT_PUBLIC_RPC_URL!);
+    //   const contract = new Contract(process.env.NEXT_PUBLIC_CONTRACT_ID!);
+    //   const account = await server.getAccount(signerAddress);
+    //   const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase })
+    //     .addOperation(contract.call("approve_stream_request", nativeToScVal(streamId, { type: "string" })))
+    //     .setTimeout(30)
+    //     .build();
+    //   const preparedTx = await server.prepareTransaction(tx);
+    //   const unsignedXdr = preparedTx.toXDR();
+    const unsignedXdr = `AAAAAQ...${streamId.slice(0, 8)}...stub_xdr`;
 
-    // Simulate 10% failure rate for realistic UX testing
-    if (Math.random() < 0.1) {
-        throw new Error("Transaction simulation failed: insufficient signers or network error");
+    // ── 2. Sign via wallet extension ──────────────────────────────────────────
+    let signedXdr: string;
+
+    if (typeof window !== "undefined" && (window as any).freighter) {
+        // Freighter
+        const { signTransaction } = await import("@stellar/freighter-api");
+        const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? "PUBLIC" : "TESTNET";
+        const result = await signTransaction(unsignedXdr, { network });
+        if ("error" in result && result.error) throw new Error(result.error);
+        signedXdr = (result as any).signedTxXdr ?? unsignedXdr;
+    } else if (typeof window !== "undefined" && (window as any).albedo) {
+        // Albedo fallback
+        const albedo = (window as any).albedo;
+        const result = await albedo.tx({ xdr: unsignedXdr, submit: false });
+        signedXdr = result.signed_envelope_xdr ?? unsignedXdr;
+    } else {
+        // Dev / test fallback — simulate latency
+        await new Promise((resolve) => setTimeout(resolve, 1800 + Math.random() * 800));
+        if (Math.random() < 0.1) {
+            throw new Error("Transaction simulation failed: insufficient signers or network error");
+        }
+        signedXdr = unsignedXdr;
     }
 
+    // ── 3. Submit signed XDR (stub) ───────────────────────────────────────────
+    // Real implementation:
+    //   const submitResult = await server.sendTransaction(TransactionBuilder.fromXDR(signedXdr, networkPassphrase));
+    //   if (submitResult.status === "ERROR") throw new Error(submitResult.errorResult?.result().toString());
+    //   return { txHash: submitResult.hash };
     const mockTxHash = `0x${Array.from({ length: 64 }, () =>
         Math.floor(Math.random() * 16).toString(16)
     ).join("")}`;
@@ -194,12 +247,29 @@ export function usePendingStreams(pollIntervalMs = 15_000) {
     const signedCount = (stream: PendingStream) =>
         stream.signers.filter((s) => s.status === "signed").length;
 
+    const restartProposal = useCallback((pendingId: string) => {
+        setStreams((prev) =>
+            prev.map((s) => {
+                if (s.id !== pendingId) return s;
+                return {
+                    ...s,
+                    hasCurrentUserSigned: false,
+                    signers: s.signers.map((sg) => ({
+                        address: sg.address,
+                        status: "pending" as SignatureStatus,
+                    })),
+                };
+            })
+        );
+    }, []);
+
     return {
         streams,
         signingIds,
         lastRefreshed,
         signStream,
         signedCount,
+        restartProposal,
         currentUserAddress: MOCK_CURRENT_USER,
     };
 }

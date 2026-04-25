@@ -11,7 +11,6 @@ export function SubscriptionFooter() {
     
     // Simulate submission
     setTimeout(() => {
-      console.log('Subscribed:', email);
       setEmail('');
       setIsSubmitting(false);
     }, 1500);

@@ -9,7 +9,6 @@ export default function XLMBalanceOrbExample() {
   const [showOrb, setShowOrb] = useState(true);
 
   const handleBridgeClick = () => {
-    console.log("Bridge XLM clicked");
     alert("Redirecting to bridge...");
   };
 

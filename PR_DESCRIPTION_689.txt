@@ -1,0 +1,40 @@
+# Issue #689 [Frontend] Logic: Multi-Asset "Value-Aggregator" in USD
+
+## Description
+Convert disparate asset totals (XLM, USDC, yXLM) into a single "Total Value" in USD using the Backend Price Oracle.
+
+## Technical Tasks
+- [x] Fetch historical and real-time prices from /api/v1/prices
+- [x] Logic: Map each row in a split to its USD equivalent
+- [x] Display a "Total Disbursement Value: $1,240.50" header above the recipient list
+
+## Changes Made
+
+### 1. New Hook: usePriceFetcher (frontend/lib/hooks/use-price-fetcher.ts)
+- Fetches token prices from /api/v1/prices endpoint
+- Provides getPrice() for individual token price lookup
+- Helper functions:
+  - calculateUsdValue() - Convert token amount to USD
+  - calculateTotalUsdValue() - Sum multiple token amounts  
+  - formatUsdValue() - Format as currency string
+
+### 2. Updated Types (frontend/lib/bulk-splitter/types.ts)
+- Added optional tokenAddress field to Recipient interface
+- Enables multi-asset support in bulk disbursements
+
+### 3. Integration (frontend/components/dashboard/BulkDispatchPanel.tsx)
+- Added defaultTokenAddress prop for single-asset batches
+- Displays "Total Disbursement Value: $X,XXX.XX" header above recipient list
+- Real-time USD calculation using price oracle
+
+## Labels
+- [Frontend] Logic Easy
+
+## Related Issues
+- Related to Issue #195 (Backend Proposal Service integration)
+
+## Files Changed
+- frontend/lib/hooks/use-price-fetcher.ts (new)
+- frontend/lib/hooks/index.ts (exports)
+- frontend/lib/bulk-splitter/types.ts (tokenAddress field)
+- frontend/components/dashboard/BulkDispatchPanel.tsx (value display)

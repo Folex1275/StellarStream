@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 
+import { AssetPrice } from "./AssetPrice";
+
 interface XLMBalanceOrbProps {
   balance: number;
   threshold?: number;
@@ -321,7 +323,7 @@ export default function XLMBalanceOrb({
           role="button"
           aria-label={`Low XLM balance warning. Current balance: ${balance.toFixed(2)} XLM. Click to learn more.`}
           tabIndex={0}
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
               setIsExpanded(!isExpanded);
@@ -354,9 +356,7 @@ export default function XLMBalanceOrb({
             </div>
 
             <div className="bubble-balance">
-              <span className="balance-label">Current:</span>
-              <span className="balance-value">{balance.toFixed(2)}</span>
-              <span className="balance-unit">XLM</span>
+              <AssetPrice amount={balance} assetCode="XLM" />
             </div>
 
             <div className="bubble-message">

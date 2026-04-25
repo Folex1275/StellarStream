@@ -66,12 +66,10 @@ const EXAMPLE_STREAMS = [
 
 export default function ResponsiveStreamExample() {
   const handleWithdraw = (streamId: string) => {
-    console.log("Withdraw from stream:", streamId);
     // Implement withdrawal logic
   };
 
   const handleBatchWithdraw = (streamIds: string[]) => {
-    console.log("Batch withdraw from streams:", streamIds);
     // TODO: Implement batch withdrawal using V2 contract batch_withdraw function
     // or bundle transactions using Stellar SDK
     
@@ -81,12 +79,10 @@ export default function ResponsiveStreamExample() {
   };
 
   const handleTopUp = (streamId: string) => {
-    console.log("Top-up stream:", streamId);
     // Implement top-up logic
   };
 
   const handleViewDetails = (streamId: string) => {
-    console.log("View details for stream:", streamId);
     // Navigate to stream details page
   };
 

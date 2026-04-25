@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from "react";
 import TransactionHistory from "@/components/dashboard/TransactionHistory";
+import { SanctionsFlagBanner, type SanctionsFlag } from "@/components/compliance/SanctionsFlagBanner";
+
+// ─── Mock: replace with real data from the compliance backend ─────────────────
+const MOCK_FLAGS: SanctionsFlag[] = [
+  {
+    recipientAddress: "GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOKY3B2WSQHG4W37",
+    riskReason: "Address on OFAC SDN list — matched via Chainalysis screening.",
+    reportUrl: "https://sanctionssearch.ofac.treas.gov/",
+  },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Stream {
@@ -187,6 +197,7 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function StreamDetailPage() {
   const [streamed, setStreamed] = useState(STREAM.streamed);
+  const [flags, setFlags] = useState<SanctionsFlag[]>(MOCK_FLAGS);
 
   useEffect(() => {
     const id = setInterval(() => setStreamed((v) => v + STREAM.ratePerSecond * 0.5), 500);
@@ -199,6 +210,13 @@ export default function StreamDetailPage() {
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6">
+
+      {/* ── Compliance Alert Banner ── */}
+      <SanctionsFlagBanner
+        flags={flags}
+        onBypass={(f) => console.warn("Compliance bypass recorded for", f.recipientAddress)}
+        onDismiss={(f) => setFlags((prev) => prev.filter((x) => x.recipientAddress !== f.recipientAddress))}
+      />
 
       {/* ── Header (Mobile-First) ── */}
       <section className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.04] p-5 md:p-6 lg:p-8 backdrop-blur-xl">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useDevMode } from "@/lib/use-dev-mode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Wallet {
@@ -424,6 +425,7 @@ function PrivacyMode() {
   const [optOutAnalytics, setOptOutAnalytics] = useState(false);
   const [twoFA, setTwoFA]               = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState("30");
+  const [devMode, setDevMode] = useDevMode();
 
   const privacyScore = [anonymizeAddr, hideBalances, optOutAnalytics, twoFA, privacyOn]
     .filter(Boolean).length;
@@ -534,6 +536,27 @@ function PrivacyMode() {
             <Toggle enabled={val} onChange={set} />
           </div>
         ))}
+      </div>
+
+      {/* Dev Mode toggle */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 14,
+        padding: "13px 14px", borderRadius: 11,
+        background: devMode ? "rgba(255,255,255,0.025)" : "transparent",
+        border: `1px solid ${devMode ? "rgba(255,255,255,0.06)" : "transparent"}`,
+        transition: "all .2s",
+      }}>
+        <div style={{ flex: 1 }}>
+          <p style={{
+            fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 600,
+            color: devMode ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.35)",
+            marginBottom: 2, transition: "color .2s",
+          }}>Developer Mode</p>
+          <p style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "rgba(255,255,255,0.25)" }}>
+            Show raw transaction data (XDR) in modals
+          </p>
+        </div>
+        <Toggle enabled={devMode} onChange={setDevMode} />
       </div>
 
       {/* Session timeout */}
