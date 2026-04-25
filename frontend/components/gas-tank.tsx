@@ -18,8 +18,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Wallet, AlertTriangle, X } from "lucide-react";
+import { ExternalLink, Wallet, AlertTriangle, X, Sparkles } from "lucide-react";
 import { useWallet } from "@/lib/wallet-context";
+import { GasTankAdvisor } from "./dashboard/GasTankAdvisor";
 
 // Refill links for different exchanges
 const REFILL_LINKS = {
@@ -44,6 +45,7 @@ export default function GasTank({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRefillModal, setShowRefillModal] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
 
   // Fetch XLM balance
   const fetchBalance = useCallback(async () => {
@@ -401,6 +403,13 @@ export default function GasTank({
             <Wallet className={`w-5 h-5 ${isLowBalance ? "text-[#ff6b2b]" : "text-[#00e5ff]"}`} />
           </div>
           <span className="gas-tank-title">Gas Tank</span>
+          <button 
+            onClick={() => setShowAdvisor(true)}
+            className="ml-auto p-1.5 rounded-lg bg-white/5 border border-white/10 text-cyan-400/60 hover:text-cyan-400 hover:bg-white/10 transition-all"
+            title="Gas Tank Advisor"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Gauge */}
@@ -537,6 +546,17 @@ export default function GasTank({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GasTankAdvisor 
+        isOpen={showAdvisor}
+        onClose={() => setShowAdvisor(false)}
+        currentBalanceXlm={balance}
+        onApplySuggestion={(amount) => {
+          // In a real app, this would open the refill modal with the amount pre-filled
+          // or trigger a deposit transaction. For now, we'll just show the refill modal.
+          setShowRefillModal(true);
+        }}
+      />
     </>
   );
 }

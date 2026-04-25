@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { StreamLifecycleService } from '../services/stream-lifecycle-service.js';
 import { toBigIntOrNull } from '../services/stream-lifecycle-service.js';
+import { sanitizeUnknown } from '../security/sanitize.js';
 
 const router = Router();
 const streamService = new StreamLifecycleService();
 
 router.post('/test-stream', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { streamId, sender, receiver, amount } = req.body as Record<string, unknown>;
+    const { streamId, sender, receiver, amount } = sanitizeUnknown(req.body);
     
     if (!streamId || !sender || !receiver || !amount) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -33,7 +34,7 @@ router.post('/test-stream', async (req: Request, res: Response): Promise<void> =
 
 router.post('/test-withdrawal', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { streamId, amount } = req.body as Record<string, unknown>;
+    const { streamId, amount } = sanitizeUnknown(req.body);
     
     if (!streamId || !amount) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -55,7 +56,7 @@ router.post('/test-withdrawal', async (req: Request, res: Response): Promise<voi
 
 router.post('/test-cancellation', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { streamId, toReceiver, toSender } = req.body as Record<string, unknown>;
+    const { streamId, toReceiver, toSender } = sanitizeUnknown(req.body);
     
     if (!streamId || !toReceiver || !toSender) {
       res.status(400).json({ error: 'Missing required fields' });

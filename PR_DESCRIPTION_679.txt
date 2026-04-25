@@ -1,0 +1,89 @@
+# PR Description: Issue #679 - Quorum-Check Pre-Submission Logic
+
+## Summary
+Implements quorum-check pre-submission logic for the StellarStream frontend. Before allowing a user to click "Submit Split", the system now verifies if the connected wallet has sufficient signing weight or if it needs to trigger a multi-sig proposal.
+
+## Technical Implementation
+
+### 1. New Hook: `useQuorumCheck`
+**File:** `frontend/lib/hooks/use-quorum-check.ts`
+
+- Fetches the Signers array from the sender's Stellar account via Soroban RPC
+- Compares user's signing weight against the account's threshold
+- Returns:
+  - `canExecute: boolean` - Whether user can directly execute
+  - `userWeight: number` - User's signing weight
+  - `threshold: number` - Required threshold (med by default)
+  - `signers: Signer[]` - All account signers
+  - `thresholds: AccountThreshold` - Low/Med/High thresholds
+
+### 2. New Component: ProposeTransactionButton
+**File:** `frontend/components/governance/ProposeTransactionButton.tsx`
+
+- Smart button that switches between "Execute Transaction" and "Propose Transaction"
+- When `canExecute: true`: Shows green execute button
+- When `canExecute: false`: Shows purple propose button with explanation
+- Calls backend API to create governance proposal
+- Includes `QuorumInfoBadge` for displaying weight status
+
+### 3. New Component: QuorumBulkDispatchPanel
+**File:** `frontend/components/dashboard/QuorumBulkDispatchPanel.tsx`
+
+- Enhanced version of BulkDispatchPanel with quorum check integrated
+- Displays quorum status badge in header
+- Shows "Dispatch All" when sufficient weight
+- Shows "Propose Multi-Sig" when weight insufficient
+- Creates governance proposal automatically when proposing
+
+### 4. Backend API Addition
+**File:** `backend/src/api/governance.routes.ts`
+
+- Added `POST /api/v1/governance/proposals` endpoint
+- Creates new multi-sig transaction proposals
+- Accepts: creator, description, action, txData, signers, requiredSignatures
+
+## Usage Examples
+
+### Simple Usage
+```tsx
+import { ProposeTransactionButton } from "@/components/governance/ProposeTransactionButton";
+
+<ProposeTransactionButton
+  transactionDescription="Bulk token distribution to 50 recipients"
+  action="BULK_DISPATCH"
+  txData="base64_encoded_xdr"
+  onProposalCreated={(id) => console.log("Proposal:", id)}
+/>
+```
+
+### Using Hook Directly
+```tsx
+import { useQuorumCheck } from "@/lib/hooks/use-quorum-check";
+
+function MyComponent() {
+  const { canExecute, userWeight, threshold } = useQuorumCheck();
+  
+  if (!canExecute) {
+    return <ProposeTransactionButton ... />;
+  }
+  return <ExecuteButton />;
+}
+```
+
+## Testing Considerations
+
+1. Test with accounts that have:
+   - Sufficient weight (weight >= threshold)
+   - Insufficient weight (weight < threshold)
+
+2. Test the proposal creation flow when weight is insufficient
+
+3. Verify the UI correctly switches between Execute and Propose modes
+
+## Related Issues
+- Issue #195: Backend Proposal Service (already integrated)
+
+## Labels
+- [Frontend]
+- [Logic]
+- [Hard]

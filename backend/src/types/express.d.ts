@@ -12,6 +12,8 @@ declare global {
       walletAddress?: string;
       /** Set by requireWalletAuth when request is authenticated via wallet signature. */
       walletAuthenticated?: boolean;
+      /** Set by requireRole after resolving the member's OrgRole for the target org. */
+      orgRole?: import('../services/org-member.service.js').OrgRole;
     }
   }
 }

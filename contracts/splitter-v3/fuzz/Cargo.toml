@@ -1,0 +1,20 @@
+[package]
+name = "splitter-v3-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Pull in the contract lib with testutils so we can call split_funds logic directly.
+stellar-splitter-v3 = { path = "..", features = [] }
+
+[[bin]]
+name = "fuzz_split_funds"
+path = "fuzz_targets/fuzz_split_funds.rs"
+test = false
+doc = false

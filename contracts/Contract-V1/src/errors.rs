@@ -30,4 +30,6 @@ pub enum Error {
     AddressRestricted = 23,
     /// Stream has already ended (past end_time)
     StreamEnded = 24,
+    /// Batch request exceeds the maximum allowed recipients per call
+    BatchSizeExceeded = 25,
 }

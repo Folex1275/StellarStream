@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { Clock, CheckCircle2, XCircle, Pen, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
 import { usePendingStreams, type PendingStream, type Signer } from "@/lib/use-pending-streams";
 import { toast } from "@/lib/toast";
+import { ConflictStateCard } from "./ConflictStateCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -282,18 +283,34 @@ function EmptyState() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PendingApprovalQueue() {
-    const { streams, signingIds, lastRefreshed, signStream, signedCount } = usePendingStreams();
-    const [filter, setFilter] = useState<"all" | "mine" | "ready">("all");
+    const { streams, signingIds, lastRefreshed, signStream, signedCount, restartProposal } = usePendingStreams();
+    const [filter, setFilter] = useState<"all" | "mine" | "ready" | "conflict">("all");
+    const [restartingIds, setRestartingIds] = useState<Set<string>>(new Set());
 
     const filtered = useMemo(() => {
         return streams.filter((s) => {
-            if (filter === "mine") return !s.hasCurrentUserSigned;
-            if (filter === "ready") return signedCount(s) >= s.requiredSignatures - 1;
+            const hasConflict = s.signers.some((sg) => sg.status === "rejected");
+            if (filter === "conflict") return hasConflict;
+            if (filter === "mine") return !s.hasCurrentUserSigned && !hasConflict;
+            if (filter === "ready") return signedCount(s) >= s.requiredSignatures - 1 && !hasConflict;
             return true;
         });
     }, [streams, filter, signedCount]);
 
     const awaitingMySignature = streams.filter((s) => !s.hasCurrentUserSigned).length;
+    const conflictCount = streams.filter((s) => s.signers.some((sg) => sg.status === "rejected")).length;
+
+    const handleRestart = async (stream: PendingStream) => {
+        setRestartingIds((prev) => new Set(prev).add(stream.id));
+        try {
+            restartProposal(stream.id);
+            toast.success({ title: "Proposal Restarted", description: `All signatures for ${stream.streamId} have been cleared.`, duration: 5000 });
+        } catch {
+            toast.error({ title: "Restart Failed", description: "Please try again.", duration: 5000 });
+        } finally {
+            setRestartingIds((prev) => { const n = new Set(prev); n.delete(stream.id); return n; });
+        }
+    };
 
     const handleSign = async (stream: PendingStream) => {
         try {
@@ -346,18 +363,22 @@ export default function PendingApprovalQueue() {
                             {[
                                 { label: "Total", value: streams.length },
                                 { label: "Need Sig", value: awaitingMySignature, accent: true },
+                                { label: "Conflict", value: conflictCount, danger: true },
                             ].map((stat) => (
                                 <div
                                     key={stat.label}
-                                    className={`rounded-xl border px-3 py-2 text-center ${stat.accent && stat.value > 0
-                                            ? "border-[#00f5ff]/30 bg-[#00f5ff]/[0.06]"
-                                            : "border-white/10 bg-white/[0.04]"
-                                        }`}
+                                    className={`rounded-xl border px-3 py-2 text-center ${
+                                        stat.danger && stat.value > 0
+                                            ? "border-red-500/30 bg-red-500/[0.06]"
+                                            : stat.accent && stat.value > 0
+                                                ? "border-[#00f5ff]/30 bg-[#00f5ff]/[0.06]"
+                                                : "border-white/10 bg-white/[0.04]"
+                                    }`}
                                 >
-                                    <p
-                                        className={`font-heading text-xl leading-none ${stat.accent && stat.value > 0 ? "text-[#00f5ff]" : "text-white"
-                                            }`}
-                                    >
+                                    <p className={`font-heading text-xl leading-none ${
+                                        stat.danger && stat.value > 0 ? "text-red-400" :
+                                        stat.accent && stat.value > 0 ? "text-[#00f5ff]" : "text-white"
+                                    }`}>
                                         {stat.value}
                                     </p>
                                     <p className="font-body text-[10px] tracking-widest text-white/40 uppercase mt-0.5">
@@ -384,6 +405,7 @@ export default function PendingApprovalQueue() {
                             { key: "all", label: "All Pending" },
                             { key: "mine", label: "My Signature" },
                             { key: "ready", label: "Almost Ready" },
+                            { key: "conflict", label: `Conflicts${conflictCount > 0 ? ` (${conflictCount})` : ""}` },
                         ] as const
                     ).map((tab) => (
                         <button
@@ -406,16 +428,28 @@ export default function PendingApprovalQueue() {
                     <EmptyState />
                 </div>
             ) : (
-                filtered.map((stream) => (
-                    <div key={stream.id} className="col-span-full lg:col-span-6">
-                        <PendingStreamCard
-                            stream={stream}
-                            isSigning={signingIds.has(stream.id)}
-                            onSign={() => handleSign(stream)}
-                            signedCount={signedCount(stream)}
-                        />
-                    </div>
-                ))
+                filtered.map((stream) => {
+                    const hasConflict = stream.signers.some((sg) => sg.status === "rejected");
+                    return (
+                        <div key={stream.id} className="col-span-full lg:col-span-6">
+                            {hasConflict ? (
+                                <ConflictStateCard
+                                    stream={stream}
+                                    signedCount={signedCount(stream)}
+                                    isRestarting={restartingIds.has(stream.id)}
+                                    onRestart={() => handleRestart(stream)}
+                                />
+                            ) : (
+                                <PendingStreamCard
+                                    stream={stream}
+                                    isSigning={signingIds.has(stream.id)}
+                                    onSign={() => handleSign(stream)}
+                                    signedCount={signedCount(stream)}
+                                />
+                            )}
+                        </div>
+                    );
+                })
             )}
         </>
     );

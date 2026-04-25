@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { Sidebar } from "./sidebar";
 import { AuditLogDrawer } from "./AuditLogDrawer";
+import { TransactionQueueProvider } from "@/lib/providers/TransactionQueueProvider";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -12,6 +13,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [isAuditLogOpen, setIsAuditLogOpen] = useState(false);
 
   return (
+    <TransactionQueueProvider>
     <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden">
       {/* Fixed Nebula Glow Background */}
       <div
@@ -57,5 +59,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </main>
       </div>
     </div>
+    </TransactionQueueProvider>
   );
 }

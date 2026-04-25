@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Stream } from "@/lib/contracts/stellarstream";
 
-// Stellar uses 7 decimal places (stroops)
-const DECIMALS = 7;
-const DIVISOR = 10 ** DECIMALS;
+// Default Stellar decimal places (stroops)
+const DEFAULT_DECIMALS = 7;
 
 export interface FlowRateResult {
   /** Current interpolated balance in display units (e.g. 48291.3847291) */
@@ -24,13 +23,17 @@ export interface FlowRateResult {
  * The balance is interpolated locally at 60fps between block updates
  * so the counter feels live without hammering the RPC.
  *
- * @param stream  - Raw Stream from the contract (bigint fields, ms timestamps)
- * @param nowMs   - Optional override for current time (useful for testing)
+ * @param stream   - Raw Stream from the contract (bigint fields, ms timestamps)
+ * @param decimals - Asset decimal places (default: 7 for Stellar stroops)
+ * @param nowMs    - Optional override for current time (useful for testing)
  */
 export function useFlowRate(
   stream: Stream | null | undefined,
+  decimals: number = DEFAULT_DECIMALS,
   nowMs: number = Date.now(),
 ): FlowRateResult {
+  const divisor = 10 ** decimals;
+
   const deriveState = useCallback(
     (s: Stream | null | undefined, now: number) => {
       if (!s || s.cancelled || s.isPaused) {
@@ -39,8 +42,8 @@ export function useFlowRate(
 
       const start = Number(s.startTime);
       const end = Number(s.endTime);
-      const total = Number(s.totalAmount) / DIVISOR;
-      const withdrawn = Number(s.withdrawn) / DIVISOR;
+      const total = Number(s.totalAmount) / divisor;
+      const withdrawn = Number(s.withdrawn) / divisor;
       const duration = end - start;
 
       if (duration <= 0 || now < start) {
@@ -54,7 +57,7 @@ export function useFlowRate(
 
       return { balance, ratePerMs, isFlowing: now >= start && now < end };
     },
-    [],
+    [divisor],
   );
 
   const [state, setState] = useState<FlowRateResult>(() =>
@@ -67,9 +70,9 @@ export function useFlowRate(
       return;
     }
 
-    // Recalculate immediately when stream changes
+    // Recalculate immediately when stream or decimals change
     setState(deriveState(stream, Date.now()));
-  }, [stream, deriveState]);
+  }, [stream, decimals, deriveState]);
 
   return state;
 }
@@ -77,8 +80,14 @@ export function useFlowRate(
 /**
  * Aggregates flow_rate across multiple streams (e.g. all incoming streams).
  * Returns the combined real-time balance and net rate.
+ *
+ * @param streams  - Array of contract Stream objects
+ * @param decimals - Asset decimal places (default: 7 for Stellar stroops)
  */
-export function useAggregatedFlowRate(streams: Stream[]): FlowRateResult {
+export function useAggregatedFlowRate(
+  streams: Stream[],
+  decimals: number = DEFAULT_DECIMALS,
+): FlowRateResult {
   const [state, setState] = useState<FlowRateResult>({
     balance: 0,
     ratePerMs: 0,
@@ -86,6 +95,7 @@ export function useAggregatedFlowRate(streams: Stream[]): FlowRateResult {
   });
 
   useEffect(() => {
+    const divisor = 10 ** decimals;
     const now = Date.now();
     let totalBalance = 0;
     let totalRate = 0;
@@ -96,8 +106,8 @@ export function useAggregatedFlowRate(streams: Stream[]): FlowRateResult {
 
       const start = Number(s.startTime);
       const end = Number(s.endTime);
-      const total = Number(s.totalAmount) / DIVISOR;
-      const withdrawn = Number(s.withdrawn) / DIVISOR;
+      const total = Number(s.totalAmount) / divisor;
+      const withdrawn = Number(s.withdrawn) / divisor;
       const duration = end - start;
 
       if (duration <= 0 || now < start) continue;
@@ -116,7 +126,7 @@ export function useAggregatedFlowRate(streams: Stream[]): FlowRateResult {
       ratePerMs: totalRate,
       isFlowing: anyFlowing,
     });
-  }, [streams]);
+  }, [streams, decimals]);
 
   return state;
 }

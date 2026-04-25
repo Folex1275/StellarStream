@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, Home, RefreshCw, Bug } from 'lucide-react';
 import Link from 'next/link';
+import { captureError } from '@/lib/error-tracking';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -14,6 +15,7 @@ export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Application Error:', error);
+    captureError(error);
   }, [error]);
 
   return (

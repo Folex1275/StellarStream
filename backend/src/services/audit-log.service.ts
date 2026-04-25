@@ -1,12 +1,6 @@
-/**
- * Audit Log Service
- * Manages event logging for all protocol actions
- */
-
-import { PrismaClient } from "../generated/client/index.js";
-import { logger } from "../logger";
-
-const prisma = new PrismaClient();
+import { prisma } from "../lib/db.js";
+import { computeEntryHash } from "../lib/audit-hash-chain.js";
+import { logger } from "../logger.js";
 
 export interface EventLogEntry {
   eventType: string;
@@ -37,6 +31,8 @@ export interface AuditLogItem {
   receiver: string | null;
   amount: string | null;
   metadata: Record<string, unknown> | null;
+  parentHash: string | null;
+  entryHash: string | null;
   createdAt: Date;
 }
 
@@ -71,13 +67,37 @@ export class AuditLogService {
         amount: entry.amount ?? null,
       };
 
+      const latest = await prisma.eventLog.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { entryHash: true },
+      });
+      const parentHash = latest?.entryHash ?? null;
+      const entryHash = computeEntryHash(
+        {
+          eventType: data.eventType,
+          streamId: data.streamId,
+          txHash: data.txHash,
+          eventIndex,
+          ledger: data.ledger,
+          ledgerClosedAt: data.ledgerClosedAt,
+          sender: data.sender,
+          receiver: data.receiver,
+          amount: data.amount?.toString() ?? null,
+          metadata: data.metadata,
+        },
+        parentHash,
+      );
+
       await prisma.eventLog.upsert({
         where: {
           txHash_eventIndex: { txHash: entry.txHash, eventIndex },
         },
-        create: data,
+        create: {
+          ...data,
+          parentHash,
+          entryHash,
+        },
         update: {
-          // On re-org recovery, refresh mutable fields but preserve createdAt
           eventType: data.eventType,
           streamId: data.streamId,
           ledger: data.ledger,
@@ -86,6 +106,8 @@ export class AuditLogService {
           receiver: data.receiver,
           amount: data.amount,
           metadata: data.metadata,
+          parentHash,
+          entryHash,
         },
       });
 
@@ -127,6 +149,8 @@ export class AuditLogService {
           receiver: string | null;
           amount: bigint | null;
           metadata: string | null;
+          parentHash: string | null;
+          entryHash: string | null;
           createdAt: Date;
         }) => ({
           id: event.id,
@@ -139,6 +163,8 @@ export class AuditLogService {
           receiver: event.receiver,
           amount: event.amount?.toString() ?? null,
           metadata: event.metadata ? JSON.parse(event.metadata) : null,
+          parentHash: event.parentHash,
+          entryHash: event.entryHash,
           createdAt: event.createdAt,
         }),
       );
@@ -174,6 +200,8 @@ export class AuditLogService {
           receiver: string | null;
           amount: bigint | null;
           metadata: string | null;
+          parentHash: string | null;
+          entryHash: string | null;
           createdAt: Date;
         }) => ({
           id: event.id,
@@ -186,6 +214,8 @@ export class AuditLogService {
           receiver: event.receiver,
           amount: event.amount?.toString() ?? null,
           metadata: event.metadata ? JSON.parse(event.metadata) : null,
+          parentHash: event.parentHash,
+          entryHash: event.entryHash,
           createdAt: event.createdAt,
         }),
       );

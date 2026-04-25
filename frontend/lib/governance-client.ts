@@ -43,7 +43,10 @@ interface VotingPowerApiResponse {
 }
 
 const BACKEND_API_BASE =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "http://localhost:3000/api/v1";
+  process.env.NEXT_PUBLIC_NEBULA_WARP_INDEXER_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:3000/api/v1";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ?? "https://soroban-rpc.stellar.org";

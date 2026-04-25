@@ -1,9 +1,32 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ShieldAlert } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { ShieldAlert, ArrowLeftRight, Fingerprint, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
+import { Can } from "@/components/Can";
 import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
+import { useRecursiveSplitGuard } from "@/lib/use-recursive-split-guard";
+import { SelfReferenceTooltip } from "@/components/self-reference-tooltip";
+import { TransactionPrioritySelector } from "@/components/transaction-priority-selector";
+import { useTransactionPriority, type PriorityTier } from "@/lib/use-transaction-priority";
+import SwapAndStream from "@/components/swap-and-stream";
+import { InsufficientXLMCard, NetworkCongestedCard } from "@/components/error-recovery-cards";
+import type { RecoveryErrorType } from "@/components/error-recovery-cards";
+import { useHardwareWalletTimeout } from "@/lib/hooks/use-hardware-wallet-timeout";
+import { ConfirmOnDeviceModal } from "@/components/confirm-on-device-modal";
+import { LoadProposalDataButton } from "@/components/load-proposal-data-button";
+import { HighContrastGrid } from "@/components/high-contrast-grid";
+import { useWallet } from "@/lib/wallet-context";
+import { Horizon } from "@stellar/stellar-sdk";
+import { Server } from "@stellar/stellar-sdk";
+import { SimulationWaterfall } from "@/components/dashboard/simulation-waterfall";
+import { buildSimulationWaterfall } from "@/lib/simulation-waterfall";
+import {
+  isWebAuthnAvailable,
+  loadQuickSignCredential,
+  registerQuickSignCredential,
+  verifyQuickSignCredential,
+} from "@/lib/webauthn-quick-sign";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -11,10 +34,13 @@ interface FormData {
   asset: string;
   recipientAddress: string;
   recipientLabel: string;
+  /** Optional Tax ID / internal note — stored backend-only, never on-chain. */
+  recipientTaxId: string;
   // Stream Splitter (Issue #55)
   splitEnabled: boolean;
   splitAddress: string;
   splitPercent: number; // 0–50
+  splitRecipients: Array<{ address: string; percent: number }>;
   // Privacy Shield (Issue #463)
   privacyShieldEnabled: boolean;
   // Step 2
@@ -31,9 +57,11 @@ const INITIAL_FORM: FormData = {
   asset: "",
   recipientAddress: "",
   recipientLabel: "",
+  recipientTaxId: "",
   splitEnabled: false,
   splitAddress: "",
   splitPercent: 10,
+  splitRecipients: [],
   privacyShieldEnabled: false,
   totalAmount: "",
   rateType: "per-hour",
@@ -75,6 +103,79 @@ const RATE_SECONDS: Record<FormData["rateType"], number> = {
   "per-hour": 3600,
   "per-day": 86400,
 };
+
+const HORIZON_SERVER = new Horizon.Server("https://horizon.stellar.org");
+
+type RecipientValidationStatus =
+  | "ok"
+  | "missing_trustline"
+  | "account_not_funded"
+  | "invalid_address";
+
+type BalanceValidationStatus =
+  | "ok"
+  | "insufficient_asset"
+  | "insufficient_xlm"
+  | "not_connected"
+  | "pending";
+
+type QuickSignStatus =
+  | "checking"
+  | "unsupported"
+  | "needs_setup"
+  | "locked"
+  | "verifying"
+  | "verified"
+  | "error";
+
+function getRecipientStatusLabel(status: RecipientValidationStatus): string {
+  switch (status) {
+    case "ok":
+      return "Ready to receive";
+    case "missing_trustline":
+      return "Missing Trustline";
+    case "account_not_funded":
+      return "Account Not Funded";
+    case "invalid_address":
+      return "Invalid Stellar address";
+  }
+}
+
+function parseStellarBalance(balance: string | undefined): number {
+  return balance ? parseFloat(balance) : 0;
+}
+
+function hasTrustlineForAsset(account: any, assetCode: string): boolean {
+  if (assetCode.toUpperCase() === "XLM") return true;
+  return account.balances.some((balance: any) =>
+    balance.asset_type !== "native" && balance.asset_code === assetCode
+  );
+}
+
+function getBalanceForAsset(account: any, assetCode: string): number {
+  if (assetCode.toUpperCase() === "XLM") {
+    const native = account.balances.find((balance: any) => balance.asset_type === "native");
+    return parseStellarBalance(native?.balance);
+  }
+  const asset = account.balances.find((balance: any) => balance.asset_code === assetCode);
+  return parseStellarBalance(asset?.balance);
+}
+
+function getAccountStatus(assetCode: string, account: any): RecipientValidationStatus {
+  if (!account) return "invalid_address";
+  if (assetCode.toUpperCase() === "XLM") return "ok";
+  return hasTrustlineForAsset(account, assetCode) ? "ok" : "missing_trustline";
+}
+
+function isHorizonNotFound(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const err = error as any;
+  return err?.response?.status === 404 || err?.status === 404;
+}
+
+function feeStroopsToXlm(stroops: number): number {
+  return stroops / 1e7;
+}
 
 const STEPS = [
   { number: 1, label: "Asset & Recipient", short: "Asset" },
@@ -266,20 +367,120 @@ function isValidStellarAddress(addr: string): boolean {
 function StreamSplitter({
   form,
   update,
+  recipientValidation,
 }: {
   form: FormData;
   update: (patch: Partial<FormData>) => void;
+  recipientValidation: Record<string, RecipientValidationStatus>;
 }) {
   const [focused, setFocused] = useState(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [splitRecipients, setSplitRecipients] = useState<Array<{ address: string; percent: number }>>(form.splitRecipients || []);
+  const [mergeSuggestionVisible, setMergeSuggestionVisible] = useState(false);
+
+  const normalizedRecipients = splitRecipients.map((item) => ({ address: item.address.toUpperCase(), percent: item.percent }));
+
+  useEffect(() => {
+    setSplitRecipients(form.splitRecipients || []);
+  }, [form.splitRecipients]);
+
+  const duplicates = normalizedRecipients.reduce<Record<string, number[]>>((acc, recipient, index) => {
+    const addr = recipient.address;
+    if (!acc[addr]) acc[addr] = [];
+    acc[addr].push(index);
+    return acc;
+  }, {});
+
+  const duplicateAddresses = Object.keys(duplicates).filter((addr) => duplicates[addr].length > 1);
+
+  useEffect(() => {
+    setMergeSuggestionVisible(duplicateAddresses.length > 0);
+    update({ splitRecipients });
+  }, [splitRecipients, duplicateAddresses.length, update]);
+
+  const addSplitRecipient = () => {
+    if (!isValidStellarAddress(form.splitAddress)) {
+      setProposalError("Address is invalid");
+      return;
+    }
+    const percent = Number(form.splitPercent);
+    if (Number.isNaN(percent) || percent <= 0 || percent > 100) {
+      setProposalError("Split percentage must be 1-100");
+      return;
+    }
+
+    const newRecipient = {
+      address: form.splitAddress.toUpperCase(),
+      percent,
+    };
+    setSplitRecipients((prev) => [...prev, newRecipient]);
+    update({ splitAddress: "", splitPercent: 10, splitEnabled: true });
+  };
+
+  const removeRecipient = (index: number) => {
+    setSplitRecipients((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const mergeDuplicateRows = () => {
+    const mergedMap: Record<string, number> = {};
+    splitRecipients.forEach((recipient) => {
+      const address = recipient.address.toUpperCase();
+      mergedMap[address] = (mergedMap[address] || 0) + recipient.percent;
+    });
+
+    const merged = Object.entries(mergedMap).map(([address, total]) => ({
+      address,
+      percent: Math.min(total, 100),
+    }));
+
+    setSplitRecipients(merged);
+    setMergeSuggestionVisible(false);
+  };
 
   const addressDirty = form.splitAddress.length > 0;
   const addressValid = isValidStellarAddress(form.splitAddress);
   const addressError = addressDirty && !addressValid;
 
+  // ── Handle proposal data loading ────────────────────────────────────────────
+  const handleProposalLoaded = (recipients: Array<{ address: string; percentage: number }>) => {
+    try {
+      setProposalError(null);
+
+      if (recipients.length === 0) {
+        setProposalError("No recipients found in proposal");
+        return;
+      }
+
+      // For now, use the first recipient (can be extended for multi-recipient support)
+      const primaryRecipient = recipients[0];
+
+      if (!isValidStellarAddress(primaryRecipient.address)) {
+        setProposalError("Proposal contains invalid recipient address");
+        return;
+      }
+
+      // Enable split and auto-fill recipient list
+      const normalized = recipients.map((item) => ({
+        address: item.address.toUpperCase(),
+        percent: Math.min(Math.round(item.percentage), 100),
+      }));
+
+      update({
+        splitEnabled: true,
+        splitAddress: primaryRecipient.address,
+        splitPercent: Math.min(Math.round(primaryRecipient.percentage), 50), // cap at 50%
+        splitRecipients: normalized,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load proposal";
+      setProposalError(msg);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1">
           <p className="font-body text-[10px] tracking-[0.12em] text-white/50 uppercase">
             Split Stream
           </p>
@@ -287,14 +488,20 @@ function StreamSplitter({
             Route a portion to a second wallet
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={form.splitEnabled}
-          onClick={() => update({ splitEnabled: !form.splitEnabled })}
-          className="relative h-6 w-11 rounded-full border transition-all duration-300 focus:outline-none"
-          style={{
-            background: form.splitEnabled
+        <div className="flex items-center gap-2">
+          <LoadProposalDataButton
+            disabled={!form.splitEnabled}
+            onProposalLoaded={handleProposalLoaded}
+            onError={setProposalError}
+          />
+          <button
+            type="button"
+            role="switch"
+            aria-checked={form.splitEnabled}
+            onClick={() => update({ splitEnabled: !form.splitEnabled })}
+            className="relative h-6 w-11 rounded-full border transition-all duration-300 focus:outline-none flex-shrink-0"
+            style={{
+              background: form.splitEnabled
               ? "linear-gradient(135deg, rgba(34,211,238,0.3), rgba(99,102,241,0.3))"
               : "rgba(255,255,255,0.06)",
             borderColor: form.splitEnabled
@@ -314,6 +521,7 @@ function StreamSplitter({
             }}
           />
         </button>
+        </div>
       </div>
 
       {form.splitEnabled && (
@@ -327,6 +535,13 @@ function StreamSplitter({
               to   { opacity: 1; transform: translateY(0)   scaleY(1);    }
             }
           `}</style>
+
+          {/* Proposal error message */}
+          {proposalError && (
+            <div className="rounded-lg border border-red-400/30 bg-red-400/[0.06] px-3 py-2">
+              <p className="text-xs text-red-300">{proposalError}</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -470,6 +685,105 @@ function StreamSplitter({
             {addressValid && (
               <p className="font-body text-xs text-cyan-400/60">Valid Stellar address ✓</p>
             )}
+            <SelfReferenceTooltip
+              show={addressValid && form.splitAddress.trim().toUpperCase() === (process.env.NEXT_PUBLIC_CONTRACT_ID ?? "").toUpperCase() || addressValid && form.splitAddress.trim().toUpperCase() === (process.env.NEXT_PUBLIC_NEBULA_CONTRACT_ID ?? "").toUpperCase()}
+              message="Self-Reference Error: This address matches the Splitter contract. Adding the contract as a recipient could lock funds or cause a recursive loop."
+            />
+
+            {/* Add recipient to split list */}
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={addSplitRecipient}
+                disabled={!addressValid || form.splitPercent <= 0}
+                className="rounded-lg bg-cyan-500 px-3 py-2 text-xs font-semibold text-black hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add Recipient
+              </button>
+              <p className="text-xs text-white/40">Once added, this recipient joins the split list.</p>
+            </div>
+
+            {mergeSuggestionVisible && (
+              <div className="mt-3 rounded-xl border border-yellow-400/40 bg-yellow-400/10 p-3 text-xs text-yellow-200">
+                We detected multiple entries for the same address. <button type="button" onClick={mergeDuplicateRows} className="font-semibold underline">Merge Rows</button>
+              </div>
+            )}
+
+            {splitRecipients.length > 0 && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <h4 className="text-xs text-white/60 uppercase tracking-wider">Split Recipients</h4>
+                <div className="mt-2">
+                  <HighContrastGrid
+                    rows={splitRecipients}
+                    rowKey={(recipient, index) => `${recipient.address}-${index}`}
+                    columns={[
+                      {
+                        key: "address",
+                        header: "Address",
+                        render: (recipient) => {
+                          const status = recipientValidation[recipient.address] || "ok";
+                          const warning = status !== "ok";
+                          return (
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="break-all font-mono text-[12px] font-semibold text-white/95">
+                                  {recipient.address}
+                                </p>
+                                {warning && (
+                                  <span
+                                    className="text-yellow-300 text-[11px] font-bold"
+                                    title={getRecipientStatusLabel(status)}
+                                  >
+                                    ⚠
+                                  </span>
+                                )}
+                              </div>
+                              {warning && (
+                                <p className="mt-1 text-[11px] font-semibold text-yellow-300">
+                                  {getRecipientStatusLabel(status)}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        },
+                      },
+                      {
+                        key: "percent",
+                        header: "Share",
+                        className: "text-right",
+                        render: (recipient) => {
+                          const status = recipientValidation[recipient.address] || "ok";
+                          const warning = status !== "ok";
+                          return (
+                            <p
+                              className={`font-mono text-[13px] font-extrabold tabular-nums ${
+                                warning ? "text-yellow-200" : "text-cyan-200"
+                              }`}
+                            >
+                              {recipient.percent.toFixed(2)}%
+                            </p>
+                          );
+                        },
+                      },
+                      {
+                        key: "actions",
+                        header: "",
+                        className: "text-right",
+                        render: (_, index) => (
+                          <button
+                            type="button"
+                            onClick={() => removeRecipient(index)}
+                            className="text-red-300 text-[11px] font-bold hover:text-red-200"
+                          >
+                            Remove
+                          </button>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -481,12 +795,52 @@ function StreamSplitter({
 function Step1({
   form,
   update,
+  recipientValidation,
 }: {
   form: FormData;
   update: (patch: Partial<FormData>) => void;
+  recipientValidation: Record<string, RecipientValidationStatus>;
 }) {
+  const [showSwap, setShowSwap] = useState(false);
+
+  if (showSwap) {
+    return (
+      <div style={{ animation: "slideInRight 0.38s cubic-bezier(0.16,1,0.3,1)" }}>
+        <SwapAndStream
+          onComplete={(_, toAsset) => {
+            update({ asset: toAsset.symbol });
+            setShowSwap(false);
+          }}
+          onCancel={() => setShowSwap(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Swap entry point banner */}
+      <button
+        type="button"
+        onClick={() => setShowSwap(true)}
+        className="w-full flex items-center justify-between gap-3 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-cyan-400/20 px-4 py-3 transition-all duration-200 group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center group-hover:bg-cyan-400/15 transition-colors">
+            <ArrowLeftRight size={14} className="text-cyan-400/70 group-hover:text-cyan-400 transition-colors" />
+          </div>
+          <div className="text-left">
+            <p className="font-body text-xs font-bold text-white/60 group-hover:text-white/80 transition-colors">
+              Don&apos;t have the right asset?
+            </p>
+            <p className="font-body text-[11px] text-white/30">Swap first, then stream in one flow</p>
+          </div>
+        </div>
+        <span className="font-body text-[10px] font-bold text-cyan-400/60 group-hover:text-cyan-400 tracking-wider uppercase transition-colors">
+          Swap →
+        </span>
+      </button>
+
       <Field label="Select Asset">
         <div className="grid grid-cols-3 gap-2">
           {ASSETS.map((a) => {
@@ -537,9 +891,18 @@ function Step1({
         />
       </Field>
 
+      <Field label="Tax ID / Internal Note (optional)" hint="Stored on our servers only — never written to the public ledger.">
+        <GlassInput
+          value={form.recipientTaxId}
+          onChange={(v) => update({ recipientTaxId: v })}
+          placeholder="e.g. 12-3456789 or contractor ref"
+          prefix="🔒"
+        />
+      </Field>
+
       <div className="h-px bg-white/[0.06]" />
 
-      <StreamSplitter form={form} update={update} />
+      <StreamSplitter form={form} update={update} recipientValidation={recipientValidation} />
 
       <div className="h-px bg-white/[0.06]" />
 
@@ -663,10 +1026,40 @@ function Step3({
   form,
   onSign,
   signing,
+  priorityTier,
+  onPriorityChange,
+  recoveryError,
+  onDismissRecovery,
+  onAcceptFee,
+  onSwapToXLM,
+  recipientValidation,
+  balanceValidation,
+  validationLoading,
+  validationError,
+  quickSignStatus,
+  quickSignError,
+  hasQuickSignCredential,
+  onSetupQuickSign,
+  onVerifyQuickSign,
 }: {
   form: FormData;
   onSign: () => void;
   signing: boolean;
+  priorityTier: PriorityTier;
+  onPriorityChange: (id: PriorityTier) => void;
+  recoveryError?: RecoveryErrorType | null;
+  onDismissRecovery?: () => void;
+  onAcceptFee?: (fee: number) => void;
+  onSwapToXLM?: () => void;
+  recipientValidation: Record<string, RecipientValidationStatus>;
+  balanceValidation: BalanceValidationStatus;
+  validationLoading: boolean;
+  validationError: string | null;
+  quickSignStatus: QuickSignStatus;
+  quickSignError: string | null;
+  hasQuickSignCredential: boolean;
+  onSetupQuickSign: () => void;
+  onVerifyQuickSign: () => void;
 }) {
   const asset = ASSETS.find((a) => a.symbol === form.asset);
   const durationSeconds =
@@ -674,6 +1067,20 @@ function Step3({
   const ratePerSec = calcRatePerSecond(form.totalAmount, durationSeconds);
   const displayRate = calcDisplayRate(ratePerSec, form.rateType);
   const endDate = durationSeconds > 0 ? new Date(Date.now() + durationSeconds * 1000) : null;
+  const totalAmount = parseFloat(form.totalAmount) || 0;
+  const protocolFee = totalAmount * 0.003;
+  const networkFee = Math.max(0.00001, totalAmount * 0.0001);
+  const recipientAmount = Math.max(0, totalAmount - protocolFee - networkFee);
+
+  const claimableRecipients = Object.values(recipientValidation).filter((status) =>
+    status === "missing_trustline" || status === "account_not_funded"
+  );
+  const invalidRecipients = Object.values(recipientValidation).filter((status) => status === "invalid_address");
+  const hasRecipientIssues = invalidRecipients.length > 0;
+  const balanceProblem = balanceValidation !== "ok" && balanceValidation !== "pending";
+  const quickSignReady = quickSignStatus === "verified";
+  const quickSignBusy = quickSignStatus === "checking" || quickSignStatus === "verifying";
+  const confirmDisabled = signing || validationLoading || hasRecipientIssues || balanceProblem || !quickSignReady;
 
   const rows = [
     { label: "Asset", value: `${asset?.icon ?? ""} ${form.asset}` },
@@ -682,7 +1089,7 @@ function Step3({
         ? `${form.recipientLabel} · ${form.recipientAddress.slice(0, 10)}…`
         : `${form.recipientAddress.slice(0, 14)}…`
     },
-    { label: "Total", value: `${fmt(parseFloat(form.totalAmount) || 0)} ${form.asset}` },
+    { label: "Total", value: `${fmt(totalAmount || 0)} ${form.asset}` },
     { label: "Rate", value: `${fmt(displayRate)} ${form.asset} ${RATE_LABELS[form.rateType]}` },
     { label: "Duration", value: form.durationPreset },
     { label: "End Date", value: endDate ? fmtDate(endDate) : "—" },
@@ -694,6 +1101,20 @@ function Step3({
       { label: "Privacy", value: "🔐 P25 Privacy Shield Enabled", accent: true },
     ] : []),
   ];
+  const simulation = buildSimulationWaterfall({
+    senderLabel: "Connected Wallet",
+    protocolLabel: "StellarStream Router",
+    totalAmount,
+    protocolFee,
+    networkFee,
+    recipients: [
+      {
+        address: form.recipientAddress || "recipient",
+        label: form.recipientLabel || "Recipient",
+        amount: recipientAmount,
+      },
+    ],
+  });
 
   return (
     <div className="space-y-5">
@@ -724,6 +1145,11 @@ function Step3({
         ))}
       </div>
 
+      <SimulationWaterfall
+        asset={form.asset}
+        summary={simulation}
+        description="A step-by-step preview of how the signed transaction distributes funds, including estimated protocol and network fees."
+      />
       <div className="flex gap-3 rounded-2xl border border-orange-400/20 bg-orange-400/[0.05] px-4 py-3">
         <span className="text-orange-400 text-sm flex-shrink-0 mt-0.5">⚠</span>
         <p className="font-body text-xs text-orange-300/70 leading-relaxed">
@@ -734,22 +1160,166 @@ function Step3({
 
       <button
         onClick={onSign}
-        disabled={signing}
+        disabled={signing || isSelfReference || hasDuplicates}
         className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ boxShadow: signing ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
+      <TransactionPrioritySelector
+        selected={priorityTier}
+        onChange={onPriorityChange}
+      />
+      <div
+        className={`rounded-2xl border px-4 py-4 ${
+          quickSignReady
+            ? "border-emerald-400/25 bg-emerald-400/[0.06]"
+            : "border-cyan-400/20 bg-cyan-400/[0.05]"
+        }`}
       >
-        {signing ? (
-          <span className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-            Awaiting Signature…
-          </span>
-        ) : (
-          "Sign & Create Stream ✦"
-        )}
-      </button>
+        <div className="flex items-start gap-3">
+          <div
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+              quickSignReady
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-cyan-400/30 bg-cyan-400/10 text-cyan-300"
+            }`}
+          >
+            {quickSignReady ? <ShieldCheck size={20} /> : <Fingerprint size={20} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-body text-[10px] tracking-[0.14em] text-white/40 uppercase">
+                  Biometric Quick-Sign
+                </p>
+                <p className="mt-1 font-body text-sm font-semibold text-white/85">
+                  {quickSignReady
+                    ? "Biometric check passed"
+                    : hasQuickSignCredential
+                      ? "Unlock signing with device biometrics"
+                      : "Set up Face ID, Touch ID, or device screen lock"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={hasQuickSignCredential ? onVerifyQuickSign : onSetupQuickSign}
+                disabled={quickSignBusy || quickSignReady || quickSignStatus === "unsupported"}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-body text-xs font-bold text-white/75 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {quickSignBusy ? (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                ) : quickSignReady ? (
+                  <ShieldCheck size={15} />
+                ) : (
+                  <LockKeyhole size={15} />
+                )}
+                {quickSignBusy
+                  ? "Waiting..."
+                  : quickSignReady
+                    ? "Ready"
+                    : hasQuickSignCredential
+                      ? "Verify"
+                      : "Set Up"}
+              </button>
+            </div>
+            <p className="mt-2 font-body text-xs leading-relaxed text-white/45">
+              The Sign button stays locked until this device verifies you with WebAuthn user verification.
+              StellarStream stores only a local passkey credential ID for this wallet.
+            </p>
+            {quickSignStatus === "unsupported" && (
+              <p className="mt-2 font-body text-xs text-orange-300/80">
+                Device biometrics require a secure browser context with WebAuthn support.
+              </p>
+            )}
+            {quickSignError && (
+              <p className="mt-2 font-body text-xs text-red-300/85">{quickSignError}</p>
+            )}
+          </div>
+        </div>
+      </div>
+      {validationLoading && (
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-cyan-100 text-sm">
+          Verifying recipient trustlines and sender balance before allowing confirmation...
+        </div>
+      )}
+      {validationError && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-3 text-red-200 text-sm">
+          {validationError}
+        </div>
+      )}
+      {claimableRecipients.length > 0 && (
+        <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/[0.08] px-4 py-3 text-yellow-100 text-sm">
+          <p className="font-semibold">{claimableRecipients.length} recipient{claimableRecipients.length !== 1 ? "s" : ""} will need to claim their funds manually.</p>
+          <p className="mt-1 text-[11px] text-yellow-100/80">
+            The contract will create claimable balances for recipients who cannot receive the selected asset directly.
+          </p>
+        </div>
+      )}
+      {hasRecipientIssues && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-3 text-red-200 text-sm">
+          Some split recipients have an invalid Stellar address and must be corrected before submission.
+        </div>
+      )}
+      {balanceValidation === "insufficient_asset" && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-3 text-red-200 text-sm">
+          Your Stellar account does not hold enough {form.asset || "the selected asset"} to cover the total amount.
+        </div>
+      )}
+      {balanceValidation === "insufficient_xlm" && (
+        <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.08] px-4 py-3 text-red-200 text-sm">
+          You do not have enough native XLM for transaction fees.
+        </div>
+      )}
+      {/* ── Recovery cards ── */}
+      {recoveryError === "insufficient-xlm" && (
+        <InsufficientXLMCard
+          currentBalance={1.2}
+          requiredBalance={5}
+          onSwap={onSwapToXLM}
+          onDismiss={onDismissRecovery}
+        />
+      )}
+      {recoveryError === "network-congested" && (
+        <NetworkCongestedCard
+          baseFee={100}
+          suggestedFee={500}
+          onAcceptFee={onAcceptFee}
+          onRetry={onSign}
+          onDismiss={onDismissRecovery}
+        />
+      )}
+
+      <Can
+        permission="submit_to_ledger"
+        fallback={
+          <button
+            disabled
+            className="w-full rounded-2xl bg-white/10 py-4 font-body text-base font-bold text-white/25 cursor-not-allowed"
+          >
+            Submit to Ledger — Insufficient Role
+          </button>
+        }
+      >
+        <button
+          onClick={onSign}
+          disabled={confirmDisabled}
+          className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
+          style={{ boxShadow: confirmDisabled ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
+        >
+          {signing ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              Awaiting Signature…
+            </span>
+          ) : (
+            "Sign & Create Stream ✦"
+          )}
+        </button>
+      </Can>
 
       <p className="text-center font-body text-[11px] text-white/20">
         You will be prompted to sign this transaction in your wallet
@@ -821,13 +1391,183 @@ export default function CreateStreamPage() {
   const [signing, setSigning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [animKey, setAnimKey] = useState(0);
+  const [recoveryError, setRecoveryError] = useState<RecoveryErrorType | null>(null);
+  const [signAttempts, setSignAttempts] = useState(0);
+  const [recipientValidation, setRecipientValidation] = useState<Record<string, RecipientValidationStatus>>({});
+  const [balanceValidation, setBalanceValidation] = useState<BalanceValidationStatus>("pending");
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [quickSignStatus, setQuickSignStatus] = useState<QuickSignStatus>("checking");
+  const [quickSignError, setQuickSignError] = useState<string | null>(null);
+  const [hasQuickSignCredential, setHasQuickSignCredential] = useState(false);
+  const wallet = useWallet();
+
+  // ── Transaction priority (#456) ──────────────────────────────────────────────
+  const { tier: priorityTier, setTierId: setPriorityTierId, totalFeeStroops } = useTransactionPriority();
+  const feeStroops = totalFeeStroops(0);
 
   // ── Emergency gate (#426) ────────────────────────────────────────────────────
   const { isEmergency } = useProtocolStatus();
 
+  // ── Hardware wallet timeout (#XXX) ───────────────────────────────────────────
+  const {
+    confirmModalOpen,
+    activeDeviceName,
+    closeConfirmModal,
+    prepareForSigning,
+    getTimeout,
+  } = useHardwareWalletTimeout();
+
   const update = useCallback((patch: Partial<FormData>) => {
     setForm((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  useEffect(() => {
+    setQuickSignError(null);
+
+    if (!wallet.address) {
+      setHasQuickSignCredential(false);
+      setQuickSignStatus("needs_setup");
+      return;
+    }
+
+    if (!isWebAuthnAvailable()) {
+      setHasQuickSignCredential(false);
+      setQuickSignStatus("unsupported");
+      return;
+    }
+
+    const credential = loadQuickSignCredential(wallet.address);
+    setHasQuickSignCredential(!!credential);
+    setQuickSignStatus(credential ? "locked" : "needs_setup");
+  }, [wallet.address]);
+
+  const setupQuickSign = useCallback(async () => {
+    if (!wallet.address) {
+      setQuickSignError("Connect your wallet before setting up Quick-Sign.");
+      return;
+    }
+
+    try {
+      setQuickSignStatus("verifying");
+      setQuickSignError(null);
+      await registerQuickSignCredential(wallet.address);
+      setHasQuickSignCredential(true);
+      setQuickSignStatus("verified");
+    } catch (error) {
+      setQuickSignStatus(hasQuickSignCredential ? "locked" : "needs_setup");
+      setQuickSignError(error instanceof Error ? error.message : "Quick-Sign setup failed.");
+    }
+  }, [hasQuickSignCredential, wallet.address]);
+
+  const verifyQuickSign = useCallback(async () => {
+    if (!wallet.address) {
+      setQuickSignError("Connect your wallet before verifying Quick-Sign.");
+      return;
+    }
+
+    try {
+      setQuickSignStatus("verifying");
+      setQuickSignError(null);
+      await verifyQuickSignCredential(wallet.address);
+      setHasQuickSignCredential(true);
+      setQuickSignStatus("verified");
+    } catch (error) {
+      setQuickSignStatus(hasQuickSignCredential ? "locked" : "needs_setup");
+      setQuickSignError(error instanceof Error ? error.message : "Biometric verification failed.");
+    }
+  }, [hasQuickSignCredential, wallet.address]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const addresses = Array.from(
+      new Set(form.splitRecipients.map((recipient) => recipient.address.trim()).filter(Boolean))
+    );
+
+    if (!addresses.length || !form.asset) {
+      setRecipientValidation({});
+      return;
+    }
+
+    const validateRecipients = async () => {
+      setValidationLoading(true);
+      setValidationError(null);
+
+      const checks = await Promise.all(
+        addresses.map(async (address) => {
+          try {
+            const account = await HORIZON_SERVER.loadAccount(address);
+            return [address, getAccountStatus(form.asset, account)] as const;
+          } catch (error) {
+            const status = isHorizonNotFound(error) ? "account_not_funded" : "invalid_address";
+            return [address, status] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setRecipientValidation(Object.fromEntries(checks));
+        setValidationLoading(false);
+      }
+    };
+
+    validateRecipients();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.splitRecipients, form.asset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const amount = parseFloat(form.totalAmount);
+
+    if (!wallet.address || !form.asset || isNaN(amount) || amount <= 0) {
+      setBalanceValidation("pending");
+      return;
+    }
+
+    const address = wallet.address;
+
+    const validateBalance = async () => {
+      try {
+        const account = await HORIZON_SERVER.loadAccount(address);
+        const nativeBalance = getBalanceForAsset(account, "XLM");
+        const assetBalance = getBalanceForAsset(account, form.asset);
+        const feeXlm = feeStroops === 0 ? 0 : feeStroopsToXlm(feeStroops);
+
+        if (form.asset.toUpperCase() === "XLM") {
+          if (nativeBalance < amount + feeXlm) {
+            setBalanceValidation("insufficient_xlm");
+            return;
+          }
+        } else {
+          if (assetBalance < amount) {
+            setBalanceValidation("insufficient_asset");
+            return;
+          }
+          if (nativeBalance < feeXlm) {
+            setBalanceValidation("insufficient_xlm");
+            return;
+          }
+        }
+
+        if (!cancelled) {
+          setBalanceValidation("ok");
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBalanceValidation("insufficient_xlm");
+        }
+      }
+    };
+
+    validateBalance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet.address, form.asset, form.totalAmount, feeStroops]);
 
   const direction = step > prevStep ? "enter" : "enter";
 
@@ -867,10 +1607,74 @@ export default function CreateStreamPage() {
   };
 
   const handleSign = async () => {
+    if (quickSignStatus !== "verified") {
+      setQuickSignError("Verify Quick-Sign before opening your wallet for signing.");
+      return;
+    }
+
     setSigning(true);
+    // totalFeeStroops(0) gives the fee with no simulated resource fee.
+    // In production, pass the real simulated resource fee here.
+    const feeStoops = totalFeeStroops(0);
+    const claimableRecipients = Object.values(recipientValidation).filter((status) =>
+      status === "missing_trustline" || status === "account_not_funded"
+    );
+    const contractAction = claimableRecipients.length > 0 ? "create_claimable_balances" : "split_funds";
+    console.info(
+      `[CreateStream] Submitting with fee: ${feeStoops} stroops (priority: ${priorityTier.id})`,
+    );
+    console.info(
+      `[CreateStream] Using contract action: ${contractAction} for ${claimableRecipients.length} claimable recipient${claimableRecipients.length !== 1 ? "s" : ""}`,
+    );
+    setRecoveryError(null);
+
+    // Get hardware wallet timeout configuration
+    const { timeoutMs, isHardwareWallet, isLargeTransaction } = getTimeout();
+    const timeoutSeconds = Math.ceil(timeoutMs / 1000);
+
+    // Prepare transaction for signing (shows modal if needed)
+    const mockXdrTransaction = btoa("mock-transaction-xdr-data");
+    prepareForSigning(mockXdrTransaction);
+
+    // Log security info
+    if (isHardwareWallet) {
+      console.info(
+        `[CreateStream] Hardware wallet detected. Using extended timeout: ${timeoutSeconds}s`,
+        { isLargeTransaction }
+      );
+    }
+
+    // Simulate transaction signing with appropriate timeout
     await new Promise((r) => setTimeout(r, 2200));
     setSigning(false);
+    closeConfirmModal();
+
+    // Simulate recovery errors on first two attempts for demo purposes
+    const attempt = signAttempts + 1;
+    setSignAttempts(attempt);
+    if (attempt === 1) { setRecoveryError("insufficient-xlm"); return; }
+    if (attempt === 2) { setRecoveryError("network-congested"); return; }
+
+    // POST off-chain metadata (Tax ID) — only when a taxId was provided
+    if (form.recipientTaxId.trim()) {
+      const splitId = `stream-${Date.now()}`;
+      await fetch("/api/v3/split/metadata", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          splitId,
+          recipients: [{ address: form.recipientAddress, taxId: form.recipientTaxId.trim() }],
+        }),
+      }).catch((err) => console.error("[CreateStream] metadata POST failed", err));
+    }
+
     setSuccess(true);
+  };
+
+  const handleAcceptFee = (_fee: number) => {
+    // Fee accepted — clear the card and re-attempt sign
+    setRecoveryError(null);
+    handleSign();
   };
 
   const reset = () => {
@@ -965,9 +1769,28 @@ export default function CreateStreamPage() {
                     </div>
                   )}
 
-                  {step === 1 && <Step1 form={form} update={update} />}
+                  {step === 1 && <Step1 form={form} update={update} recipientValidation={recipientValidation} />}
                   {step === 2 && <Step2 form={form} update={update} />}
-                  {step === 3 && <Step3 form={form} onSign={handleSign} signing={signing} />}
+                  {step === 3 && <Step3
+                    form={form}
+                    onSign={handleSign}
+                    signing={signing}
+                    priorityTier={priorityTier.id}
+                    onPriorityChange={setPriorityTierId}
+                    recoveryError={recoveryError}
+                    onDismissRecovery={() => setRecoveryError(null)}
+                    onAcceptFee={handleAcceptFee}
+                    onSwapToXLM={() => { setStep(1); setAnimKey((k) => k + 1); }}
+                    recipientValidation={recipientValidation}
+                    balanceValidation={balanceValidation}
+                    validationLoading={validationLoading}
+                    validationError={validationError}
+                    quickSignStatus={quickSignStatus}
+                    quickSignError={quickSignError}
+                    hasQuickSignCredential={hasQuickSignCredential}
+                    onSetupQuickSign={setupQuickSign}
+                    onVerifyQuickSign={verifyQuickSign}
+                  />}
 
                   {step < 3 && (
                     <div className="flex gap-3 mt-8">
@@ -990,12 +1813,14 @@ export default function CreateStreamPage() {
                   )}
 
                   {step === 3 && (
-                    <button
-                      onClick={goBack}
-                      className="w-full mt-3 rounded-2xl border border-white/10 bg-white/[0.03] py-3 font-body text-sm text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
-                    >
-                      ← Edit Details
-                    </button>
+                    <Can permission="edit_draft">
+                      <button
+                        onClick={goBack}
+                        className="w-full mt-3 rounded-2xl border border-white/10 bg-white/[0.03] py-3 font-body text-sm text-white/40 transition hover:bg-white/[0.06] hover:text-white/70"
+                      >
+                        ← Edit Details
+                      </button>
+                    </Can>
                   )}
                 </SlidePanel>
               )}
@@ -1003,6 +1828,23 @@ export default function CreateStreamPage() {
           </div>
         </div>
       )}
+
+      {/* Confirm on Device Modal — for hardware wallets */}
+      <ConfirmOnDeviceModal
+        isOpen={confirmModalOpen}
+        walletType="hardware"
+        deviceName={activeDeviceName || "Hardware Wallet"}
+        timeoutSeconds={Math.ceil(getTimeout().timeoutMs / 1000)}
+        isLargeTransaction={getTimeout().isLargeTransaction}
+        onTimeout={() => {
+          closeConfirmModal();
+          setSigning(false);
+          setRecoveryError("network-congested");
+        }}
+        onConfirmed={() => {
+          closeConfirmModal();
+        }}
+      />
     </div>
   );
 }

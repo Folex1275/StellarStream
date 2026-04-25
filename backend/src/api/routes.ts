@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { BatchMetadataService } from "../services/batch-metadata.service.js";
 import { getStreamGraph } from "../services/stream-graph.service.js";
 import { prisma } from "../lib/db.js";
+import { sanitizeUnknown } from "../security/sanitize.js";
 
 /**
  * Maximum number of stream IDs allowed in a single batch request.
@@ -39,7 +40,9 @@ export function createBatchRoutes(
         "/streams/metadata/batch",
         async (req: Request, res: Response): Promise<void> => {
             try {
-                const { streamIds } = req.body as { streamIds?: unknown };
+                const { streamIds } = sanitizeUnknown(req.body) as {
+                    streamIds?: unknown;
+                };
 
                 // ── Validation ────────────────────────────────────────────
                 if (!Array.isArray(streamIds)) {
