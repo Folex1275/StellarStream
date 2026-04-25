@@ -34,3 +34,40 @@ enum StreamStatus {
   COMPLETED
   CANCELED
 }
+
+// ── V3 Fund-Split Tables ──────────────────────────────────────────────────────
+
+// Header record for a single fund-split disbursement
+model Disbursement {
+  id             String             @id @default(cuid())
+  senderAddress  String             @map("sender_address")
+  totalAmount    String             @map("total_amount")
+  asset          String
+  txHash         String             @unique @map("tx_hash")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  recipients     SplitRecipient[]
+
+  @@index([senderAddress])
+  @@index([txHash])
+}
+
+// Individual payout row linked to a parent Disbursement
+model SplitRecipient {
+  id               String       @id @default(cuid())
+  disbursementId   String       @map("disbursement_id")
+  recipientAddress String       @map("recipient_address")
+  amount           String
+  status           PayoutStatus @default(PENDING)
+
+  disbursement     Disbursement @relation(fields: [disbursementId], references: [id])
+
+  @@index([disbursementId])
+  @@index([recipientAddress])
+}
+
+enum PayoutStatus {
+  PENDING
+  SENT
+  FAILED
+}

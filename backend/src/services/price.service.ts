@@ -1,6 +1,6 @@
 import { prisma } from "../lib/db.js";
 import { logger } from "../logger.js";
-import fetch from "node-fetch";
+
 
 interface DexPrice {
   asset: string;
@@ -126,7 +126,7 @@ export class PriceService {
         const priceUsd = await this.getPrice(assetAddress, this.mapToCoinGeckoId(assetAddress));
 
         if (priceUsd > 0) {
-          const [issuer, code] = assetAddress === "native" ? ["native", "XLM"] : assetAddress.split(":");
+          const [, code] = assetAddress === "native" ? ["native", "XLM"] : assetAddress.split(":");
 
           await prisma.tokenPrice.upsert({
             where: { tokenAddress: assetAddress },
@@ -140,6 +140,12 @@ export class PriceService {
           });
 
           logger.info("Price updated", { assetAddress, priceUsd });
+          await this.recordPriceHistory(
+            assetAddress,
+            code || "UNKNOWN",
+            priceUsd,
+            "scheduler"
+          );
         }
       }
     } catch (error) {
@@ -158,6 +164,106 @@ export class PriceService {
     };
 
     return mapping[assetAddress];
+  }
+/**
+   * Store price in time-series history table
+   * @dev Called every 5 minutes by the scheduler to build price history
+   */
+  async recordPriceHistory(
+    asset: string,
+    symbol: string,
+    priceUsd: number,
+    source: string
+  ): Promise<void> {
+    try {
+      await prisma.priceHistory.create({
+        data: {
+          asset,
+          symbol,
+          priceUsd,
+          source,
+          recordedAt: new Date(),
+        },
+      });
+      logger.info("Price history recorded", { asset, symbol, priceUsd, source });
+    } catch (error) {
+      logger.error("Failed to record price history", { asset, error });
+    }
+  }
+
+  /**
+   * Find the nearest historical price to a given timestamp
+   * @dev Used to link SplitLog entries to the closest recorded price
+   */
+  async getNearestPrice(
+    asset: string,
+    timestamp: Date
+  ): Promise<{ priceUsd: number; source: string; recordedAt: Date } | null> {
+    try {
+      const nearest = await prisma.priceHistory.findFirst({
+        where: { asset },
+        orderBy: {
+          recordedAt: "desc",
+        },
+      });
+
+      if (!nearest) return null;
+
+      return {
+        priceUsd: nearest.priceUsd,
+        source: nearest.source,
+        recordedAt: nearest.recordedAt,
+      };
+    } catch (error) {
+      logger.error("Failed to get nearest price", { asset, timestamp, error });
+      return null;
+    }
+  }
+
+  /**
+   * Create a split log entry linked to the nearest historical price
+   * @dev Call this whenever a payment split occurs
+   */
+  async logSplitWithPrice(input: {
+    streamId: string;
+    asset: string;
+    amount: string;
+    sender: string;
+    receiver: string;
+    txHash: string;
+    executedAt: Date;
+  }): Promise<void> {
+    try {
+      const nearestPrice = await this.getNearestPrice(
+        input.asset,
+        input.executedAt
+      );
+
+      await prisma.splitLog.create({
+        data: {
+          streamId: input.streamId,
+          asset: input.asset,
+          amount: input.amount,
+          sender: input.sender,
+          receiver: input.receiver,
+          txHash: input.txHash,
+          priceUsd: nearestPrice?.priceUsd ?? null,
+          priceSource: nearestPrice?.source ?? null,
+          priceRecordedAt: nearestPrice?.recordedAt ?? null,
+          executedAt: input.executedAt,
+        },
+      });
+
+      logger.info("Split logged with price", {
+        txHash: input.txHash,
+        priceUsd: nearestPrice?.priceUsd,
+      });
+    } catch (error) {
+      logger.error("Failed to log split with price", {
+        txHash: input.txHash,
+        error,
+      });
+    }
   }
 
   /**

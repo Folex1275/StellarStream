@@ -1,0 +1,2 @@
+UnsafeCell<core::option::Option<Rc<(dyn for<'a> Fn(&'a soroban_env_host::host::Host, soroban_env_host::host::trace::TraceEvent<'a>) -> core::result::Result<(), soroban_env_host::host::error::HostError> + 'static)>>>
+RefCell<core::option::Option<Rc<(dyn for<'a> Fn(&'a soroban_env_host::host::Host, soroban_env_host::host::trace::TraceEvent<'a>) -> core::result::Result<(), soroban_env_host::host::error::HostError> + 'static)>>>

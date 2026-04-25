@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { Contract, rpc as SorobanRpc } from "@stellar/stellar-sdk";
 import { useWallet } from "@/lib/wallet-context";
+import { useTransactionToast, TxOperation, TxResult } from "@/lib/hooks/useTransactionToast";
 
 // ============================================================================
 // Contract ID Constants
@@ -114,6 +115,9 @@ interface StellarProviderContextType extends StellarProviderState {
   // Contract utilities
   getContractByVersion: (version: ContractVersion) => Contract | null;
   getContractConfig: (version: ContractVersion) => ContractConfig;
+
+  // Transaction helper — fires GlowToast on success/failure
+  sendTransaction: <T extends TxResult>(operation: TxOperation, fn: () => Promise<T>) => Promise<T>;
 }
 
 const StellarProviderContext = createContext<StellarProviderContextType | undefined>(undefined);
@@ -163,6 +167,9 @@ function parseContractAmount(amount: bigint, decimals: number = 7): string {
 export function StellarProvider({ children }: { children: React.ReactNode }) {
   // Wallet state from existing context
   const wallet = useWallet();
+  
+  // Toast-aware transaction sender
+  const { send: sendTransaction } = useTransactionToast();
   
   // Contract instances
   const [v1Contract] = useState<Contract | null>(() => getContract("v1"));
@@ -325,6 +332,7 @@ export function StellarProvider({ children }: { children: React.ReactNode }) {
     refreshBalances,
     getContractByVersion,
     getContractConfig,
+    sendTransaction,
   };
   
   return (

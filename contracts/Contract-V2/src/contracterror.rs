@@ -14,7 +14,8 @@ pub enum Error {
     BelowDustThreshold = 10,
     ContractPaused = 11,
     InsufficientBalance = 12,
-    StreamNotFound = 13,
+    InsufficientGasBuffer = 13,
+    StreamNotFound = 14,
     InvalidTimeRange = 14,
     AlreadyCancelled = 15,
     BatchTooLarge = 16,
@@ -27,6 +28,9 @@ pub enum Error {
     OpNotScheduled = 23,
     NotBeneficiary = 24,
     VaultPaused = 25,
+    ContractTerminated = 26,
+    ClaimWindowExpired = 27,
+    SanctionedAddress = 28,
     /// refill_stream called before the current cycle has ended
     StreamNotExpired = 26,
     /// refill_stream called on a non-recurrent stream
@@ -35,4 +39,106 @@ pub enum Error {
     NoTreasury = 28,
     /// Token is not approved for V2 stream creation
     AssetNotWhitelisted = 29,
+    /// Asset contract does not implement required token interface (balance/transfer)
+    AssetInterfaceNotSupported = 67,
+    /// No fee collector address configured; admin must call set_fee_collector first
+    NoFeeCollector = 68,
+    /// penalty_bps exceeds 10000 (100%)
+    InvalidPenalty = 30,
+    /// migrate_stream is blocked; standard V2 streams remain active.
+    MigrationPaused = 31,
+    /// Relayer fee exceeds the available withdrawal amount
+    InvalidRelayerFee = 32,
+    /// Memo exceeds maximum allowed length (32 characters)
+    InvalidMemo = 33,
+    /// Stream request not found
+    StreamRequestNotFound = 33,
+    /// Stream request already approved by this admin
+    AlreadyApproved = 34,
+    /// Stream request has already been executed
+    StreamRequestAlreadyExecuted = 35,
+    /// Overflow in arithmetic operation
+    Overflow = 36,
+    /// Invalid metadata format for bridge-in
+    InvalidBridgeMetadata = 37,
+    /// No receiver address in bridge metadata
+    MissingReceiverAddress = 38,
+    /// No duration in bridge metadata
+    MissingDuration = 39,
+    /// Invalid duration value in bridge metadata
+    InvalidDuration = 40,
+    /// Contract is in emergency (withdraw-only) mode; new capital cannot enter
+    EmergencyMode = 41,
+    /// V1 stream has already been migrated; replay attack prevented
+    AlreadyMigrated = 42,
+    /// Caller's DAO voting power is below the required threshold
+    InsufficientVotingPower = 43,
+    /// DAO token contract address not configured
+    DaoTokenNotSet = 44,
+    /// Treasury split is still within the 48-hour timelock window
+    TreasurySplitTimelocked = 45,
+    /// No pending treasury split found for this ID
+    PendingTreasurySplitNotFound = 46,
+    /// Treasury split has already been executed
+    TreasurySplitAlreadyExecuted = 47,
+    /// Reentrancy detected: contract is already executing a multi-transfer
+    Reentrant = 48,
+    /// Stream not fully withdrawn: cannot archive until withdrawn_amount == total_amount
+    StreamNotFullyWithdrawn = 49,
+    /// Fee exceeds protocol maximum (protects users from excessive admin-set fees)
+    FeeTooHigh = 50,
+    /// DEX contract address not configured for swap operations
+    DexNotConfigured = 51,
+    /// Swap failed - output amount below minimum slippage tolerance
+    SwapSlippageExceeded = 52,
+    /// Invalid swap parameters (e.g., zero amount or invalid deadline)
+    InvalidSwapParams = 53,
+    /// Swap execution failed in DEX
+    SwapFailed = 54,
+    /// Source and destination assets are the same
+    SameAsset = 55,
+    /// Invalid slippage tolerance (must be between 0 and 10000 bps = 100%)
+    InvalidSlippageTolerance = 56,
+    // Issue #377 — Push-Pull Rate Re-balancing
+    /// No pending rate update exists for this stream
+    NoPendingUpdate = 57,
+    /// A rate update proposal already exists for this stream
+    PendingUpdateExists = 58,
+    /// Rate update proposal has expired (7-day TTL exceeded)
+    UpdateExpired = 59,
+    /// New rate must be greater than zero
+    InvalidNewRate = 60,
+    /// Sender has insufficient balance for the rate change
+    InsufficientBalanceForNewRate = 61,
+    /// Only the stream receiver can accept a rate update
+    NotReceiver = 62,
+    /// Stream is not active (already completed or cancelled)
+    StreamNotActive = 63,
+    // Issue #409 — Pre-Flight Simulation Helper
+    /// Simulation: Sender has insufficient balance for the stream
+    SimulationInsufficientBalance = 64,
+    /// Simulation: Stream creation would exceed storage limits
+    SimulationStorageLimitExceeded = 65,
+    /// Simulation: Invalid parameters for stream creation
+    SimulationInvalidParams = 66,
+    // -- Emergency Recovery Multi-Sig (Issue: Security Critical) --------
+    /// Recovery council has not been configured
+    RecoveryCouncilNotSet = 69,
+    /// Signer is not a member of the recovery council
+    NotCouncilMember = 70,
+    /// Recovery has already been initiated; cannot re-initiate
+    RecoveryAlreadyInitiated = 71,
+    /// Recovery grace period (7 days) has not elapsed yet
+    RecoveryGracePeriodActive = 72,
+    /// No active recovery has been initiated
+    RecoveryNotInitiated = 73,
+    /// Signer has already approved this recovery
+    RecoveryAlreadyApproved = 74,
+    /// Not enough council signatures to execute recovery
+    RecoveryInsufficientSignatures = 75,
+    // -- BPS Math Engine (Issue #912) -------------------------------------------
+    /// BPS value exceeds 10000 (must be 0-10000)
+    InvalidBpsValue = 76,
+    /// Sum of BPS values does not equal 10000
+    BpsSumMismatch = 77,
 }

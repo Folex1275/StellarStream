@@ -21,6 +21,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { CurveType } from "@/lib/contracts/stellarstream";
+import { useDevMode } from "@/lib/use-dev-mode";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -339,6 +340,7 @@ export default function MigrationWizard({
     fetchV1Streams = mockFetchV1Streams,
     executeMigration = mockExecuteMigration,
 }: Partial<MigrationWizardProps> & { walletAddress?: string }) {
+    const [devMode] = useDevMode();
     const [step, setStep] = useState(1);
     const [streams, setStreams] = useState<V1Stream[]>([]);
     const [loadingStreams, setLoadingStreams] = useState(true);
@@ -346,6 +348,7 @@ export default function MigrationWizard({
     const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>("idle");
     const [newStreamId, setNewStreamId] = useState<bigint | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [showXDR, setShowXDR] = useState(false);
     const abortRef = useRef(false);
 
     // Load V1 streams on mount
@@ -1635,13 +1638,44 @@ export default function MigrationWizard({
                             )}
 
                             {step === 3 && migrationStatus === "idle" && (
-                                <button
-                                    className="mw-btn mw-btn-primary"
-                                    onClick={handleMigrate}
-                                    type="button"
-                                >
-                                    Execute Migration ⚡
-                                </button>
+                                <>
+                                    {devMode && (
+                                        <button
+                                            className="mw-btn mw-btn-secondary"
+                                            onClick={() => setShowXDR(!showXDR)}
+                                            type="button"
+                                            style={{ marginBottom: 8 }}
+                                        >
+                                            {showXDR ? "Hide XDR" : "View XDR"}
+                                        </button>
+                                    )}
+                                    {showXDR && devMode && (
+                                        <div style={{
+                                            marginBottom: 12,
+                                            padding: "12px 16px",
+                                            background: "rgba(0,0,0,0.3)",
+                                            border: "1px solid rgba(255,255,255,0.1)",
+                                            borderRadius: 8,
+                                            fontFamily: "monospace",
+                                            fontSize: 11,
+                                            color: "rgba(255,255,255,0.7)",
+                                            maxHeight: 120,
+                                            overflowY: "auto"
+                                        }}>
+                                            <div style={{ marginBottom: 4, color: "rgba(255,255,255,0.5)" }}>Transaction XDR:</div>
+                                            <div style={{ wordBreak: "break-all" }}>
+                                                AAAAAGAAAADWJbkKz2rQWG5L6Z0qjML5kgK3HaHS9EaEjVxVjBqAAAAZAB8pVQAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAIhqhAAAAAAA
+                                            </div>
+                                        </div>
+                                    )}
+                                    <button
+                                        className="mw-btn mw-btn-primary"
+                                        onClick={handleMigrate}
+                                        type="button"
+                                    >
+                                        Execute Migration ⚡
+                                    </button>
+                                </>
                             )}
 
                             {step === 3 && isMigrating && (

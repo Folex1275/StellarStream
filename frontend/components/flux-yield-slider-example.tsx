@@ -29,7 +29,6 @@ export function FluxYieldSliderExample() {
  */
 export function FluxYieldSliderWithCallback() {
   const handleSliderChange = (position: number) => {
-    console.log(`Slider moved to ${position.toFixed(1)}%`);
   };
 
   return (
