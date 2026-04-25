@@ -24,11 +24,15 @@ import orgGasStatusRouter from "./org-gas-status.routes.js";
 import notificationChannelsRouter from "./notification-channels.routes.js";
 import assetMapperRouter from "./asset-mapper.routes.js";
 import templateRouter from "./template.routes.js";
+import analyticsRouter from "../analytics.routes.js";
+import { getNonce } from "../auth.js";
+
 
 const router = Router();
 
 router.use(responseWrapper);
 router.use(publicVerifyPaymentRouter);
+router.get("/auth/nonce", getNonce);
 // All V3 endpoints require a valid API key.
 router.use(requireAuth);
 
@@ -59,6 +63,7 @@ router.use(proofOfPaymentRouter);
 router.use(orgGasStatusRouter);
 router.use(notificationChannelsRouter);
 router.use("/assets", assetMapperRouter);
+router.use("/analytics", analyticsRouter);
 router.use(templateRouter);
 
 export default router;

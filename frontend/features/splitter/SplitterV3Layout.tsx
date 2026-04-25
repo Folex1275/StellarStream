@@ -27,6 +27,7 @@ import { VirtualRecipientGrid, emptyRow, type GridRow } from "./VirtualRecipient
 import { CsvUploadWizard, type MappedRow } from "./CsvUploadWizard";
 import { useOrgMembers } from "@/lib/hooks/use-org-members";
 import type { DirectoryEntry } from "@/lib/fuzzy-address-match";
+import { useOfflineDraft } from "@/lib/use-offline-draft";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,23 @@ export function SplitterV3Layout() {
   const [executing, setExecuting] = useState(false);
   const [executed, setExecuted] = useState(false);
   const [showCsvWizard, setShowCsvWizard] = useState(false);
+
+  // ── Offline draft persistence ──────────────────────────────────────────────
+  const { draft, saveDraft } = useOfflineDraft();
+
+  // Restore from draft on first mount
+  const [draftRestored, setDraftRestored] = useState(false);
+  if (draft && !draftRestored) {
+    setDraftRestored(true);
+    setRows(draft.rows.map((r) => ({ id: crypto.randomUUID(), address: r.address, amount: r.amount, errors: {} })));
+    setAsset(draft.asset as Asset);
+    setMode(draft.mode);
+  }
+
+  // Auto-save whenever rows/asset/mode change
+  const persistDraft = (nextRows: GridRow[], nextAsset: Asset, nextMode: SplitMode) => {
+    saveDraft({ rows: nextRows.map((r) => ({ address: r.address, amount: r.amount })), asset: nextAsset, mode: nextMode, savedAt: Date.now() });
+  };
 
   // ── Organization Directory (for fuzzy address matching) ────────────────────
   const { members } = useOrgMembers(DEFAULT_ORG_ADDRESS);
@@ -130,7 +148,7 @@ export function SplitterV3Layout() {
             {ASSETS.map((a) => (
               <button
                 key={a}
-                onClick={() => setAsset(a)}
+                onClick={() => { setAsset(a); persistDraft(rows, a, mode); }}
                 className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${asset === a
                   ? "bg-cyan-500/15 text-cyan-400"
                   : "text-white/40 hover:text-white/60"
@@ -145,14 +163,14 @@ export function SplitterV3Layout() {
           <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
             <ModeButton
               active={mode === "push"}
-              onClick={() => setMode("push")}
+              onClick={() => { setMode("push"); persistDraft(rows, asset, "push"); }}
               icon={<Zap className="h-3 w-3" />}
               label="Push"
               title="Sender initiates — funds sent directly to recipients"
             />
             <ModeButton
               active={mode === "pull"}
-              onClick={() => setMode("pull")}
+              onClick={() => { setMode("pull"); persistDraft(rows, asset, "pull"); }}
               icon={<ArrowDownToLine className="h-3 w-3" />}
               label="Pull"
               title="Recipients claim their allocation"
@@ -204,7 +222,7 @@ export function SplitterV3Layout() {
                   )}
                 </AnimatePresence>
 
-                <VirtualRecipientGrid rows={rows} onChange={setRows} directory={directory} />
+                <VirtualRecipientGrid rows={rows} onChange={(r) => { setRows(r); persistDraft(r, asset, mode); }} directory={directory} />
               </div>
 
               {/* Right: Summary sidebar */}

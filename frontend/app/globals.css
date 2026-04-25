@@ -827,3 +827,91 @@ body {
   border: 2px solid #ffffff !important;
   background: #000000 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dark-HC — High-Contrast Dark Mode for Late-Night Treasury Management
+   Applied via .dark-hc on <html>. All glass colors mapped to a dark-spectrum
+   palette with WCAG AA-compliant contrast ratios.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.dark-hc {
+  /* Core palette — deep navy base, high-luminance accents */
+  --stellar-primary:    #00e5ff;   /* cyan shifted brighter for contrast */
+  --stellar-secondary:  #b060ff;   /* violet lifted for legibility */
+  --stellar-background: #050a14;   /* near-black navy */
+  --stellar-foreground: #e8f0fe;   /* off-white, easier on eyes than pure white */
+
+  /* Glass surface tokens */
+  --glass-bg:           rgba(8, 16, 32, 0.92);
+  --glass-border:       rgba(0, 229, 255, 0.18);
+  --glass-sheen:        rgba(0, 229, 255, 0.06);
+
+  /* Text hierarchy */
+  --text-primary:       #e8f0fe;
+  --text-secondary:     #94a3b8;
+  --text-muted:         #475569;
+
+  /* Status colors — boosted saturation for dark backgrounds */
+  --color-success:      #00e5a0;
+  --color-warning:      #fbbf24;
+  --color-error:        #ff4d6d;
+  --color-info:         #60a5fa;
+}
+
+/* Override body background and text */
+.dark-hc body {
+  background: var(--stellar-background);
+  color: var(--stellar-foreground);
+}
+
+/* Glass card — replace translucent white with deep navy glass */
+.dark-hc .glass-card,
+.dark-hc [class*="glass"] {
+  background: var(--glass-bg) !important;
+  border-color: var(--glass-border) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.7),
+    inset 0 0 20px var(--glass-sheen) !important;
+}
+
+/* Nebula blobs — desaturate and dim so they don't bleed into text */
+.dark-hc .nebula-cyan {
+  opacity: 0.18;
+  background: radial-gradient(circle at 35% 35%, #00e5ff, transparent 72%);
+}
+
+.dark-hc .nebula-violet {
+  opacity: 0.15;
+  background: radial-gradient(circle at 65% 60%, #7c3aed, transparent 72%);
+}
+
+/* Neon glows — tighter, less bloom for professional readability */
+.dark-hc .neon-glow,
+.dark-hc [class*="neon-glow"] {
+  box-shadow:
+    0 0 8px rgba(0, 229, 255, 0.35),
+    0 0 20px rgba(0, 229, 255, 0.1),
+    inset 0 0 8px rgba(0, 229, 255, 0.04) !important;
+}
+
+/* Pulse border — slower, less distracting at night */
+.dark-hc .animate-pulse-border {
+  animation-duration: 3s;
+}
+
+/* Scrollbars — match dark-hc palette */
+.dark-hc ::-webkit-scrollbar-track { background: var(--stellar-background); }
+.dark-hc ::-webkit-scrollbar-thumb { background: var(--stellar-primary); }
+.dark-hc ::-webkit-scrollbar-thumb:hover { background: var(--stellar-secondary); }
+
+/* Toast overrides */
+.dark-hc .stellar-toast {
+  background: rgba(5, 10, 20, 0.95);
+  border-color: var(--glass-border);
+}
+
+/* Focus rings — high-visibility for keyboard navigation */
+.dark-hc *:focus-visible {
+  outline: 2px solid var(--stellar-primary) !important;
+  outline-offset: 3px;
+}

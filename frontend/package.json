@@ -24,6 +24,7 @@
     "date-fns-tz": "^3.2.0",
     "framer-motion": "^12.34.2",
     "fuzzysort": "^3.1.0",
+    "idb-keyval": "6.2.1",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/bignumber.js": "^4.0.3",
     "@types/d3-array": "^3.2.2",
@@ -58,6 +60,7 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
     "fast-check": "^4.6.0",
+    "jsdom": "^29.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.1"

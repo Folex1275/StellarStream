@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { ShieldAlert, ArrowLeftRight } from "lucide-react";
+import { ShieldAlert, ArrowLeftRight, Fingerprint, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
 import { Can } from "@/components/Can";
 import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
+import { useRecursiveSplitGuard } from "@/lib/use-recursive-split-guard";
+import { SelfReferenceTooltip } from "@/components/self-reference-tooltip";
 import { TransactionPrioritySelector } from "@/components/transaction-priority-selector";
 import {
   useTransactionPriority,
@@ -24,6 +26,12 @@ import { useWallet } from "@/lib/wallet-context";
 import { Horizon } from "@stellar/stellar-sdk";
 import { SimulationWaterfall } from "@/components/dashboard/simulation-waterfall";
 import { buildSimulationWaterfall } from "@/lib/simulation-waterfall";
+import {
+  isWebAuthnAvailable,
+  loadQuickSignCredential,
+  registerQuickSignCredential,
+  verifyQuickSignCredential,
+} from "@/lib/webauthn-quick-sign";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -115,6 +123,15 @@ type BalanceValidationStatus =
   | "insufficient_xlm"
   | "not_connected"
   | "pending";
+
+type QuickSignStatus =
+  | "checking"
+  | "unsupported"
+  | "needs_setup"
+  | "locked"
+  | "verifying"
+  | "verified"
+  | "error";
 
 function getRecipientStatusLabel(status: RecipientValidationStatus): string {
   switch (status) {
@@ -776,6 +793,10 @@ function StreamSplitter({
                 Valid Stellar address ✓
               </p>
             )}
+            <SelfReferenceTooltip
+              show={addressValid && form.splitAddress.trim().toUpperCase() === (process.env.NEXT_PUBLIC_CONTRACT_ID ?? "").toUpperCase() || addressValid && form.splitAddress.trim().toUpperCase() === (process.env.NEXT_PUBLIC_NEBULA_CONTRACT_ID ?? "").toUpperCase()}
+              message="Self-Reference Error: This address matches the Splitter contract. Adding the contract as a recipient could lock funds or cause a recursive loop."
+            />
 
             {/* Add recipient to split list */}
             <div className="mt-4 flex items-center gap-2">
@@ -1217,6 +1238,11 @@ function Step3({
   balanceValidation,
   validationLoading,
   validationError,
+  quickSignStatus,
+  quickSignError,
+  hasQuickSignCredential,
+  onSetupQuickSign,
+  onVerifyQuickSign,
 }: {
   form: FormData;
   onSign: () => void;
@@ -1231,6 +1257,11 @@ function Step3({
   balanceValidation: BalanceValidationStatus;
   validationLoading: boolean;
   validationError: string | null;
+  quickSignStatus: QuickSignStatus;
+  quickSignError: string | null;
+  hasQuickSignCredential: boolean;
+  onSetupQuickSign: () => void;
+  onVerifyQuickSign: () => void;
 }) {
   const asset = ASSETS.find((a) => a.symbol === form.asset);
   const durationSeconds =
@@ -1252,10 +1283,10 @@ function Step3({
     (status) => status === "invalid_address",
   );
   const hasRecipientIssues = invalidRecipients.length > 0;
-  const balanceProblem =
-    balanceValidation !== "ok" && balanceValidation !== "pending";
-  const confirmDisabled =
-    signing || validationLoading || hasRecipientIssues || balanceProblem;
+  const balanceProblem = balanceValidation !== "ok" && balanceValidation !== "pending";
+  const quickSignReady = quickSignStatus === "verified";
+  const quickSignBusy = quickSignStatus === "checking" || quickSignStatus === "verifying";
+  const confirmDisabled = signing || validationLoading || hasRecipientIssues || balanceProblem || !quickSignReady;
 
   const rows = [
     { label: "Asset", value: `${asset?.icon ?? ""} ${form.asset}` },
@@ -1366,10 +1397,86 @@ function Step3({
         </p>
       </div>
 
+      <button
+        onClick={onSign}
+        disabled={signing || isSelfReference || hasDuplicates}
+        className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
+        style={{ boxShadow: signing ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
       <TransactionPrioritySelector
         selected={priorityTier}
         onChange={onPriorityChange}
       />
+      <div
+        className={`rounded-2xl border px-4 py-4 ${
+          quickSignReady
+            ? "border-emerald-400/25 bg-emerald-400/[0.06]"
+            : "border-cyan-400/20 bg-cyan-400/[0.05]"
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+              quickSignReady
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-cyan-400/30 bg-cyan-400/10 text-cyan-300"
+            }`}
+          >
+            {quickSignReady ? <ShieldCheck size={20} /> : <Fingerprint size={20} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-body text-[10px] tracking-[0.14em] text-white/40 uppercase">
+                  Biometric Quick-Sign
+                </p>
+                <p className="mt-1 font-body text-sm font-semibold text-white/85">
+                  {quickSignReady
+                    ? "Biometric check passed"
+                    : hasQuickSignCredential
+                      ? "Unlock signing with device biometrics"
+                      : "Set up Face ID, Touch ID, or device screen lock"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={hasQuickSignCredential ? onVerifyQuickSign : onSetupQuickSign}
+                disabled={quickSignBusy || quickSignReady || quickSignStatus === "unsupported"}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-body text-xs font-bold text-white/75 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {quickSignBusy ? (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                ) : quickSignReady ? (
+                  <ShieldCheck size={15} />
+                ) : (
+                  <LockKeyhole size={15} />
+                )}
+                {quickSignBusy
+                  ? "Waiting..."
+                  : quickSignReady
+                    ? "Ready"
+                    : hasQuickSignCredential
+                      ? "Verify"
+                      : "Set Up"}
+              </button>
+            </div>
+            <p className="mt-2 font-body text-xs leading-relaxed text-white/45">
+              The Sign button stays locked until this device verifies you with WebAuthn user verification.
+              StellarStream stores only a local passkey credential ID for this wallet.
+            </p>
+            {quickSignStatus === "unsupported" && (
+              <p className="mt-2 font-body text-xs text-orange-300/80">
+                Device biometrics require a secure browser context with WebAuthn support.
+              </p>
+            )}
+            {quickSignError && (
+              <p className="mt-2 font-body text-xs text-red-300/85">{quickSignError}</p>
+            )}
+          </div>
+        </div>
+      </div>
       {validationLoading && (
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-4 py-3 text-cyan-100 text-sm">
           Verifying recipient trustlines and sender balance before allowing
@@ -1576,6 +1683,9 @@ export default function CreateStreamPage() {
     useState<BalanceValidationStatus>("pending");
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [quickSignStatus, setQuickSignStatus] = useState<QuickSignStatus>("checking");
+  const [quickSignError, setQuickSignError] = useState<string | null>(null);
+  const [hasQuickSignCredential, setHasQuickSignCredential] = useState(false);
   const wallet = useWallet();
 
   // ── Transaction priority (#456) ──────────────────────────────────────────────
@@ -1601,6 +1711,62 @@ export default function CreateStreamPage() {
   const update = useCallback((patch: Partial<FormData>) => {
     setForm((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  useEffect(() => {
+    setQuickSignError(null);
+
+    if (!wallet.address) {
+      setHasQuickSignCredential(false);
+      setQuickSignStatus("needs_setup");
+      return;
+    }
+
+    if (!isWebAuthnAvailable()) {
+      setHasQuickSignCredential(false);
+      setQuickSignStatus("unsupported");
+      return;
+    }
+
+    const credential = loadQuickSignCredential(wallet.address);
+    setHasQuickSignCredential(!!credential);
+    setQuickSignStatus(credential ? "locked" : "needs_setup");
+  }, [wallet.address]);
+
+  const setupQuickSign = useCallback(async () => {
+    if (!wallet.address) {
+      setQuickSignError("Connect your wallet before setting up Quick-Sign.");
+      return;
+    }
+
+    try {
+      setQuickSignStatus("verifying");
+      setQuickSignError(null);
+      await registerQuickSignCredential(wallet.address);
+      setHasQuickSignCredential(true);
+      setQuickSignStatus("verified");
+    } catch (error) {
+      setQuickSignStatus(hasQuickSignCredential ? "locked" : "needs_setup");
+      setQuickSignError(error instanceof Error ? error.message : "Quick-Sign setup failed.");
+    }
+  }, [hasQuickSignCredential, wallet.address]);
+
+  const verifyQuickSign = useCallback(async () => {
+    if (!wallet.address) {
+      setQuickSignError("Connect your wallet before verifying Quick-Sign.");
+      return;
+    }
+
+    try {
+      setQuickSignStatus("verifying");
+      setQuickSignError(null);
+      await verifyQuickSignCredential(wallet.address);
+      setHasQuickSignCredential(true);
+      setQuickSignStatus("verified");
+    } catch (error) {
+      setQuickSignStatus(hasQuickSignCredential ? "locked" : "needs_setup");
+      setQuickSignError(error instanceof Error ? error.message : "Biometric verification failed.");
+    }
+  }, [hasQuickSignCredential, wallet.address]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1741,6 +1907,11 @@ export default function CreateStreamPage() {
   };
 
   const handleSign = async () => {
+    if (quickSignStatus !== "verified") {
+      setQuickSignError("Verify Quick-Sign before opening your wallet for signing.");
+      return;
+    }
+
     setSigning(true);
     // totalFeeStroops(0) gives the fee with no simulated resource fee.
     // In production, pass the real simulated resource fee here.
@@ -1934,26 +2105,26 @@ export default function CreateStreamPage() {
                     />
                   )}
                   {step === 2 && <Step2 form={form} update={update} />}
-                  {step === 3 && (
-                    <Step3
-                      form={form}
-                      onSign={handleSign}
-                      signing={signing}
-                      priorityTier={priorityTier.id}
-                      onPriorityChange={setPriorityTierId}
-                      recoveryError={recoveryError}
-                      onDismissRecovery={() => setRecoveryError(null)}
-                      onAcceptFee={handleAcceptFee}
-                      onSwapToXLM={() => {
-                        setStep(1);
-                        setAnimKey((k) => k + 1);
-                      }}
-                      recipientValidation={recipientValidation}
-                      balanceValidation={balanceValidation}
-                      validationLoading={validationLoading}
-                      validationError={validationError}
-                    />
-                  )}
+                  {step === 3 && <Step3
+                    form={form}
+                    onSign={handleSign}
+                    signing={signing}
+                    priorityTier={priorityTier.id}
+                    onPriorityChange={setPriorityTierId}
+                    recoveryError={recoveryError}
+                    onDismissRecovery={() => setRecoveryError(null)}
+                    onAcceptFee={handleAcceptFee}
+                    onSwapToXLM={() => { setStep(1); setAnimKey((k) => k + 1); }}
+                    recipientValidation={recipientValidation}
+                    balanceValidation={balanceValidation}
+                    validationLoading={validationLoading}
+                    validationError={validationError}
+                    quickSignStatus={quickSignStatus}
+                    quickSignError={quickSignError}
+                    hasQuickSignCredential={hasQuickSignCredential}
+                    onSetupQuickSign={setupQuickSign}
+                    onVerifyQuickSign={verifyQuickSign}
+                  />}
 
                   {step < 3 && (
                     <div className="flex gap-3 mt-8">

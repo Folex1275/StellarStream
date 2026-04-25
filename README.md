@@ -101,6 +101,16 @@ We follow an Issue-Oriented workflow. Contributors should assign themselves to a
 
 ---
 
+## 📖 Developer Resources
+
+### API Documentation
+* **V3 API Reference (Swagger UI)**: `http://localhost:3000/api/v3/docs`
+* **Legacy V1 API**: `http://localhost:3000/api/v1/docs`
+
+For detailed integration guides, see the [/docs](/docs) directory.
+
+---
+
 ## 🚦 Getting Started
 
 1. **Clone the Repository:**
