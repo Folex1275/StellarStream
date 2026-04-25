@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ShieldAlert } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
 import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
+import { useRecursiveSplitGuard } from "@/lib/use-recursive-split-guard";
+import { SelfReferenceTooltip } from "@/components/self-reference-tooltip";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -470,6 +472,10 @@ function StreamSplitter({
             {addressValid && (
               <p className="font-body text-xs text-cyan-400/60">Valid Stellar address ✓</p>
             )}
+            <SelfReferenceTooltip
+              show={addressValid && !!form.splitAddress}
+              message="Self-Reference Error: This address matches a StellarStream contract. Adding the contract as a recipient could lock funds permanently."
+            />
           </div>
         </div>
       )}
@@ -663,10 +669,12 @@ function Step3({
   form,
   onSign,
   signing,
+  hasSelfReference,
 }: {
   form: FormData;
   onSign: () => void;
   signing: boolean;
+  hasSelfReference: boolean;
 }) {
   const asset = ASSETS.find((a) => a.symbol === form.asset);
   const durationSeconds =
@@ -732,9 +740,16 @@ function Step3({
         </p>
       </div>
 
+      {hasSelfReference && (
+        <div className="flex gap-3 rounded-2xl border border-red-500/30 bg-red-500/[0.06] px-4 py-3">
+          <span className="text-red-400 text-sm flex-shrink-0 mt-0.5">⛔</span>
+          <p className="font-body text-xs text-red-300/80 leading-relaxed">Self-Reference Error: One or more recipient addresses match a StellarStream contract address. Remove them before signing.</p>
+        </div>
+      )}
+
       <button
         onClick={onSign}
-        disabled={signing}
+        disabled={signing || hasSelfReference}
         className="w-full rounded-2xl bg-cyan-400 py-4 font-body text-base font-bold text-black transition-all duration-200 hover:bg-cyan-300 disabled:opacity-60 disabled:cursor-not-allowed"
         style={{ boxShadow: signing ? "none" : "0 0 32px rgba(34,211,238,0.35)" }}
       >
