@@ -22,12 +22,18 @@ const options: swaggerJsdoc.Options = {
           type: "apiKey",
           in: "header",
           name: "X-Api-Key",
+          description: "API Key for StellarStream. Can also be sent as 'Authorization: Bearer <key>'",
         },
-        WalletAuth: {
+        BearerAuth: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "JWT",
-          description: "Stellar wallet signature JWT",
+          bearerFormat: "APIKEY",
+        },
+        WalletAuth: {
+          type: "apiKey",
+          in: "header",
+          name: "X-Stellar-Address",
+          description: "Stellar wallet address. Requires companion X-Auth-Nonce and X-Auth-Signature headers.",
         },
       },
       schemas: {
@@ -116,36 +122,51 @@ const options: swaggerJsdoc.Options = {
             lastError: { type: "string", nullable: true },
           },
         },
-        TransferRoute: {
+        OrganizationGasStatus: {
           type: "object",
           properties: {
-            type: { type: "string", enum: ["transfer"] },
-            recipient: { type: "string", example: "GABC...XYZ" },
-            amountStroops: { type: "string", example: "10000000" },
+            orgId: { type: "string", example: "org-123" },
+            gasTankAddress: { type: "string", example: "GABC...XYZ" },
+            balanceXlm: { type: "string", example: "450.75" },
+            isLow: { type: "boolean", example: false },
+            thresholdXlm: { type: "string", example: "50.00" },
           },
         },
-        InvokeContractRoute: {
+        AnalyticsLeaderboard: {
           type: "object",
           properties: {
-            type: { type: "string", enum: ["invoke_contract"] },
-            contractId: { type: "string", example: "CABC...XYZ" },
-            functionName: { type: "string", example: "deposit" },
-            args: {
-              type: "object",
-              properties: {
-                recipient: { type: "string" },
-                amountStroops: { type: "string" },
+            topStreamers: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  address: { type: "string", example: "GABC..." },
+                  totalVolumeUsd: { type: "number", example: 12500.50 },
+                  streamCount: { type: "integer", example: 42 },
+                },
               },
             },
-            vault: {
-              type: "object",
-              properties: {
-                contractId: { type: "string" },
-                name: { type: "string" },
-                depositFunction: { type: "string" },
-                minDepositStroops: { type: "string", nullable: true },
+            topReceivers: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  address: { type: "string", example: "GDEF..." },
+                  totalVolumeUsd: { type: "number", example: 8900.20 },
+                  streamCount: { type: "integer", example: 15 },
+                },
               },
             },
+          },
+        },
+        WebhookPayload: {
+          type: "object",
+          properties: {
+            eventType: { type: "string", example: "split.completed" },
+            txHash: { type: "string", example: "a1b2..." },
+            sender: { type: "string", example: "GABC..." },
+            amount: { type: "string", example: "10000000" },
+            timestamp: { type: "string", format: "date-time" },
           },
         },
         ErrorResponse: {
@@ -153,6 +174,7 @@ const options: swaggerJsdoc.Options = {
           properties: {
             success: { type: "boolean", example: false },
             error: { type: "string", example: "Validation failed" },
+            code: { type: "string", example: "INVALID_PARAMS" },
           },
         },
         WebhookRegistrationRequest: {
@@ -199,6 +221,18 @@ const options: swaggerJsdoc.Options = {
       },
     },
     paths: {
+      "/auth/nonce": {
+        get: {
+          summary: "Get a one-time nonce for wallet authentication",
+          tags: ["Authentication"],
+          responses: {
+            "200": {
+              description: "Nonce generated",
+              content: { "application/json": { schema: { type: "object", properties: { nonce: { type: "string" } } } } },
+            },
+          },
+        },
+      },
       "/webhooks/register": {
         post: {
           summary: "Register a webhook for split completion updates",
@@ -207,7 +241,7 @@ const options: swaggerJsdoc.Options = {
             "whenever a matching split completion event is indexed.",
           operationId: "registerWebhook",
           tags: ["Webhooks"],
-          security: [{ ApiKeyAuth: [] }],
+          security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -227,19 +261,11 @@ const options: swaggerJsdoc.Options = {
             },
             "400": {
               description: "Invalid input",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/ErrorResponse" },
-                },
-              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
             },
             "401": {
               description: "Missing or invalid API key",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/ErrorResponse" },
-                },
-              },
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
             },
           },
         },
@@ -253,12 +279,19 @@ const options: swaggerJsdoc.Options = {
             "Returns a clean JSON payload ready for contract interaction.",
           operationId: "processDisbursementFile",
           tags: ["Disbursement"],
+          security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
           parameters: [
             {
               name: "format",
               in: "query",
               schema: { type: "string", enum: ["csv", "json"], default: "json" },
               description: "Input format. Use 'csv' with Content-Type: text/csv",
+            },
+            {
+              name: "X-Idempotency-Key",
+              in: "header",
+              schema: { type: "string" },
+              description: "Unique key to prevent duplicate processing of the same file.",
             },
           ],
           requestBody: {
@@ -298,17 +331,24 @@ const options: swaggerJsdoc.Options = {
                 },
               },
             },
-            "400": { description: "Invalid input", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+            "400": {
+              description: "Invalid input / Malformed CSV",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+            },
+            "401": {
+              description: "Unauthorized",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+            },
+            "409": {
+              description: "Idempotency conflict (file already processed)",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } },
+            },
           },
         },
       },
       "/split/analyze": {
         post: {
           summary: "Analyze a draft split for optimization suggestions",
-          description:
-            "Inspects draft split recipients for duplicate addresses and can optionally " +
-            "flag high-fee transactions when fee and total amount estimates are provided.",
-          operationId: "analyzeSplitDraft",
           tags: ["Disbursement"],
           security: [{ ApiKeyAuth: [] }],
           requestBody: {
@@ -321,125 +361,47 @@ const options: swaggerJsdoc.Options = {
                     recipients: {
                       type: "array",
                       minItems: 1,
-                      maxItems: 1000,
                       items: { $ref: "#/components/schemas/SplitAnalyzeRecipient" },
                     },
-                    estimatedFeeStroops: {
-                      type: "string",
-                      example: "750000",
-                      description: "Optional estimated fee in stroops",
-                    },
-                    totalAmountStroops: {
-                      type: "string",
-                      example: "10000000",
-                      description: "Optional total split amount in stroops",
-                    },
                   },
-                  required: ["recipients"],
                 },
               },
             },
           },
           responses: {
             "200": {
-              description: "Suggestions generated successfully",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      success: { type: "boolean", example: true },
-                      data: {
-                        type: "object",
-                        properties: {
-                          suggestions: {
-                            type: "array",
-                            items: { $ref: "#/components/schemas/SplitSuggestion" },
-                          },
-                          duplicateGroups: {
-                            type: "array",
-                            items: { $ref: "#/components/schemas/SplitDuplicateGroup" },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            "400": {
-              description: "Invalid input",
-              content: {
-                "application/json": {
-                  schema: { $ref: "#/components/schemas/ErrorResponse" },
-                },
-              },
+              description: "Success",
+              content: { "application/json": { schema: { type: "object", properties: { success: { type: "boolean" }, data: { type: "object" } } } } },
             },
           },
         },
       },
-      "/resolve-vault-routes": {
-        post: {
-          summary: "Resolve Safe-Vault disbursement routes",
-          description:
-            "Detects if any recipient address is a known Soroban vault contract and returns " +
-            "the appropriate route — either a plain transfer or an invoke_contract call.",
-          operationId: "resolveVaultRoutes",
-          tags: ["Safe-Vault"],
-          requestBody: {
-            required: true,
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    recipients: {
-                      type: "array",
-                      maxItems: 1000,
-                      items: {
-                        type: "object",
-                        properties: {
-                          address: { type: "string", example: "GABC...XYZ" },
-                          amountStroops: { type: "string", example: "10000000" },
-                        },
-                        required: ["address", "amountStroops"],
-                      },
-                    },
-                  },
-                  required: ["recipients"],
-                },
-              },
-            },
-          },
+      "/org-gas-status": {
+        get: {
+          summary: "Get organization gas tank status",
+          tags: ["Organizations"],
+          security: [{ ApiKeyAuth: [] }],
           responses: {
             "200": {
-              description: "Resolved routes",
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      success: { type: "boolean", example: true },
-                      data: {
-                        type: "object",
-                        properties: {
-                          routes: {
-                            type: "array",
-                            items: {
-                              oneOf: [
-                                { $ref: "#/components/schemas/TransferRoute" },
-                                { $ref: "#/components/schemas/InvokeContractRoute" },
-                              ],
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
+              description: "Gas status retrieved",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/OrganizationGasStatus" } } },
             },
-            "400": { description: "Invalid input", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+            "401": { description: "Unauthorized" },
+          },
+        },
+      },
+      "/analytics/leaderboard": {
+        get: {
+          summary: "Get global disbursement leaderboard",
+          tags: ["Analytics"],
+          parameters: [
+            { name: "timeframe", in: "query", schema: { type: "string", enum: ["daily", "weekly", "all"], default: "all" } },
+          ],
+          responses: {
+            "200": {
+              description: "Leaderboard data",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/AnalyticsLeaderboard" } } },
+            },
           },
         },
       },
