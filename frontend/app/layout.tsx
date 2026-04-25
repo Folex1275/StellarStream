@@ -10,6 +10,7 @@ import { ProtocolStatusProvider } from "@/lib/use-protocol-status";
 import { EmergencyBanner } from "@/components/emergency-banner";
 import ErrorTracker from "@/components/error-tracker";
 import OnboardingTour from '@/components/OnboardingTour';
+import { ServiceWorkerRegistrar } from '@/components/ServiceWorkerRegistrar';
 
 const lato = Lato({
   variable: "--font-lato",
@@ -53,6 +54,7 @@ export default function RootLayout({
 
               {/* Wave 3 Onboarding Tour - Shows only for first-time users */}
               <OnboardingTour />
+              <ServiceWorkerRegistrar />
             </ProtocolStatusProvider>
           </StellarProvider>
         </WalletProvider>

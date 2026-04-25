@@ -30,6 +30,7 @@ import {
   ArrowRightLeft,
 } from "lucide-react";
 import { TransactionQueueManager } from "@/components/dashboard/TransactionQueueManager";
+import { NavSyncIndicator } from "@/components/SyncStatusIndicator";
 
 type NavItem = {
   label: string;
@@ -407,6 +408,9 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
           </div>
         </div>
 
+        <div className="px-3 pb-2">
+          <NavSyncIndicator />
+        </div>
         <TransactionQueueManager collapsed={collapsed} />
       </aside>
 
