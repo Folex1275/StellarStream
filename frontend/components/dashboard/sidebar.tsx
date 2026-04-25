@@ -109,6 +109,11 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
       icon: ShieldCheck,
     },
     {
+      label: "Reports",
+      href: "/dashboard/disbursement-report",
+      icon: FileText,
+    },
+    {
       label: "History",
       onClick: onOpenAuditLog,
       icon: HistoryIcon,
