@@ -10,6 +10,7 @@ export interface Signer {
     address: string;
     status: SignatureStatus;
     signedAt?: Date;
+    rejectionNote?: string;
 }
 
 export interface PendingStream {
@@ -90,6 +91,26 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
             { address: "GBTY...8NOP", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 3) },
             { address: MOCK_CURRENT_USER, status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 1) },
             { address: "GCQR...2STU", status: "pending" },
+        ],
+        hasCurrentUserSigned: true,
+        currentUserAddress: MOCK_CURRENT_USER,
+    },
+    {
+        id: "pending-4",
+        streamId: "0xd1a5…b903",
+        recipient: "GHIJ...5VWX",
+        sender: "GABC...7XYZ",
+        amount: 25000,
+        token: "USDC",
+        ratePerSecond: 0.01447,
+        duration: 30,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 16),
+        requiredSignatures: 3,
+        signers: [
+            { address: "GABC...7XYZ", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 7) },
+            { address: MOCK_CURRENT_USER, status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 6) },
+            { address: "GCQR...2STU", status: "rejected", rejectionNote: "Amount exceeds the approved Q2 budget ceiling of $20,000. Please revise and resubmit." },
         ],
         hasCurrentUserSigned: true,
         currentUserAddress: MOCK_CURRENT_USER,
@@ -226,12 +247,29 @@ export function usePendingStreams(pollIntervalMs = 15_000) {
     const signedCount = (stream: PendingStream) =>
         stream.signers.filter((s) => s.status === "signed").length;
 
+    const restartProposal = useCallback((pendingId: string) => {
+        setStreams((prev) =>
+            prev.map((s) => {
+                if (s.id !== pendingId) return s;
+                return {
+                    ...s,
+                    hasCurrentUserSigned: false,
+                    signers: s.signers.map((sg) => ({
+                        address: sg.address,
+                        status: "pending" as SignatureStatus,
+                    })),
+                };
+            })
+        );
+    }, []);
+
     return {
         streams,
         signingIds,
         lastRefreshed,
         signStream,
         signedCount,
+        restartProposal,
         currentUserAddress: MOCK_CURRENT_USER,
     };
 }

@@ -33,11 +33,6 @@ export function Nav() {
   const [clickCount, setClickCount]     = useState(0);
   const [matrixActive, setMatrixActive] = useState(false);
 
-  // Hide nav on dashboard pages (dashboard has its own navigation)
-  if (pathname?.startsWith("/dashboard")) {
-    return null;
-  }
-
   const handleLogoClick = useCallback(
     (e: React.MouseEvent) => {
       const next = clickCount + 1;
@@ -54,6 +49,11 @@ export function Nav() {
   const handleMatrixClose = useCallback(() => {
     setMatrixActive(false);
   }, []);
+
+  // Hide nav on dashboard pages (dashboard has its own navigation)
+  if (pathname?.startsWith("/dashboard")) {
+    return null;
+  }
 
   const formatAddress = (addr: string | null) => {
     if (!addr) return "";

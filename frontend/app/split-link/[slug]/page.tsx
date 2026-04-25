@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { useWallet } from "@/lib/wallet-context";
 import { OrganizationAvatar } from "@/components/organization-avatar";
+import { QRStudio } from "@/components/qr-studio";
 
 interface SplitLinkInfo {
     slug: string;
@@ -17,6 +18,7 @@ interface SplitLinkInfo {
     details: string;
     createdAt: string;
     stellarAddress: string;
+    logoUrl?: string;
 }
 
 const statusStyles: Record<SplitLinkInfo["status"], string> = {
@@ -193,6 +195,14 @@ export default function SplitLinkLandingPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* QR Studio — only shown once the split link has loaded */}
+                    {splitLink && slug && (
+                        <QRStudio
+                            url={`${typeof window !== "undefined" ? window.location.origin : "https://stellarstream.app"}/split-link/${slug}`}
+                            logoUrl={splitLink.logoUrl}
+                        />
+                    )}
                 </div>
             </div>
         </div>
