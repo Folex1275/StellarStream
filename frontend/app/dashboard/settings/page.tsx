@@ -2,6 +2,7 @@
 
 import SecurityPrivacyPage from "@/components/settings/SecurityPrivacyPage";
 import GasManagementTile from "@/components/settings/GasManagementTile";
+import BrandingPage from "@/components/settings/BrandingPage";
 
 export default function SettingsPage() {
   return (
@@ -22,6 +23,9 @@ export default function SettingsPage() {
 
       {/* ── Gas Management (#683) ── */}
       <GasManagementTile />
+
+      {/* ── Brand Identity (#1006) ── */}
+      <BrandingPage />
 
       {/* ── Security & Privacy Suite (#157) ── */}
       <SecurityPrivacyPage />

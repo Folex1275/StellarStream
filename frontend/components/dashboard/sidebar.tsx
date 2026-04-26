@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, type ComponentType } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Activity,
   CirclePlus,
   ClipboardCheck,
   Gauge,
@@ -20,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { TransactionQueueManager } from "@/components/dashboard/TransactionQueueManager";
+import { TransactionFeed } from "./TransactionFeed";
 
 type NavItem = {
   label: string;
@@ -63,6 +65,7 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
 
   const navItems: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: Gauge },
+    { label: "Health", href: "/dashboard/health", icon: Activity },
     { label: "My Streams", href: "/dashboard/streams", icon: Waves },
     { label: "Vaults", href: "/dashboard/vaults", icon: Shield },
     {
@@ -388,6 +391,13 @@ export function Sidebar({ onOpenAuditLog }: SidebarProps) {
 
         {/* Transaction Queue */}
         <TransactionQueueManager collapsed={collapsed} />
+        
+        {/* Transaction Feed */}
+        {!collapsed && (
+          <div className="mt-4">
+            <TransactionFeed />
+          </div>
+        )}
       </aside>
 
       {/* ── Mobile bottom bar ── */}
