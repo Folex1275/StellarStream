@@ -223,15 +223,21 @@ export default function GlobalSearch() {
           display: flex;
           align-items: center;
           gap: 12px;
-          background: rgba(255,255,255,0.04);
+          background: rgba(10, 12, 22, 0.90);
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 14px;
           padding: 0 16px;
           height: 52px;
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
           transition: background 0.25s ease, border-color 0.25s ease;
           overflow: hidden;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .gs-track {
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         /* Frosted inner gradient */
@@ -358,9 +364,7 @@ export default function GlobalSearch() {
           top: calc(100% + 8px);
           left: 0;
           right: 0;
-          background: rgba(7, 10, 18, 0.92);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
+          background: rgba(7, 10, 18, 0.97);
           border: 1px solid rgba(0,229,255,0.15);
           border-radius: 14px;
           overflow: hidden;
@@ -371,9 +375,29 @@ export default function GlobalSearch() {
           animation: dropIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .gs-dropdown {
+            background: rgba(7, 10, 18, 0.92);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+          }
+        }
+
         @keyframes dropIn {
           from { opacity: 0; transform: translateY(-6px) scale(0.99); }
           to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gs-track,
+          .gs-icon,
+          .gs-clear,
+          .gs-item {
+            transition: none;
+          }
+          .gs-dropdown {
+            animation: none;
+          }
         }
 
         /* Section header */

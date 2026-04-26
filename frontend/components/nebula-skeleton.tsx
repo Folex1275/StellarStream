@@ -59,13 +59,19 @@ export default function NebulaSkeleton({
 
         .nebula-skeleton {
           position: relative;
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           overflow: hidden;
           animation: shimmer-glow 3s ease-in-out infinite;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .nebula-skeleton {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .nebula-skeleton::before {

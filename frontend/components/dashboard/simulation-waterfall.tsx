@@ -1,6 +1,15 @@
 "use client";
 
-import { BarChart, Bar, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
+import {
+  BarChart,
+  Bar,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+} from "recharts";
 import type { SimulationWaterfallSummary } from "@/lib/simulation-waterfall";
 
 interface SimulationWaterfallProps {
@@ -27,12 +36,20 @@ export function SimulationWaterfall({
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-body text-[10px] tracking-[0.14em] text-cyan-400/70 uppercase">{title}</p>
-          <h3 className="font-heading mt-1 text-xl text-white">Execution Waterfall</h3>
-          <p className="font-body mt-2 max-w-xl text-sm text-white/50">{description}</p>
+          <p className="font-body text-[10px] tracking-[0.14em] text-cyan-400/70 uppercase">
+            {title}
+          </p>
+          <h3 className="font-heading mt-1 text-xl text-white">
+            Execution Waterfall
+          </h3>
+          <p className="font-body mt-2 max-w-xl text-sm text-white/50">
+            {description}
+          </p>
         </div>
         <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.05] px-4 py-3 text-right">
-          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">Recipients Receive</p>
+          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">
+            Recipients Receive
+          </p>
           <p className="font-body mt-1 text-lg font-bold text-cyan-400">
             {fmtAmount(summary.totalRecipientAmount, asset)}
           </p>
@@ -67,9 +84,18 @@ export function SimulationWaterfall({
                 borderRadius: "16px",
                 color: "white",
               }}
-              formatter={(value: number) => fmtAmount(value, asset)}
+              formatter={(value) => {
+                const numericValue =
+                  typeof value === "number" ? value : Number(value ?? 0);
+                return fmtAmount(
+                  Number.isFinite(numericValue) ? numericValue : 0,
+                  asset,
+                );
+              }}
               labelFormatter={(_, payload) => {
-                const row = payload?.[0]?.payload as { from: string; to: string; label: string } | undefined;
+                const row = payload?.[0]?.payload as
+                  | { from: string; to: string; label: string }
+                  | undefined;
                 return row ? `${row.label}: ${row.from} → ${row.to}` : "";
               }}
             />
@@ -84,15 +110,25 @@ export function SimulationWaterfall({
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">Network Fee</p>
-          <p className="font-body mt-1 text-sm font-bold text-rose-300">{fmtAmount(summary.networkFee, asset)}</p>
+          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">
+            Network Fee
+          </p>
+          <p className="font-body mt-1 text-sm font-bold text-rose-300">
+            {fmtAmount(summary.networkFee, asset)}
+          </p>
         </div>
         <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">Protocol Fee</p>
-          <p className="font-body mt-1 text-sm font-bold text-amber-300">{fmtAmount(summary.protocolFee, asset)}</p>
+          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">
+            Protocol Fee
+          </p>
+          <p className="font-body mt-1 text-sm font-bold text-amber-300">
+            {fmtAmount(summary.protocolFee, asset)}
+          </p>
         </div>
         <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">Recipient Total</p>
+          <p className="font-body text-[10px] tracking-[0.12em] text-white/35 uppercase">
+            Recipient Total
+          </p>
           <p className="font-body mt-1 text-sm font-bold text-emerald-300">
             {fmtAmount(summary.totalRecipientAmount, asset)}
           </p>

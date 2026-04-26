@@ -116,13 +116,20 @@ export default function GlitchTextExample() {
         }
 
         .example-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 48px;
           text-align: center;
           transition: border-color 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .example-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .example-card:hover {
@@ -172,11 +179,24 @@ export default function GlitchTextExample() {
         }
 
         .use-case-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 20px;
           padding: 32px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .use-case-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .example-card {
+            transition: none;
+          }
         }
 
         .use-case-title {

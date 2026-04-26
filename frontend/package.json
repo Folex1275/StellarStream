@@ -20,6 +20,8 @@
     "@types/papaparse": "^5.5.2",
     "bignumber.js": "^10.0.2",
     "boring-avatars": "^2.0.4",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
     "framer-motion": "^12.34.2",
     "fuzzysort": "^3.1.0",
     "idb-keyval": "6.2.1",

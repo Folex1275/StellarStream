@@ -417,6 +417,13 @@ interface SplitSummaryProps {
 function SplitSummary({
   asset, mode, stats, canAdvance, onAdvance, onBack, advanceLabel = "Review →",
 }: SplitSummaryProps) {
+  // Gas estimates for batch optimization comparison
+  const MANUAL_GAS_STROOPS = 100000; // Approximate gas for individual manual payment
+  const BATCH_GAS_STROOPS = 150000; // Approximate gas for V3 atomic batch
+
+  const gasSavedStroops = (MANUAL_GAS_STROOPS * stats.validRows) - BATCH_GAS_STROOPS;
+  const gasSavedXLM = gasSavedStroops > 0 ? (gasSavedStroops / 10000000).toFixed(4) : 0;
+
   return (
     <aside className="w-72 shrink-0">
       <div className="sticky top-20 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 space-y-5">
@@ -435,6 +442,11 @@ function SplitSummary({
             label="Mode"
             value={mode === "push" ? "⚡ Push" : "⬇ Pull"}
           />
+          {gasSavedStroops > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-400/20 bg-green-400/[0.05] px-3 py-2 text-xs text-green-300">
+              💰 Gas Saved: {gasSavedXLM} XLM
+            </div>
+          )}
           {stats.errorCount > 0 && (
             <div className="flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.05] px-3 py-2 text-xs text-amber-300">
               {stats.errorCount} validation error{stats.errorCount !== 1 ? "s" : ""} — fix before continuing

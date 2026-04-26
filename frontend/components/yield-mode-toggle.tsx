@@ -66,11 +66,18 @@ export default function YieldModeToggle({
           align-items: center;
           justify-content: space-between;
           padding: 16px 20px;
-          background: rgba(255, 255, 255, 0.02);
+          background: rgba(10, 10, 20, 0.75);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 16px;
-          backdrop-filter: blur(12px);
           transition: all 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .yield-toggle-row {
+            background: rgba(255, 255, 255, 0.02);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
         }
 
         .yield-toggle-row.active {
@@ -130,11 +137,18 @@ export default function YieldModeToggle({
           position: absolute;
           inset: 0;
           border-radius: 15px;
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(30, 30, 46, 0.85);
           border: 1px solid rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(8px);
           transition: all 0.3s ease;
           overflow: hidden;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .toggle-track {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .toggle-track::before {
@@ -263,8 +277,7 @@ export default function YieldModeToggle({
           right: 0;
           width: 220px;
           padding: 14px;
-          background: rgba(10, 10, 20, 0.95);
-          backdrop-filter: blur(16px);
+          background: rgba(10, 10, 20, 0.97);
           border: 1px solid rgba(0, 255, 136, 0.2);
           border-radius: 12px;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
@@ -273,6 +286,14 @@ export default function YieldModeToggle({
           pointer-events: none;
           transition: all 0.2s ease;
           z-index: 100;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .apy-tooltip {
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
         }
 
         .apy-tooltip.visible {
@@ -366,8 +387,7 @@ export default function YieldModeToggle({
           top: calc(100% + 8px);
           left: 0;
           right: 0;
-          background: rgba(10, 10, 20, 0.95);
-          backdrop-filter: blur(16px);
+          background: rgba(10, 10, 20, 0.97);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           overflow: hidden;
@@ -376,6 +396,31 @@ export default function YieldModeToggle({
           pointer-events: none;
           transition: all 0.2s ease;
           z-index: 100;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .dropdown-menu {
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .yield-toggle-row,
+          .toggle-track,
+          .toggle-knob,
+          .recipient-button,
+          .recipient-chevron,
+          .bubble-button,
+          .info-button {
+            transition: none;
+          }
+          .apy-tooltip,
+          .dropdown-menu {
+            transition: none;
+            transform: none;
+          }
         }
 
         .dropdown-menu.open {

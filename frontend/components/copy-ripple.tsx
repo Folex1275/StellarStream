@@ -63,13 +63,20 @@ export default function CopyRipple({
       <style>{`
         .copy-ripple-card {
           position: relative;
-          background: rgba(10, 10, 20, 0.6);
+          background: rgba(10, 10, 20, 0.90);
           border: 1px solid rgba(100, 100, 120, 0.3);
           border-radius: 16px;
           padding: 20px 24px;
           overflow: hidden;
-          backdrop-filter: blur(12px);
           font-family: 'Syne', sans-serif;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .copy-ripple-card {
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
         }
 
         .copy-ripple-content {

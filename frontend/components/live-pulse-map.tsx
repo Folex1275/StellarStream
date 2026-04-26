@@ -60,9 +60,16 @@ export default function LivePulseMap() {
           overflow: hidden;
           color: #e8eaf6;
           font-family: 'Syne', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
-          background: linear-gradient(180deg, rgba(6,6,15,0.7), rgba(10,10,20,0.65));
+          background: linear-gradient(180deg, rgba(6,6,15,0.92), rgba(10,10,20,0.88));
           border: 1px solid rgba(255,255,255,0.04);
-          backdrop-filter: blur(24px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .pulse-card {
+            background: linear-gradient(180deg, rgba(6,6,15,0.7), rgba(10,10,20,0.65));
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .map-container {

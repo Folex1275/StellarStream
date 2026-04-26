@@ -7,6 +7,12 @@
   --stellar-secondary: #8a00ff;
   --stellar-background: #030303;
   --stellar-foreground: #ffffff;
+
+  /* Glass surface tokens — used as fallbacks when backdrop-filter is unsupported */
+  --glass-surface-dark:  rgba(10, 10, 20, 0.92);
+  --glass-surface-modal: rgba(7, 10, 18, 0.96);
+  --glass-surface-card:  rgba(10, 10, 20, 0.88);
+  --glass-surface-pill:  rgba(10, 10, 20, 0.80);
 }
 
 @theme inline {
@@ -20,7 +26,15 @@
 
 /* GlassCard Utility Class */
 @utility glass-card {
-  @apply backdrop-blur-lg bg-white/5 border border-white/[0.08] rounded-2xl;
+  @apply bg-white/5 border border-white/[0.08] rounded-2xl;
+  /* Progressive enhancement: blur only when supported */
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    @apply backdrop-blur-lg;
+  }
+  /* Fallback: deepen background opacity when blur is unavailable */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--glass-surface-card);
+  }
 }
 
 /* Monospaced ticker font utility — use for addresses, hashes, numeric data */
@@ -269,9 +283,8 @@ body {
   min-width: 360px;
   max-width: 420px;
   padding: 16px 18px 20px;
-  background: rgba(10, 10, 20, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  /* Fallback solid background — visible on all browsers */
+  background: var(--glass-surface-dark);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   box-shadow: 
@@ -279,7 +292,18 @@ body {
     0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 0 20px rgba(255, 255, 255, 0.02);
   overflow: hidden;
+  /* Prevent compositor layer promotion during animation from invalidating blur — blur-flicker fix */
+  transform: translateZ(0);
   animation: toast-slide-in 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+}
+
+/* Progressive enhancement: backdrop blur only when supported */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .stellar-toast {
+    background: rgba(10, 10, 20, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
 }
 
 @keyframes toast-slide-in {
@@ -522,8 +546,16 @@ body {
 
 /* Ledger loader backdrop blur */
 .ledger-loader-backdrop {
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  /* Fallback for unsupported browsers */
+  background: var(--glass-surface-modal);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .ledger-loader-backdrop {
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    background: transparent;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -533,10 +565,14 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .stellar-toast {
     animation: none;
+    /* Snap to visible state immediately */
+    opacity: 1;
+    transform: translateX(0) translateZ(0);
   }
 
   .stellar-toast-progress::after {
     animation: none;
+    width: 0;
   }
 
   /* Disable complex animations for ledger loader */
@@ -544,6 +580,48 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* Nebula background blobs */
+  .nebula-cyan,
+  .nebula-violet {
+    animation: none;
+  }
+
+  /* Liquid chrome headline gradient */
+  .liquid-chrome {
+    animation: none;
+    background-position: 0% 50%;
+  }
+
+  /* Ticker scroll */
+  .ticker-track {
+    animation: none;
+  }
+
+  /* Pulse border on active streams */
+  .animate-pulse-border {
+    animation: none;
+  }
+
+  /* Bento grid enter / shimmer / ghost-pulse */
+  .animate-bento-enter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .animate-shimmer {
+    animation: none;
+  }
+
+  .animate-ghost-pulse {
+    animation: none;
+  }
+
+  /* CRT scanlines flicker */
+  .crt-scanlines {
+    animation: none;
   }
 }
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -67,13 +67,20 @@ export default function BiometricSecurityToggleExample() {
         }
 
         .toggle-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 32px;
           text-align: center;
           transition: border-color 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .toggle-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .toggle-card:hover {
@@ -88,12 +95,25 @@ export default function BiometricSecurityToggleExample() {
         }
 
         .status-panel {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 32px;
           margin-top: 48px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .status-panel {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .toggle-card {
+            transition: none;
+          }
         }
 
         .status-title {
@@ -159,11 +179,18 @@ export default function BiometricSecurityToggleExample() {
         }
 
         .use-case-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 20px;
           padding: 32px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .use-case-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .use-case-title {

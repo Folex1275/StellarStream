@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { SplitProvider, useSplit } from "@/features/splitter/SplitProvider";
 import { 
   Users, 
@@ -10,7 +10,9 @@ import {
   Trash2, 
   CreditCard,
   CheckCircle2,
-  Activity
+  Activity,
+  Code2,
+  Copy
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePriceSlippage } from "@/lib/use-price-slippage";
@@ -29,6 +31,8 @@ function SplitWizard() {
     nextStep, 
     prevStep 
   } = useSplit();
+
+  const [showCode, setShowCode] = useState(false);
 
   const {
     priceAtStart,
@@ -153,6 +157,53 @@ function SplitWizard() {
                         priceNow={priceNow}
                         onRefresh={acknowledgeRefresh}
                       />
+                    </div>
+                  )}
+
+                  {step === 3 && (
+                    <div className="mt-8 mb-4 max-w-lg mx-auto text-left">
+                      <div className="flex items-center justify-between mb-2">
+                        <button 
+                          onClick={() => setShowCode(!showCode)}
+                          className="flex items-center gap-2 text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+                        >
+                          <Code2 className="h-4 w-4" />
+                          {showCode ? "Hide Code Snippet" : "Get Code Snippet"}
+                        </button>
+                      </div>
+                      <AnimatePresence>
+                        {showCode && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="relative rounded-xl border border-white/10 bg-black/50 p-4">
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`import { SplitterV3 } from '@stellarstream/v3-sdk';\n\nconst splitter = new SplitterV3({\n  network: "testnet",\n  recipients: [\n${recipients.map(r => `    { address: "${r.address || 'G...'}", share: ${r.share || 0} }`).join(",\\n")}\n  ]\n});\n\nawait splitter.deploy();`);
+                                }}
+                                className="absolute top-3 right-3 text-white/30 hover:text-white/70 transition-colors"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </button>
+                              <pre className="font-mono text-xs text-cyan-200 overflow-x-auto whitespace-pre">
+{`import { SplitterV3 } from '@stellarstream/v3-sdk';
+
+const splitter = new SplitterV3({
+  network: "testnet",
+  recipients: [
+${recipients.map(r => `    { address: "${r.address || 'G...'}", share: ${r.share || 0} }`).join(",\n")}
+  ]
+});
+
+await splitter.deploy();`}
+                              </pre>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
 

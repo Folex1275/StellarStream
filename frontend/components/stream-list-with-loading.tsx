@@ -249,13 +249,20 @@ export default function StreamListWithLoading() {
         }
 
         .empty-state {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 24px;
           padding: 48px;
           text-align: center;
           color: rgba(232, 234, 246, 0.6);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .empty-state {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .empty-icon {

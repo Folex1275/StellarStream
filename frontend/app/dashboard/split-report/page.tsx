@@ -7,6 +7,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { ExternalLink, CheckCircle2, Copy, Download, Share2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProofOfPaymentPDF } from "@/lib/proof-of-payment-pdf";
+import { downloadSettlementCsv, type SettlementCsvRecipient } from "@/lib/settlement-csv";
 
 const STELLAR_EXPERT_BASE =
   process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet"
@@ -17,6 +18,51 @@ interface OperationRow {
   index: number;
   operationId: string;
   url: string;
+}
+
+function parseRecipientParam(rawRecipients: string | null): SettlementCsvRecipient[] | undefined {
+  if (!rawRecipients) return undefined;
+
+  const candidates = [rawRecipients];
+  try {
+    candidates.push(decodeURIComponent(rawRecipients));
+  } catch {
+    // Keep raw candidate only when decoding fails.
+  }
+
+  try {
+    for (const candidate of candidates) {
+      const parsed = JSON.parse(candidate);
+      if (!Array.isArray(parsed)) continue;
+
+      return parsed
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+
+          return {
+            address: typeof row.address === "string" ? row.address : undefined,
+            payee:
+              typeof row.payee === "string"
+                ? row.payee
+                : typeof row.name === "string"
+                  ? row.name
+                  : undefined,
+            amount:
+              typeof row.amount === "number" || typeof row.amount === "string"
+                ? row.amount
+                : undefined,
+            memo: typeof row.memo === "string" ? row.memo : undefined,
+            operationId: typeof row.operationId === "string" ? row.operationId : undefined,
+          };
+        })
+        .filter((entry): entry is SettlementCsvRecipient => entry !== null);
+    }
+
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function buildRows(txHash: string, opCount: number): OperationRow[] {
@@ -114,6 +160,10 @@ function ReportContent() {
   const sender = params.get("sender") ?? "GABC…7XYZ";
   const asset = params.get("asset") ?? "USDC";
   const amount = params.get("amount") ?? "0";
+  const streamId = params.get("streamId") ?? txHash.slice(0, 12);
+  const memo = params.get("memo") ?? undefined;
+  const timestamp = params.get("timestamp") ?? new Date().toISOString();
+  const recipients = parseRecipientParam(params.get("recipients"));
   const rows = buildRows(txHash, opCount);
 
   const [shareLabel, setShareLabel] = useState("Share Link");
@@ -131,13 +181,27 @@ function ReportContent() {
 
   async function handleDownloadPDF() {
     await generateProofOfPaymentPDF({
-      streamId: txHash.slice(0, 12),
+      streamId,
       sender,
       receiver: `${opCount} recipients`,
       asset,
       amount: `${amount} ${asset}`,
       timestamp: new Date().toISOString(),
       txHash,
+    });
+  }
+
+  function handleDownloadSettlementCsv() {
+    downloadSettlementCsv({
+      txHash,
+      sender,
+      asset,
+      totalAmount: amount,
+      timestamp,
+      streamId,
+      memo,
+      fallbackRecipientCount: opCount,
+      recipients,
     });
   }
 
@@ -179,6 +243,13 @@ function ReportContent() {
           >
             <Download size={13} />
             Download PDF
+          </button>
+          <button
+            onClick={handleDownloadSettlementCsv}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.08] px-3 py-2 text-xs text-emerald-200 hover:text-emerald-100 transition-colors"
+          >
+            <Download size={13} />
+            Settlement CSV
           </button>
           <button
             onClick={handleShare}

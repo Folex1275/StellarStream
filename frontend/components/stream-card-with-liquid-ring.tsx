@@ -119,8 +119,6 @@ export default function StreamCardWithLiquidRing({
           position: relative;
           width: 320px;
           background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 20px;
           padding: 20px;
@@ -132,6 +130,19 @@ export default function StreamCardWithLiquidRing({
             0 8px 40px rgba(0, 0, 0, 0.6),
             0 0 60px rgba(0, 229, 255, 0.04) inset;
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .liquid-stream-card {
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .liquid-stream-card {
+            transition: none;
+          }
         }
 
         .liquid-stream-card::before {
