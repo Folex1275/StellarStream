@@ -9,6 +9,7 @@ import { WebhookIntegrationsCard } from "@/components/settings/WebhookIntegratio
 import GasLedger from "@/components/gasledger";
 import { DeveloperSettingsCard } from "@/components/settings/DeveloperSettingsCard";
 import { TeamManagementCard } from "@/components/settings/TeamManagementCard";
+import { AdminSweepCard } from "@/components/settings/AdminSweepCard";
 
 const TABS = ["General", "Security", "Integrations"] as const;
 type Tab = (typeof TABS)[number];
@@ -64,6 +65,14 @@ export default function SettingsPage() {
         <>
           <SecurityPrivacyPage />
           <AdminQuorumSettings />
+          <div className="pt-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-px flex-1 bg-white/10" />
+              <p className="font-body text-[10px] tracking-widest uppercase text-white/30">Advanced Settings</p>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+            <AdminSweepCard />
+          </div>
         </>
       )}
 

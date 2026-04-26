@@ -52,6 +52,12 @@ export interface ReceiptMetadata {
   receiver: string;
 }
 
+export interface OrphanBalance {
+  assetCode: string;
+  assetIssuer?: string;
+  balance: bigint;
+}
+
 export type CurveType = "Linear" | "Exponential";
 
 export type Role = "Admin" | "Pauser" | "TreasuryManager";
@@ -312,6 +318,16 @@ export interface StellarStreamContractClient {
     version: string;
     description: string;
   }>;
+
+  /**
+   * Get all unallocated "dust" balances in the contract
+   */
+  getOrphanBalances(): Promise<OrphanBalance[]>;
+
+  /**
+   * Reclaim unallocated dust to a destination address (Admin only)
+   */
+  reclaimDust(params: { destination: string }): Promise<void>;
 }
 
 // ============================================================================
@@ -399,6 +415,11 @@ export const mockClient: StellarStreamContractClient = {
     description:
       "Token streaming with multi-sig proposals, dynamic vesting curves, and OFAC compliance",
   }),
+  getOrphanBalances: async () => [
+    { assetCode: "USDC", assetIssuer: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335XOP3IA2Y35Y5W5T37M3FSXYO", balance: BigInt("1234567") },
+    { assetCode: "XLM", balance: BigInt("450000000") },
+  ],
+  reclaimDust: async () => {},
   depositGasBuffer: async () => {},
   withdrawGasBuffer: async () => {},
   getGasBufferBalance: async () => BigInt(0),
