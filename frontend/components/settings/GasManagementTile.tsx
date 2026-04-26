@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, RefreshCw, ToggleLeft, ToggleRight, X, Zap } from "lucide-react";
 import { useGasBuffer } from "@/lib/use-gas-buffer";
+import { useAutoPilot } from "@/lib/use-auto-pilot";
 import { toast } from "@/lib/toast";
 import { QuickRefillButton } from "@/components/quick-refill-button";
 import { GasTankRefillWizard } from "@/components/gas-tank-refill-wizard";
@@ -19,6 +20,10 @@ const LOW_GAS_XLM = 5;
 /** Smart Prompt: suggest a top-up when balance drops below this level */
 const SMART_PROMPT_THRESHOLD_XLM = 10;
 const SMART_PROMPT_DEPOSIT_XLM = 50;
+
+/** Auto-Pilot: auto-refill when balance drops below this threshold */
+const AUTO_PILOT_THRESHOLD_XLM = 15;
+const AUTO_PILOT_REFILL_XLM = 25;
 
 // ─── AmountInput ──────────────────────────────────────────────────────────────
 
@@ -69,6 +74,7 @@ interface GasManagementTileProps {
 
 export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTileProps) {
     const { status, loading, error, pendingOp, deposit, withdraw, refresh } = useGasBuffer();
+    const { config, error: autoPilotError, updateConfig, calculateGasRequirements, isAutoRefillPossible, clearError } = useAutoPilot();
     const [depositAmt, setDepositAmt] = useState("");
     const [withdrawAmt, setWithdrawAmt] = useState("");
     const [promptDismissed, setPromptDismissed] = useState(false);
@@ -231,6 +237,56 @@ export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTile
                         </button>
                     </div>
                 )}
+
+                {/* ── Auto-Pilot Toggle ── */}
+                <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
+                            <Zap size={16} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-body text-xs font-semibold text-white">Auto-Pilot</p>
+                            <p className="font-body text-[10px] text-white/40 mt-0.5">
+                                Auto-refill when balance &lt; {config.thresholdXlm} XLM
+                            </p>
+                            {autoPilotError && (
+                                <p className="font-body text-[10px] text-red-400 mt-1 flex items-center gap-1">
+                                    <span>⚠</span>
+                                    {autoPilotError.message}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {autoPilotError && (
+                            <button
+                                onClick={clearError}
+                                className="p-1 text-white/40 hover:text-white transition-colors"
+                                aria-label="Clear error"
+                                title="Clear error"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => updateConfig({ enabled: !config.enabled })}
+                            disabled={!!autoPilotError}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                config.enabled ? "bg-violet-500" : "bg-white/10"
+                            }`}
+                            aria-label={`Auto-Pilot is ${config.enabled ? 'enabled' : 'disabled'}. Click to ${config.enabled ? 'disable' : 'enable'} Auto-Pilot`}
+                            aria-pressed={config.enabled}
+                            role="switch"
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    config.enabled ? "translate-x-6" : "translate-x-1"
+                                }`}
+                                aria-hidden="true"
+                            />
+                        </button>
+                    </div>
+                </div>
 
                 {/* ── Status Stats ── */}
                 {loading ? (

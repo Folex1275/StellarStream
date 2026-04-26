@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { usePriceSlippage } from "@/lib/use-price-slippage";
 import { PriceSlippageWarning } from "@/components/price-slippage-warning";
+import { SplitConfirmationModal } from "@/components/split-confirmation-modal";
 
 // Asset used for volatile-price tracking in this splitter.
 // XLM is the only volatile asset currently supported in the V3 splitter.
@@ -41,6 +42,28 @@ function SplitWizard() {
     slippageExceeded,
     acknowledgeRefresh,
   } = usePriceSlippage(VOLATILE_ASSET);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  // Calculate required gas for the split (mock calculation)
+  const requiredGasXlm = recipients.length * 0.00125 + 0.01; // Base fee + per-recipient fee
+
+  const handleConfirmSplit = async () => {
+    setIsConfirming(true);
+    try {
+      // Simulate split execution
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log("Split executed successfully");
+      // Reset wizard after successful split
+      nextStep(); // Move to completion or reset
+    } catch (error) {
+      console.error("Split execution failed:", error);
+    } finally {
+      setIsConfirming(false);
+      setShowConfirmModal(false);
+    }
+  };
 
   // Step 1: Add Recipients
   const renderStep1 = () => (
@@ -211,6 +234,7 @@ await splitter.deploy();`}
                     <button onClick={prevStep} className="text-xs font-bold text-cyan-400 underline uppercase tracking-widest">Go Back</button>
                     {step === 3 && (
                       <button
+                        onClick={() => setShowConfirmModal(true)}
                         disabled={slippageExceeded}
                         className="flex items-center gap-2 rounded-xl bg-white px-6 py-2.5 text-sm font-bold text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-30 transition-all"
                         title={slippageExceeded ? "Refresh the price before confirming" : undefined}
@@ -225,6 +249,16 @@ await splitter.deploy();`}
           )}
         </AnimatePresence>
       </div>
+
+      {/* Split Confirmation Modal */}
+      <SplitConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmSplit}
+        recipients={recipients}
+        requiredGasXlm={requiredGasXlm}
+        isConfirming={isConfirming}
+      />
     </div>
   );
 }
