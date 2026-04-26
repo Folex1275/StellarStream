@@ -4,6 +4,7 @@
 // Issue #779 — Memo-Batcher for Exchanges
 // Adds a Memo column (type + value) to the recipient grid with validation.
 
+import { BridgeChainIcon } from "@/components/BridgeChainIcon";
 import { useState, useCallback } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { MemoType } from "@/lib/bulk-splitter/types";
@@ -235,23 +236,33 @@ export function RecipientGrid({ rows, onChange, invalidTrustlineAddresses }: Pro
                 className="h-3 w-3 rounded border-white/20 bg-black/20 accent-cyan-400"
               />
               {/* Address */}
-              <div className="relative">
-                <input
-                  value={row.address}
-                  onChange={(e) => update(row.id, { address: e.target.value })}
-                  placeholder="G… or *stellar.org"
-                  className={`w-full rounded-lg border px-3 py-1.5 text-xs text-white/80 placeholder-white/20 focus:outline-none font-mono transition-colors ${invalidTrustlineAddresses?.has(row.address)
-                      ? "border-amber-400/50 bg-amber-400/[0.05] focus:border-amber-400"
-                      : "border-white/[0.08] bg-white/[0.04] focus:border-cyan-400/50"
-                    }`}
-                />
-                {invalidTrustlineAddresses?.has(row.address) && (
-                  <AlertTriangle
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-amber-400"
-                    aria-label="Missing trustline"
-                  />
-                )}
-              </div>
+              {/* Address */}
+<div className="relative">
+  <input
+    value={row.address}
+    onChange={(e) => update(row.id, { address: e.target.value })}
+    placeholder="G… or *stellar.org"
+    className={`w-full rounded-lg border px-3 py-1.5 text-xs text-white/80 placeholder-white/20 focus:outline-none font-mono transition-colors ${
+      invalidTrustlineAddresses?.has(row.address)
+        ? "border-amber-400/50 bg-amber-400/[0.05] focus:border-amber-400"
+        : "border-white/[0.08] bg-white/[0.04] focus:border-cyan-400/50"
+    }`}
+  />
+  {invalidTrustlineAddresses?.has(row.address) && (
+    <AlertTriangle
+      className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-amber-400"
+      aria-label="Missing trustline"
+    />
+  )}
+  {/* Bridge chain icon */}
+  <div className="absolute right-7 top-1/2 -translate-y-1/2">
+    <BridgeChainIcon
+      address={row.address}
+      assetCode={row.asset}
+      size={14}
+    />
+  </div>
+</div>
               <input
                 value={row.address}
                 onChange={(e) => update(row.id, { address: e.target.value })}
