@@ -119,8 +119,17 @@ export async function contribute(
     networkPassphrase: NETWORK_PASSPHRASE,
   });
 
+  if ((signedXdr as { error?: string }).error) {
+    throw new Error((signedXdr as { error: string }).error);
+  }
+
+  const signedEnvelopeXdr = (signedXdr as { signedTxXdr?: string }).signedTxXdr;
+  if (!signedEnvelopeXdr) {
+    throw new Error("Wallet signature failed");
+  }
+
   const signedTx = TransactionBuilder.fromXDR(
-    signedXdr,
+    signedEnvelopeXdr,
     NETWORK_PASSPHRASE,
   );
 

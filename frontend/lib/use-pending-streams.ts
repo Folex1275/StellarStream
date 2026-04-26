@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 
+const NETWORK_PASSPHRASE =
+    process.env.NEXT_PUBLIC_NETWORK_PASSPHRASE || "Test SDF Network ; September 2015";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type SignatureStatus = "pending" | "signed" | "rejected";
@@ -150,8 +153,9 @@ async function callApproveStreamRequest(streamId: string): Promise<{ txHash: str
     if (typeof window !== "undefined" && (window as any).freighter) {
         // Freighter
         const { signTransaction } = await import("@stellar/freighter-api");
-        const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK === "mainnet" ? "PUBLIC" : "TESTNET";
-        const result = await signTransaction(unsignedXdr, { network });
+        const result = await signTransaction(unsignedXdr, {
+            networkPassphrase: NETWORK_PASSPHRASE,
+        });
         if ("error" in result && result.error) throw new Error(result.error);
         signedXdr = (result as any).signedTxXdr ?? unsignedXdr;
     } else if (typeof window !== "undefined" && (window as any).albedo) {
