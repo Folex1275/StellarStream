@@ -101,6 +101,15 @@ export default function DemoPage() {
           <h3 className="text-white font-semibold text-lg">More Demos</h3>
           <div className="space-y-2">
             <a
+              href="/demo/nested-splits"
+              className="block px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10 hover:border-[var(--stellar-primary)]/30"
+            >
+              <div className="font-semibold text-white">Nested Splits Flow Map</div>
+              <div className="text-sm text-white/60 mt-1">
+                Visualizer for multi-layered DAO capital routing
+              </div>
+            </a>
+            <a
               href="/demo/flux-yield-slider"
               className="block px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10 hover:border-[var(--stellar-primary)]/30"
             >
