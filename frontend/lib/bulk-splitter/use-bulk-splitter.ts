@@ -43,10 +43,15 @@ export interface UseBulkSplitterReturn {
    * Batches that already succeeded are skipped — no duplicate payments.
    */
   retryFailed: (submitBatch: (recipients: Recipient[]) => Promise<string>) => Promise<void>;
+  /** Index of the last batch that was processed successfully. */
+  lastSuccessfulIndex: number | null;
+  /** Get only recipients from remaining (idle or error) batches. */
+  remainingRecipients: Recipient[];
   reset: () => void;
 }
 
 const SESSION_STORAGE_KEY = 'stellar_stream_bulk_splitter_session';
+const LAST_SUCCESS_INDEX_KEY = 'stellar_stream_last_success_index';
 
 /**
  * Custom JSON stringify replacer for BigInt support
@@ -69,6 +74,7 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
   const [voters, setVoters] = useState<Voter[]>([]);
   const [batches, setBatches] = useState<Recipient[][]>([]);
   const [batchStates, setBatchStates] = useState<BatchState[]>([]);
+  const [lastSuccessfulIndex, setLastSuccessfulIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const workerRef = useRef<Worker | null>(null);
 
@@ -98,6 +104,12 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
         console.error('[useBulkSplitter] Failed to restore session', err);
       }
     }
+
+    // Restore last successful index from sessionStorage
+    const savedIdx = sessionStorage.getItem(LAST_SUCCESS_INDEX_KEY);
+    if (savedIdx !== null) {
+      setLastSuccessfulIndex(parseInt(savedIdx, 10));
+    }
   }, [persistenceKey]);
 
   // Save session on state change
@@ -107,8 +119,17 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
       localStorage.setItem(persistenceKey, JSON.stringify(session, bigIntReplacer));
     } else if (status === 'idle') {
       localStorage.removeItem(persistenceKey);
+      sessionStorage.removeItem(LAST_SUCCESS_INDEX_KEY);
+      setLastSuccessfulIndex(null);
     }
   }, [voters, batches, batchStates, status, persistenceKey]);
+
+  // Sync lastSuccessfulIndex to sessionStorage
+  useEffect(() => {
+    if (lastSuccessfulIndex !== null) {
+      sessionStorage.setItem(LAST_SUCCESS_INDEX_KEY, lastSuccessfulIndex.toString());
+    }
+  }, [lastSuccessfulIndex]);
 
   const parse = useCallback(
     (rawData: string) => {
@@ -196,6 +217,7 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
           setBatchStates((prev: BatchState[]) =>
             prev.map((b: BatchState, idx: number) => (idx === i ? { ...b, status: 'success', txHash } : b)),
           );
+          setLastSuccessfulIndex(i);
         } catch (err) {
           setBatchStates((prev: BatchState[]) =>
             prev.map((b: BatchState, idx: number) =>
@@ -237,8 +259,10 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
     setVoters([]);
     setBatches([]);
     setBatchStates([]);
+    setLastSuccessfulIndex(null);
     setError(null);
     localStorage.removeItem(persistenceKey);
+    sessionStorage.removeItem(LAST_SUCCESS_INDEX_KEY);
   }, [persistenceKey]);
 
   return {
@@ -247,6 +271,10 @@ export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): U
     batches,
     batchStates,
     totalRecipients: batches.reduce((acc: number, b: Recipient[]) => acc + b.length, 0),
+    lastSuccessfulIndex,
+    remainingRecipients: batchStates
+      .filter((b) => b.status === 'error' || b.status === 'idle')
+      .flatMap((b) => b.recipients),
     error,
     parse,
     calculate,

@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { useBulkSplitter } from "@/lib/bulk-splitter/use-bulk-splitter";
 import { BulkDispatchPanel } from "@/components/dashboard/BulkDispatchPanel";
-import { SessionRestorePrompt } from "@/components/dashboard/SessionRestorePrompt";
-import { FileUp, Calculator, Share2, AlertCircle, Download } from "lucide-react";
-import type { Recipient } from "@/lib/bulk-splitter/types";
+import { ResumeWizardBanner } from "@/components/dashboard/ResumeWizardBanner";
+import { RecipientGrid, type RecipientRow } from "@/components/recipient-grid";
+import { FileUp, Calculator, Share2, AlertCircle, Download, ListFilter } from "lucide-react";
+import type { Recipient, MemoType } from "@/lib/bulk-splitter/types";
 import { useSaveContacts } from "@/lib/hooks/use-save-contacts";
 import { downloadBulkUploadCsvTemplate } from "@/lib/csv-template";
 
@@ -19,6 +20,8 @@ export default function SplitterPage() {
     error,
     parse,
     calculate,
+    lastSuccessfulIndex,
+    remainingRecipients,
     dispatch,
     retryFailed,
     reset,
@@ -26,6 +29,8 @@ export default function SplitterPage() {
 
   const [rewardAmount, setRewardAmount] = useState("1000");
   const [showRestorePrompt, setShowRestorePrompt] = useState(false);
+  const [showResumeBanner, setShowResumeBanner] = useState(false);
+  const [isResuming, setIsResuming] = useState(false);
   const [saveToContacts, setSaveToContacts] = useState(false);
   const saveContacts = useSaveContacts();
 
@@ -33,7 +38,12 @@ export default function SplitterPage() {
   useEffect(() => {
     const saved = localStorage.getItem("stellar_stream_bulk_splitter_session");
     if (saved && status === "idle") {
-      setShowRestorePrompt(true);
+      const lastIdx = sessionStorage.getItem("stellar_stream_last_success_index");
+      if (lastIdx !== null && parseInt(lastIdx, 10) >= 0) {
+        setShowResumeBanner(true);
+      } else {
+        setShowRestorePrompt(true);
+      }
     }
   }, [status]);
 
@@ -83,6 +93,21 @@ export default function SplitterPage() {
           onClear={() => {
             reset();
             setShowRestorePrompt(false);
+          }}
+        />
+      )}
+
+      {showResumeBanner && lastSuccessfulIndex !== null && (
+        <ResumeWizardBanner
+          lastSuccessfulIndex={lastSuccessfulIndex}
+          remainingCount={remainingRecipients.length}
+          onContinue={() => {
+            setIsResuming(true);
+            setShowResumeBanner(false);
+          }}
+          onDismiss={() => {
+            reset();
+            setShowResumeBanner(false);
           }}
         />
       )}
@@ -158,6 +183,34 @@ export default function SplitterPage() {
         </section>
       </div>
 
+      {/* Filtered Recipient Grid for Resume Mode */}
+      {isResuming && remainingRecipients.length > 0 && (
+        <section className="rounded-3xl border border-cyan-400/20 bg-cyan-400/[0.02] p-6 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-cyan-400/10 p-2 text-cyan-400">
+                <ListFilter className="h-5 w-5" />
+              </div>
+              <h2 className="font-heading text-xl">Remaining Recipients</h2>
+            </div>
+            <div className="text-xs text-cyan-400/60 font-medium px-3 py-1 rounded-full border border-cyan-400/20 bg-cyan-400/5">
+              Filtered View: Resuming Partial Split
+            </div>
+          </div>
+
+          <RecipientGrid
+            rows={remainingRecipients.map((r, i) => ({
+              id: `remaining-${i}`,
+              address: r.address,
+              amount: (Number(r.amount) / 1e7).toString(), // Back to decimal
+              memoType: r.memoType || "none",
+              memo: r.memo || "",
+            }))}
+            onChange={() => {}} // Read-only in resume mode for now
+          />
+        </section>
+      )}
+
       {/* Step 3: Dispatch */}
       <section className={`rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl transition-all ${batches.length === 0 ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"}`}>
         <div className="flex items-center gap-3 mb-6">
@@ -186,8 +239,11 @@ export default function SplitterPage() {
 
         {batches.length > 0 && (
           <BulkDispatchPanel
-            batchStates={batchStates}
-            onDispatch={handleDispatch}
+            batchStates={isResuming 
+              ? batchStates.filter(b => b.status === 'error' || b.status === 'idle')
+              : batchStates
+            }
+            onDispatch={isResuming ? retryFailed : dispatch}
             onRetryFailed={retryFailed}
             submitBatch={mockSubmitBatch}
           />
