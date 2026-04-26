@@ -1,137 +1,139 @@
+# StellarStream - Bulk Payment Processing
 
-# StellarStream 🌊
-**Real-time, linear asset streaming on the Stellar Network.**
+A modern web application for processing bulk payments with an advanced recipient grid and bulk-edit utility bar.
 
-StellarStream is a decentralized, non-custodial protocol built on Soroban. It enables "Money as a Stream"—allowing assets to flow from senders to receivers second-by-second based on the ledger timestamp. 
+## Features
 
-This project moves away from traditional lump-sum payroll cycles, offering instant liquidity for employees, freelancers, and service providers while reducing trust requirements between parties.
+### 🎯 Bulk-Edit Utility Bar
+- **Multi-select toolbar** that appears when 2+ rows are selected
+- **"Apply to All" functions** for Amount, Asset, and Memo fields
+- **Smart input validation** with appropriate input types for each field
+- **Floating design** that stays visible while scrolling
 
----
+### 📊 Recipient Grid
+- **Individual row selection** with checkbox controls
+- **Inline editing** for all recipient fields
+- **Visual feedback** for selected rows
+- **Responsive design** that works on all screen sizes
 
-## 🚀 The Concept: How it Works
-Traditional payments are discrete events. StellarStream treats payment as a continuous function of time. Once a stream is initialized, the smart contract "unlocks" a portion of the total funds every time a new ledger is closed on the Stellar network.
+### 🚀 Core Functionality
+- Add/remove recipients dynamically
+- Import/Export CSV support (UI ready)
+- Real-time validation and updates
+- Clean, modern UI with Tailwind CSS
 
-### The Mathematical Engine
-The contract calculates the "Unlocked Balance" using the following linear formula:
+## Technical Implementation
 
-$$Unlocked = \frac{TotalAmount \times (CurrentTime - StartTime)}{EndTime - StartTime}$$
+### Components
 
-* **CurrentTime**: The timestamp of the latest ledger.
-* **StartTime**: The moment the stream begins.
-* **EndTime**: The moment the stream is fully vested.
+#### `BulkEditBar.tsx`
+- **Smart visibility**: Only shows when 2+ recipients are selected
+- **Action modes**: Amount, Asset, and Memo editing modes
+- **Input validation**: Type-specific validation for each field
+- **Apply logic**: Updates all selected recipients simultaneously
 
----
+#### `RecipientGrid.tsx`
+- **Selection management**: Individual and bulk selection controls
+- **Inline editing**: Direct editing of recipient data
+- **Visual states**: Selected rows have distinct styling
+- **Responsive table**: Horizontal scrolling on mobile devices
 
-## ✨ Features in Detail
+#### `page.tsx`
+- **State management**: Central recipient state management
+- **Event handling**: Comprehensive event handling for all interactions
+- **Integration**: Seamless integration between grid and bulk-edit bar
 
-### 1. Second-by-Second Liquidity
-Receivers do not need to wait for the stream to end. They can call the `withdraw` function at any moment to pull the currently unlocked portion of funds into their wallet.
+### Data Flow
 
-### 2. Programmable Cancellations
-Either party (or just the sender, depending on configuration) can terminate the stream early. 
-* **Receiver** gets the pro-rated amount earned up to that exact second.
-* **Sender** is automatically refunded the remaining "unearned" balance.
+1. **Selection**: Users select recipients via checkboxes
+2. **Bulk Bar**: Utility bar appears when 2+ are selected
+3. **Action Selection**: User chooses Amount, Asset, or Memo action
+4. **Input**: User provides the value to apply
+5. **Apply**: All selected recipients are updated simultaneously
 
-### 3. Native Asset Support
-StellarStream utilizes the **Soroban Token Interface**, making it compatible with:
-* **Fiat Stablecoins**: USDC, BRLG, ARST.
-* **Stellar Assets**: Wrapped XLM and other SAC-compliant tokens.
+### TypeScript Interfaces
 
----
+```typescript
+interface Recipient {
+  id: string
+  address: string
+  amount: number
+  asset: string
+  memo: string
+  selected: boolean
+}
 
-## 🛠 Project Structure
-
-This repository is organized as a modular monorepo. Each layer is decoupled to allow specialized development without cross-dependencies during the build phase.
-
-### Directory Mapping
-```text
-StellarStream/
-├── contracts/               # THE CORE PROTOCOL (Rust + Soroban)
-│   ├── src/
-│   │   ├── lib.rs           # Main entry points (initialize, withdraw, cancel)
-│   │   ├── types.rs         # Data structures (Stream, UserProfile)
-│   │   ├── math.rs          # Precise fixed-point arithmetic for streaming
-│   │   ├── validation.rs    # Safety guards (TTL, Auth, Bounds)
-│   │   └── errors.rs        # Custom Error Enum with 40+ variants
-│   └── tests/               # Comprehensive test suite (try_ pattern)
-│
-├── frontend/                # THE USER DASHBOARD (Next.js 14)
-│   ├── src/
-│   │   ├── components/      # "Ticking" balance UI, Stream cards
-│   │   ├── hooks/           # Soroban-Client & Freighter Wallet hooks
-│   │   ├── store/           # Global state for active streams (Zustand/Redux)
-│   │   └── layout/          # Responsive Dashboard for Senders/Receivers
-│
-├── backend/                 # THE ANALYTICS LAYER (Node.js + TS)
-│   ├── src/
-│   │   ├── indexer/         # Event listener for Horizon/Soroban-RPC
-│   │   ├── db/              # PostgreSQL schema for historical data
-│   │   └── api/             # REST/GraphQL endpoints for stream stats
-│
-└── docs/                    # Technical specs and Wave assets
+type BulkEditAction = 'amount' | 'asset' | 'memo'
 ```
 
----
+## Getting Started
 
-## 🤝 How to Contribute
-We follow an Issue-Oriented workflow. Contributors should assign themselves to an issue before starting work.
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
 
-### Folder-Specific Guidelines
+### Installation
 
-#### 🦀 Smart Contract Engineers (/contracts)
-**Focus**: State management, security, and gas optimization.
-
-**Setup**: Requires rustup and soroban-cli.
-
-**Rule**: No logic changes without a corresponding test update. Use cargo test before submitting PRs.
-
-#### ⚛️ Frontend Developers (/frontend)
-**Focus**: UX/UI, real-time data visualization, and wallet connectivity.
-
-**Setup**: npm install inside the directory.
-
-**Rule**: Components must be responsive. Use framer-motion for the ticking number animations.
-
-#### 🗄️ Backend Engineers (/backend)
-**Focus**: Indexing performance, data persistence, and API reliability.
-
-**Setup**: Docker-compose is provided for local DB setup.
-
-**Rule**: The indexer must be idempotent and capable of handling ledger rollbacks.
-
----
-
-## 📖 Developer Resources
-
-### API Documentation
-* **V3 API Reference (Swagger UI)**: `http://localhost:3000/api/v3/docs`
-* **Legacy V1 API**: `http://localhost:3000/api/v1/docs`
-
-For detailed integration guides, see the [/docs](/docs) directory.
-
----
-
-## 🚦 Getting Started
-
-1. **Clone the Repository:**
 ```bash
-git clone https://github.com/your-username/stellar-stream.git
-cd stellar-stream
-```
-
-2. **Build Contracts:**
-```bash
-cd contracts
-soroban contract build
-```
-
-3. **Run Frontend:**
-```bash
-cd ../frontend
+# Install dependencies
 npm install
+
+# Run development server
 npm run dev
+
+# Build for production
+npm run build
 ```
 
----
+### Usage
 
-Built for the Drips Stellar Wave. Pushing the boundaries of real-time finance.
+1. **Add Recipients**: Click "Add Recipient" to create new rows
+2. **Select Rows**: Use checkboxes to select multiple recipients
+3. **Bulk Edit**: The utility bar appears automatically when 2+ rows are selected
+4. **Apply Changes**: Choose an action and enter the value to apply to all selected
+
+## Bulk-Edit Features
+
+### Amount Editing
+- **Input type**: Number with decimal support
+- **Validation**: Validates numeric input
+- **Example**: "Add 5 USDC to all selected"
+
+### Asset Editing  
+- **Input type**: Text
+- **Common values**: USDC, XLM, EURT, etc.
+- **Example**: "Set all BPS to 500"
+
+### Memo Editing
+- **Input type**: Text
+- **Character limit**: No strict limit
+- **Example**: "Set memo to 'Payment Batch #123'"
+
+## Styling
+
+- **Framework**: Tailwind CSS
+- **Colors**: Primary blue theme with gray accents
+- **Responsive**: Mobile-first design approach
+- **Components**: Radix UI for accessible form controls
+
+## Future Enhancements
+
+- [ ] CSV import/export functionality
+- [ ] Payment processing integration
+- [ ] Advanced filtering and sorting
+- [ ] Undo/redo functionality
+- [ ] Keyboard shortcuts
+- [ ] Batch validation before processing
+
+## Contributing
+
+This project follows standard Next.js and React patterns. When contributing:
+
+1. Follow existing code style
+2. Add TypeScript types for new props
+3. Test bulk-edit functionality thoroughly
+4. Ensure responsive design works on all devices
+
+## License
+
+MIT License - see LICENSE file for details
