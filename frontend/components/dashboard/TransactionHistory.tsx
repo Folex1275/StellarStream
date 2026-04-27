@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useFilterSync } from "@/hooks/useFilterSync";
+import AdvancedFilterSidebar, { TransactionFilters } from "./AdvancedFilterSidebar";
 import { DisbursementHistoryCard } from "@/components/dashboard/DisbursementHistoryCard";
 import type { DraftProposal } from "@/app/api/v3/proposals/pending/route";
 
@@ -193,7 +195,17 @@ export default function TransactionHistory() {
   const [statusFilter, setStatusFilter] = useState<TxStatus | "All">("All");
   const [search, setSearch]         = useState("");
   const [page, setPage]             = useState(1);
+  const [filterSidebarOpen, setFilterSidebarOpen] = useState(false);
   const PER_PAGE = 8;
+
+  // Advanced filters with URL sync
+  const { filters: advancedFilters, updateFilters: updateAdvancedFilters, clearFilters: clearAdvancedFilters } = useFilterSync<TransactionFilters>({
+    status: [],
+    assetType: [],
+    senderRole: [],
+    amountMin: null,
+    amountMax: null,
+  });
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -205,6 +217,21 @@ export default function TransactionHistory() {
     let rows = [...TRANSACTIONS];
     if (typeFilter !== "All")   rows = rows.filter(r => r.type === typeFilter);
     if (statusFilter !== "All") rows = rows.filter(r => r.status === statusFilter);
+    
+    // Apply advanced filters
+    if (advancedFilters.status.length > 0) {
+      rows = rows.filter(r => advancedFilters.status.includes(r.status));
+    }
+    if (advancedFilters.assetType.length > 0) {
+      rows = rows.filter(r => advancedFilters.assetType.includes(r.asset));
+    }
+    if (advancedFilters.amountMin !== null) {
+      rows = rows.filter(r => r.amount >= advancedFilters.amountMin!);
+    }
+    if (advancedFilters.amountMax !== null) {
+      rows = rows.filter(r => r.amount <= advancedFilters.amountMax!);
+    }
+    
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter(r =>
@@ -225,7 +252,7 @@ export default function TransactionHistory() {
       return 0;
     });
     return rows;
-  }, [sortKey, sortDir, typeFilter, statusFilter, search]);
+  }, [sortKey, sortDir, typeFilter, statusFilter, search, advancedFilters]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -333,6 +360,15 @@ export default function TransactionHistory() {
               borderBottom: "1px solid rgba(255,255,255,0.05)",
               display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center",
             }}>
+              {/* Advanced Filter Sidebar Toggle */}
+              <AdvancedFilterSidebar
+                filters={advancedFilters}
+                onFiltersChange={updateAdvancedFilters}
+                onClearAll={clearAdvancedFilters}
+                isOpen={filterSidebarOpen}
+                onToggle={() => setFilterSidebarOpen(!filterSidebarOpen)}
+              />
+
               {/* Search */}
               <input
                 className="search-input"
