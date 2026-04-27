@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import TransactionHistory from "@/components/dashboard/TransactionHistory";
 import { SanctionsFlagBanner, type SanctionsFlag } from "@/components/compliance/SanctionsFlagBanner";
+import RoadmapTeaser from "@/components/dashboard/RoadmapTeaser";
 
 // ─── Mock: replace with real data from the compliance backend ─────────────────
 const MOCK_FLAGS: SanctionsFlag[] = [
@@ -384,6 +385,9 @@ export default function StreamDetailPage() {
 
       {/* ── BOTTOM: Transaction History Component (#156) ── */}
       <TransactionHistory />
+
+      {/* ── V4 Roadmap Teaser Widget (#1048) ── */}
+      <RoadmapTeaser />
 
     </div>
   );
