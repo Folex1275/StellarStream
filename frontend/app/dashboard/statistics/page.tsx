@@ -1,6 +1,7 @@
 import { ProtocolPulseCard } from "@/components/dashboard/ProtocolPulseCard";
 import { TreasuryHealthDashboard } from "@/components/dashboard/TreasuryHealthDashboard";
 import { BurnRateForecast } from "@/components/dashboard/BurnRateForecast";
+import { DisbursementHeatmap } from "@/components/dashboard/DisbursementHeatmap";
 
 export default function StatisticsPage() {
   return (
@@ -18,6 +19,8 @@ export default function StatisticsPage() {
       </section>
 
       <ProtocolPulseCard />
+
+      <DisbursementHeatmap />
 
       <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur-xl md:p-8">
         <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase mb-1">Forecasting</p>
