@@ -23,6 +23,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Wallet, AlertTriangle, X, Sparkles } from "lucide-react";
 import { useWallet } from "@/lib/wallet-context";
 import { useSplitsRemaining } from "@/lib/use-splits-remaining";
+import { useInterval } from "@/lib/hooks/use-interval";
+import { usePageVisibility } from "@/lib/hooks/use-page-visibility";
+import { fetchAccountBalances, HORIZON_MAINNET_URL, HORIZON_TESTNET_URL } from "@/lib/horizon";
+import { normalizeNetworkName } from "@/lib/network";
 import { GasTankAdvisor } from "./dashboard/GasTankAdvisor";
 
 // Refill links for different exchanges
@@ -43,19 +47,24 @@ export default function GasTank({
   warningThreshold = 5,
   position = "sidebar",
 }: GasTankProps) {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, network } = useWallet();
   const [balance, setBalance] = useState<number>(0);
+  const [previousBalance, setPreviousBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRefillModal, setShowRefillModal] = useState(false);
   const [showAdvisor, setShowAdvisor] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
+  
+  // Page visibility for pausing polling
+  const isPageVisible = usePageVisibility();
   
   // Get splits remaining calculation
   const { approximateSplits, isLoading: splitsLoading } = useSplitsRemaining(balance);
 
   // Fetch XLM balance
   const fetchBalance = useCallback(async () => {
-    if (!address) {
+    if (!address || !network) {
       setBalance(0);
       setIsLoading(false);
       return;
@@ -65,15 +74,20 @@ export default function GasTank({
     setError(null);
 
     try {
-      // In production, this would use stellar-sdk to fetch the balance
-      // For now, we'll simulate a balance check
-      // const server = new Stellar.Server("https://horizon-testnet.stellar.org");
-      // const account = await server.loadAccount(address);
-      // const xlmBalance = account.balances.find(b => b.asset_type === "native");
+      const normalizedNetwork = normalizeNetworkName(network);
+      const horizonUrl = normalizedNetwork === "mainnet" ? HORIZON_MAINNET_URL : HORIZON_TESTNET_URL;
       
-      // Mock balance for demo
-      const mockBalance = 3.42; // Simulated low balance
-      setBalance(mockBalance);
+      const balances = await fetchAccountBalances(address, horizonUrl);
+      const xlmBalance = parseFloat(balances.xlm);
+      
+      // Check if balance changed for pulse animation
+      if (previousBalance !== xlmBalance && previousBalance !== 0) {
+        setIsPulsing(true);
+        setTimeout(() => setIsPulsing(false), 1000); // Pulse for 1 second
+      }
+      
+      setPreviousBalance(xlmBalance);
+      setBalance(xlmBalance);
     } catch (err) {
       console.error("Failed to fetch XLM balance:", err);
       setError("Failed to fetch balance");
@@ -81,16 +95,18 @@ export default function GasTank({
     } finally {
       setIsLoading(false);
     }
-  }, [address]);
+  }, [address, network, previousBalance]);
 
-  // Fetch balance on mount and when address changes
+  // Fetch balance on mount and when address/network changes
   useEffect(() => {
     fetchBalance();
-    
-    // Poll balance every 30 seconds
-    const interval = setInterval(fetchBalance, 30000);
-    return () => clearInterval(interval);
   }, [fetchBalance]);
+
+  // Poll balance every 30 seconds, but only when page is visible
+  useInterval(fetchBalance, isPageVisible ? 30000 : null);
+
+  const isLowBalance = balance < warningThreshold;
+  const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
 
   const isLowBalance = balance < warningThreshold;
   const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
@@ -228,6 +244,21 @@ export default function GasTank({
           font-size: 20px;
           font-weight: 700;
           transition: color 0.3s ease;
+        }
+
+        .balance-value.pulse {
+          animation: balance-pulse 1s ease-in-out;
+        }
+
+        @keyframes balance-pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+          }
         }
 
         .balance-value.normal {
@@ -469,7 +500,7 @@ export default function GasTank({
 
         {/* Balance Display */}
         <div className="balance-display">
-          <span className={`balance-value ${isLowBalance ? "low" : "normal"}`}>
+          <span className={`balance-value ${isLowBalance ? "low" : "normal"} ${isPulsing ? "pulse" : ""}`}>
             {isLoading ? "..." : balance.toFixed(2)}
           </span>
           <span className="balance-unit">XLM</span>
