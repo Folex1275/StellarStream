@@ -17,15 +17,17 @@ import { xdr, nativeToScVal } from "@stellar/stellar-sdk";
 // ─── Mock Prisma before any service imports ───────────────────────────────────
 const mockEventLogUpsert = jest.fn().mockResolvedValue({ id: "mock-id" });
 const mockEventLogFindMany = jest.fn().mockResolvedValue([]);
+const mockEventLogFindFirst = jest.fn().mockResolvedValue(null);
 
-jest.mock("../generated/client/index.js", () => {
+jest.mock("../lib/db.js", () => {
   return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
+    prisma: {
       eventLog: {
         upsert: mockEventLogUpsert,
         findMany: mockEventLogFindMany,
+        findFirst: mockEventLogFindFirst,
       },
-    })),
+    },
   };
 });
 
@@ -37,8 +39,8 @@ jest.mock("@sentry/node", () => ({
 }));
 
 // ─── Imports (after mocks are registered) ────────────────────────────────────
-import { parseContractEvent } from "../event-parser";
-import { AuditLogService } from "../services/audit-log.service";
+import { parseContractEvent } from "../event-parser.js";
+import { AuditLogService } from "../services/audit-log.service.js";
 import type { SorobanRpc } from "@stellar/stellar-sdk";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

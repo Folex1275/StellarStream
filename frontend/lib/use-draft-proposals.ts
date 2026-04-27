@@ -11,6 +11,10 @@ export interface RejectPayload {
     comment: string;
 }
 
+export interface ApprovePayload {
+    proposalId: string;
+}
+
 async function fetchPendingProposals(): Promise<DraftProposal[]> {
     const res = await fetch("/api/v3/proposals/pending");
     if (!res.ok) throw new Error("Failed to fetch proposals");
@@ -24,11 +28,18 @@ async function postReject(payload: RejectPayload): Promise<void> {
     await new Promise((r) => setTimeout(r, 1000));
 }
 
+async function postApprove(payload: ApprovePayload): Promise<void> {
+    // TODO: wire to real backend endpoint
+    // await fetch("/api/v3/proposals/approve", { method: "POST", body: JSON.stringify(payload) });
+    await new Promise((r) => setTimeout(r, 1000));
+}
+
 export function useDraftProposals(pollIntervalMs = 30_000) {
     const { proposals, setProposals, activeEditors, connected } = useSplitSync();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [rejectingIds, setRejectingIds] = useState<Set<string>>(new Set());
+    const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
 
     const load = useCallback(async () => {
         try {
@@ -64,5 +75,19 @@ export function useDraftProposals(pollIntervalMs = 30_000) {
         }
     }, [setProposals]);
 
-    return { proposals, loading, error, rejectingIds, rejectProposal, refresh: load, activeEditors, connected };
+    const approveProposal = useCallback(async (payload: ApprovePayload) => {
+        setApprovingIds((prev) => new Set(prev).add(payload.proposalId));
+        try {
+            await postApprove(payload);
+            setProposals((prev) => prev.filter((p) => p.id !== payload.proposalId));
+        } finally {
+            setApprovingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(payload.proposalId);
+                return next;
+            });
+        }
+    }, [setProposals]);
+
+    return { proposals, loading, error, rejectingIds, approvingIds, rejectProposal, approveProposal, refresh: load, activeEditors, connected };
 }

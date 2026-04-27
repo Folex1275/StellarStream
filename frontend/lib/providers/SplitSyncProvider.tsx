@@ -36,6 +36,15 @@ interface SplitSyncContextValue {
     /** proposalId → address of whoever is currently editing */
     activeEditors: Record<string, string>;
     connected: boolean;
+    /**
+     * Clone a past disbursement into a new draft for the current month.
+     * Copies the recipient list, resets timestamps, and marks it "pending".
+     * Returns the new draft's ID so callers can navigate to it.
+     */
+    cloneDisbursement: (source: DraftProposal) => string;
+    /** ID of the most recently cloned draft — used to trigger balance check */
+    pendingBalanceCheckId: string | null;
+    clearPendingBalanceCheck: () => void;
 }
 
 const SplitSyncContext = createContext<SplitSyncContextValue | null>(null);
@@ -49,6 +58,7 @@ export function useSplitSync(): SplitSyncContextValue {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "http://localhost:3001";
+const STORAGE_KEY = "stellar_stream_split_drafts";
 
 interface SplitSyncProviderProps {
     children: ReactNode;
@@ -60,7 +70,29 @@ export function SplitSyncProvider({ children, userAddress }: SplitSyncProviderPr
     const [proposals, setProposals] = useState<DraftProposal[]>([]);
     const [activeEditors, setActiveEditors] = useState<Record<string, string>>({});
     const [connected, setConnected] = useState(false);
+    const [pendingBalanceCheckId, setPendingBalanceCheckId] = useState<string | null>(null);
     const socketRef = useRef<Socket | null>(null);
+
+    const cloneDisbursement = useCallback((source: DraftProposal): string => {
+        const now = new Date();
+        const newId = `clone-${source.id}-${now.getTime()}`;
+        const monthLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+        const draft: DraftProposal = {
+            ...source,
+            id: newId,
+            title: `${source.title} — ${monthLabel}`,
+            status: "pending",
+            createdAt: now.toISOString(),
+            expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 48).toISOString(),
+        };
+        setProposals((prev) => [draft, ...prev]);
+        setPendingBalanceCheckId(newId);
+        return newId;
+    }, []);
+
+    const clearPendingBalanceCheck = useCallback(() => {
+        setPendingBalanceCheckId(null);
+    }, []);
 
     const applyDraftUpdated = useCallback((payload: DraftUpdatedPayload) => {
         setProposals((prev) => {
@@ -113,7 +145,7 @@ export function SplitSyncProvider({ children, userAddress }: SplitSyncProviderPr
     }, [userAddress, applyDraftUpdated, applyEditorPresence]);
 
     return (
-        <SplitSyncContext.Provider value={{ proposals, setProposals, activeEditors, connected }}>
+        <SplitSyncContext.Provider value={{ proposals, setProposals, activeEditors, connected, cloneDisbursement, pendingBalanceCheckId, clearPendingBalanceCheck }}>
             {children}
         </SplitSyncContext.Provider>
     );

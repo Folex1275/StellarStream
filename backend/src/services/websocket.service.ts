@@ -1,5 +1,15 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 
+export interface SplitExecutedPayload {
+  splitId: string;
+  /** Raw sender address — anonymization is done on the frontend */
+  sender: string;
+  amount: string;
+  token: string;
+  recipientCount: number;
+  timestamp: string;
+}
+
 export interface StreamEventPayload {
   streamId: string;
   sender: string;
@@ -30,6 +40,10 @@ export class WebSocketService {
 
       socket.on('join-stream-room', (userAddress: string) => {
         this.joinUserRoom(socket, userAddress);
+      });
+
+      socket.on('join-split-feed', () => {
+        socket.join('split-feed');
       });
 
       socket.on('leave-stream-room', (userAddress: string) => {
@@ -107,6 +121,11 @@ export class WebSocketService {
   broadcastToAll(event: string, payload: any): void {
     this.io.emit(event, payload);
     console.log(`📢 Broadcasted ${event} to all clients:`, payload);
+  }
+
+  emitSplitExecuted(payload: SplitExecutedPayload): void {
+    this.io.to('split-feed').emit('SPLIT_EXECUTED', payload);
+    console.log(`✂️  Emitted SPLIT_EXECUTED to split-feed:`, payload);
   }
 }
 

@@ -13,6 +13,7 @@ import {
     Users,
 } from "lucide-react";
 import { useDraftProposals, type DraftProposal } from "@/lib/use-draft-proposals";
+import { useWallet } from "@/lib/wallet-context";
 import { DraftEditingIndicator } from "@/components/dashboard/DraftEditingIndicator";
 import { Can } from "@/components/Can";
 import { toast } from "@/lib/toast";
@@ -115,17 +116,192 @@ function RejectModal({
     );
 }
 
+// ─── Action Sheet ───────────────────────────────────────────────────────────────
+
+function ProposalActionSheet({
+    proposal,
+    isOpen,
+    isApproving,
+    onApprove,
+    onClose,
+    onConnectWallet,
+    isConnected,
+    walletType,
+    walletAddress,
+}: {
+    proposal: DraftProposal;
+    isOpen: boolean;
+    isApproving: boolean;
+    onApprove: () => Promise<void>;
+    onClose: () => void;
+    onConnectWallet: () => void;
+    isConnected: boolean;
+    walletType: string | null;
+    walletAddress: string | null;
+}) {
+    const walletLabel =
+        walletType === "freighter"
+            ? "Freighter"
+            : walletType === "xbull"
+                ? "xBull"
+                : walletType === "albedo"
+                    ? "Albedo"
+                    : "Wallet";
+
+    const openWalletGuide = () => {
+        const href =
+            walletType === "albedo"
+                ? "https://albedo.link/"
+                : walletType === "xbull"
+                    ? "https://xbull.app/"
+                    : "https://www.freighter.app/";
+        window.open(href, "_blank");
+    };
+
+    return (
+        <div className={`fixed inset-0 z-50 ${isOpen ? "" : "pointer-events-none"}`}>
+            <div
+                className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${isOpen ? "opacity-100" : "opacity-0"}`}
+                onClick={onClose}
+            />
+            <div
+                className={`absolute inset-x-0 bottom-0 z-50 rounded-t-3xl border border-white/10 bg-[#080a12]/98 p-5 pb-6 shadow-2xl backdrop-blur-xl transition-transform duration-200 ${isOpen ? "translate-y-0" : "translate-y-full"}`}
+            >
+                <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-white/10" />
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/40">Review & Approve</p>
+                        <h2 className="mt-2 text-lg font-semibold text-white">{proposal.title}</h2>
+                        <p className="mt-1 text-sm text-white/50">One-tap authorization for multi-sig recipients.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/50 hover:bg-white/10 transition"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div className="mt-5 grid gap-3">
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <p className="text-xs uppercase tracking-[0.24em] text-white/40">Total Request</p>
+                                <p className="mt-2 text-xl font-semibold text-white">
+                                    {proposal.totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {proposal.token}
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/50">
+                                Expires in {timeUntil(proposal.expiresAt)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p className="text-xs uppercase tracking-[0.24em] text-white/40">Recipients</p>
+                                <p className="mt-2 text-sm font-semibold text-white">{proposal.recipients.length} split recipient{proposal.recipients.length !== 1 ? "s" : ""}</p>
+                            </div>
+                            <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.24em] text-white/50">
+                                Review
+                            </span>
+                        </div>
+                        <div className="space-y-2">
+                            {proposal.recipients.map((recipient, index) => (
+                                <div key={index} className="rounded-2xl border border-white/10 bg-[#0b0d14]/80 p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="font-mono text-xs text-white/60">{recipient.address}</p>
+                                            {recipient.note ? (
+                                                <p className="text-[11px] text-white/35">{recipient.note}</p>
+                                            ) : null}
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold text-white text-sm">{recipient.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {recipient.token}</p>
+                                            <p className="text-[11px] text-white/40">{((recipient.amount / proposal.totalAmount) * 100).toFixed(1)}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-xs uppercase tracking-[0.24em] text-white/40 mb-3">Approve from mobile</p>
+                        <div className="rounded-2xl border border-white/10 bg-[#0b0d14]/80 p-4">
+                            <p className="text-sm font-medium text-white">{isConnected ? `${walletLabel} connected` : "No wallet connected"}</p>
+                            <p className="mt-2 text-xs text-white/50">{isConnected ? walletAddress ?? "Connected wallet ready" : "Tap connect to sign from your mobile wallet."}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-3">
+                        {isConnected ? (
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    await onApprove();
+                                }}
+                                disabled={isApproving}
+                                className="inline-flex items-center justify-center rounded-2xl bg-[#00f5ff] px-4 py-3 text-sm font-semibold text-black hover:bg-[#00e0e8] disabled:opacity-40 disabled:cursor-not-allowed transition"
+                            >
+                                {isApproving ? (
+                                    <>
+                                        <Loader2 size={16} className="mr-2 animate-spin" />
+                                        Approving…
+                                    </>
+                                ) : (
+                                    `Approve with ${walletLabel}`
+                                )}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={onConnectWallet}
+                                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition"
+                            >
+                                Connect Wallet
+                            </button>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={openWalletGuide}
+                            className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white/70 hover:bg-white/10 transition"
+                        >
+                            Open {walletLabel} Mobile Guide
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="inline-flex items-center justify-center rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-white/60 hover:bg-white/10 transition"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── ProposalCard ─────────────────────────────────────────────────────────────
 
 function ProposalCard({
     proposal,
     isRejecting,
+    isApproving,
+    onApproveClick,
     onReject,
     activeEditor,
     currentUserAddress,
 }: {
     proposal: DraftProposal;
     isRejecting: boolean;
+    isApproving: boolean;
+    onApproveClick: () => void;
     onReject: (comment: string) => void;
     activeEditor?: string;
     currentUserAddress?: string | null;
@@ -230,13 +406,22 @@ function ProposalCard({
                             }
                         >
                             <button
-                                className="flex items-center gap-1.5 rounded-xl bg-[#00f5ff] px-4 py-1.5 text-xs font-bold text-black hover:bg-[#00e0e8] hover:shadow-[0_0_16px_rgba(0,245,255,0.35)] active:scale-95 transition-all"
+                                onClick={onApproveClick}
+                                disabled={isApproving}
+                                className="flex items-center gap-1.5 rounded-xl bg-[#00f5ff] px-4 py-1.5 text-xs font-bold text-black hover:bg-[#00e0e8] hover:shadow-[0_0_16px_rgba(0,245,255,0.35)] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                                <CheckCircle2 size={13} />
-                                Approve
+                                {isApproving ? (
+                                    <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                    <CheckCircle2 size={13} />
+                                )}
+                                {isApproving ? "Approving" : "Approve"}
                             </button>
                         </Can>
                     </div>
+                    <p className="mt-3 text-[11px] text-white/40 md:hidden">
+                        Tap Approve to open the mobile action sheet and review recipient splits before signing.
+                    </p>
                 </div>
 
                 {/* Expanded recipients */}
@@ -316,9 +501,21 @@ function ProposalCard({
 // ─── ApprovalInbox ────────────────────────────────────────────────────────────
 
 export default function ApprovalInbox() {
-    const { proposals, loading, error, rejectingIds, rejectProposal, refresh, activeEditors, connected } = useDraftProposals();
-    // TODO: replace with real wallet address from useWallet() when integrating auth
-    const currentUserAddress: string | null = null;
+    const {
+        proposals,
+        loading,
+        error,
+        rejectingIds,
+        approvingIds,
+        rejectProposal,
+        approveProposal,
+        refresh,
+        activeEditors,
+        connected,
+    } = useDraftProposals();
+    const { isConnected, address, walletType, openModal } = useWallet();
+    const currentUserAddress = address;
+    const [selectedProposal, setSelectedProposal] = useState<DraftProposal | null>(null);
 
     const handleReject = async (proposal: DraftProposal, comment: string) => {
         try {
@@ -332,6 +529,30 @@ export default function ApprovalInbox() {
             toast.error({ title: "Rejection Failed", description: "Please try again.", duration: 5000 });
         }
     };
+
+    const handleApprove = async (proposal: DraftProposal) => {
+        setSelectedProposal(proposal);
+    };
+
+    const submitApproval = async () => {
+        if (!selectedProposal) return;
+
+        try {
+            await approveProposal({ proposalId: selectedProposal.id });
+            toast.success({
+                title: "Proposal Approved",
+                description: `${selectedProposal.title} has been submitted for execution.`,
+                duration: 5000,
+            });
+        } catch {
+            toast.error({ title: "Approval Failed", description: "Please try again.", duration: 5000 });
+        } finally {
+            setSelectedProposal(null);
+        }
+    };
+
+    const closeActionSheet = () => setSelectedProposal(null);
+    const selectedApproving = selectedProposal ? approvingIds.has(selectedProposal.id) : false;
 
     return (
         <>
@@ -365,11 +586,10 @@ export default function ApprovalInbox() {
                         </button>
                         <div
                             title={connected ? "Live sync active" : "Reconnecting…"}
-                            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs ${
-                                connected
-                                    ? "border-[#00f5ff]/20 bg-[#00f5ff]/[0.05] text-[#00f5ff]/70"
-                                    : "border-white/10 bg-white/[0.04] text-white/30"
-                            }`}
+                            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs ${connected
+                                ? "border-[#00f5ff]/20 bg-[#00f5ff]/[0.05] text-[#00f5ff]/70"
+                                : "border-white/10 bg-white/[0.04] text-white/30"
+                                }`}
                         >
                             <span className={`relative flex h-1.5 w-1.5 ${connected ? "" : "opacity-40"}`}>
                                 {connected && (
@@ -414,12 +634,27 @@ export default function ApprovalInbox() {
                         <ProposalCard
                             proposal={proposal}
                             isRejecting={rejectingIds.has(proposal.id)}
+                            isApproving={approvingIds.has(proposal.id)}
+                            onApproveClick={() => handleApprove(proposal)}
                             onReject={(comment) => handleReject(proposal, comment)}
                             activeEditor={activeEditors[proposal.id]}
                             currentUserAddress={currentUserAddress}
                         />
                     </div>
                 ))
+            )}
+            {selectedProposal && (
+                <ProposalActionSheet
+                    proposal={selectedProposal}
+                    isOpen={Boolean(selectedProposal)}
+                    isApproving={selectedApproving}
+                    onApprove={submitApproval}
+                    onClose={closeActionSheet}
+                    onConnectWallet={openModal}
+                    isConnected={isConnected}
+                    walletType={walletType}
+                    walletAddress={address}
+                />
             )}
         </>
     );

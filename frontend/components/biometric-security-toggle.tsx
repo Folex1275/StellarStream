@@ -69,8 +69,14 @@ export default function BiometricSecurityToggle({
           cursor: pointer;
           transition: all 0.3s ease;
           overflow: hidden;
-          backdrop-filter: blur(24px);
           border: 2px solid;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .biometric-toggle {
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .biometric-toggle.disabled {

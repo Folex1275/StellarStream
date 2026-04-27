@@ -9,6 +9,7 @@ import validateRequest from "../middleware/validateRequest";
 import stellarAddressSchema from "../validation/stellar";
 import asyncHandler from "../utils/asyncHandler";
 import { prisma } from "../lib/db";
+import { sanitizeUnknown } from "../security/sanitize.js";
 
 const router = Router();
 const streamService = new StreamService();
@@ -196,7 +197,7 @@ router.post(
     body: estimateFeeBodySchema,
   }),
   asyncHandler(async (req: Request, res: Response) => {
-    const body = req.body as z.infer<typeof estimateFeeBodySchema>;
+    const body = sanitizeUnknown(req.body) as z.infer<typeof estimateFeeBodySchema>;
 
     if (body.endTime <= body.startTime) {
       res.status(400).json({

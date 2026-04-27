@@ -2,7 +2,7 @@
 
 // lib/bulk-splitter/use-bulk-splitter.ts
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { chunkRecipients, DEFAULT_BATCH_SIZE } from './utils';
 import type { Voter, Recipient } from './types';
 
@@ -43,14 +43,38 @@ export interface UseBulkSplitterReturn {
    * Batches that already succeeded are skipped — no duplicate payments.
    */
   retryFailed: (submitBatch: (recipients: Recipient[]) => Promise<string>) => Promise<void>;
+  /** Index of the last batch that was processed successfully. */
+  lastSuccessfulIndex: number | null;
+  /** Get only recipients from remaining (idle or error) batches. */
+  remainingRecipients: Recipient[];
   reset: () => void;
 }
 
-export function useBulkSplitter(): UseBulkSplitterReturn {
+const SESSION_STORAGE_KEY = 'stellar_stream_bulk_splitter_session';
+const LAST_SUCCESS_INDEX_KEY = 'stellar_stream_last_success_index';
+
+/**
+ * Custom JSON stringify replacer for BigInt support
+ */
+const bigIntReplacer = (_key: string, value: any) =>
+  typeof value === 'bigint' ? value.toString() + 'n' : value;
+
+/**
+ * Custom JSON parse reviver for BigInt support
+ */
+const bigIntReviver = (_key: string, value: any) => {
+  if (typeof value === 'string' && /^-?\d+n$/.test(value)) {
+    return BigInt(value.slice(0, -1));
+  }
+  return value;
+};
+
+export function useBulkSplitter(persistenceKey: string = SESSION_STORAGE_KEY): UseBulkSplitterReturn {
   const [status, setStatus] = useState<BulkSplitterStatus>('idle');
   const [voters, setVoters] = useState<Voter[]>([]);
   const [batches, setBatches] = useState<Recipient[][]>([]);
   const [batchStates, setBatchStates] = useState<BatchState[]>([]);
+  const [lastSuccessfulIndex, setLastSuccessfulIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const workerRef = useRef<Worker | null>(null);
 
@@ -64,13 +88,56 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
     return workerRef.current;
   }, []);
 
+  // ── Persistence ───────────────────────────────────────────────────────────
+
+  // Load session on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(persistenceKey);
+    if (saved) {
+      try {
+        const session = JSON.parse(saved, bigIntReviver);
+        if (session.voters) setVoters(session.voters);
+        if (session.batches) setBatches(session.batches);
+        if (session.batchStates) setBatchStates(session.batchStates);
+        if (session.status) setStatus(session.status);
+      } catch (err) {
+        console.error('[useBulkSplitter] Failed to restore session', err);
+      }
+    }
+
+    // Restore last successful index from sessionStorage
+    const savedIdx = sessionStorage.getItem(LAST_SUCCESS_INDEX_KEY);
+    if (savedIdx !== null) {
+      setLastSuccessfulIndex(parseInt(savedIdx, 10));
+    }
+  }, [persistenceKey]);
+
+  // Save session on state change
+  useEffect(() => {
+    if (voters.length > 0 || batchStates.length > 0) {
+      const session = { voters, batches, batchStates, status };
+      localStorage.setItem(persistenceKey, JSON.stringify(session, bigIntReplacer));
+    } else if (status === 'idle') {
+      localStorage.removeItem(persistenceKey);
+      sessionStorage.removeItem(LAST_SUCCESS_INDEX_KEY);
+      setLastSuccessfulIndex(null);
+    }
+  }, [voters, batches, batchStates, status, persistenceKey]);
+
+  // Sync lastSuccessfulIndex to sessionStorage
+  useEffect(() => {
+    if (lastSuccessfulIndex !== null) {
+      sessionStorage.setItem(LAST_SUCCESS_INDEX_KEY, lastSuccessfulIndex.toString());
+    }
+  }, [lastSuccessfulIndex]);
+
   const parse = useCallback(
     (rawData: string) => {
       setStatus('parsing');
       setError(null);
       const worker = getWorker();
 
-      worker.onmessage = (e) => {
+      worker.onmessage = (e: MessageEvent) => {
         const msg = e.data;
         if (msg.type === 'parsed') {
           // Rehydrate governance_score strings back to BigInt.
@@ -100,7 +167,7 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
       setError(null);
       const worker = getWorker();
 
-      worker.onmessage = (e) => {
+      worker.onmessage = (e: MessageEvent) => {
         const msg = e.data;
         if (msg.type === 'calculated') {
           const recipients: Recipient[] = msg.recipients.map(
@@ -112,7 +179,7 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
           const chunks = chunkRecipients(recipients, batchSize);
           setBatches(chunks);
           // Initialise all batch states to idle
-          setBatchStates(chunks.map((b) => ({ recipients: b, status: 'idle' })));
+          setBatchStates(chunks.map((b: Recipient[]) => ({ recipients: b, status: 'idle' })));
           setStatus('ready');
         } else if (msg.type === 'error') {
           setError(msg.message);
@@ -121,7 +188,7 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
       };
 
       // Serialise voters (BigInt → string) for structured clone.
-      const serialised = voters.map((v) => ({
+      const serialised = voters.map((v: Voter) => ({
         ...v,
         governance_score: v.governance_score.toString(),
       }));
@@ -142,17 +209,18 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
     ) => {
       for (const i of indices) {
         // Mark as pending
-        setBatchStates((prev) =>
-          prev.map((b, idx) => (idx === i ? { ...b, status: 'pending', error: undefined } : b)),
+        setBatchStates((prev: BatchState[]) =>
+          prev.map((b: BatchState, idx: number) => (idx === i ? { ...b, status: 'pending', error: undefined } : b)),
         );
         try {
           const txHash = await submitBatch(batchStates[i]?.recipients ?? batches[i]);
-          setBatchStates((prev) =>
-            prev.map((b, idx) => (idx === i ? { ...b, status: 'success', txHash } : b)),
+          setBatchStates((prev: BatchState[]) =>
+            prev.map((b: BatchState, idx: number) => (idx === i ? { ...b, status: 'success', txHash } : b)),
           );
+          setLastSuccessfulIndex(i);
         } catch (err) {
-          setBatchStates((prev) =>
-            prev.map((b, idx) =>
+          setBatchStates((prev: BatchState[]) =>
+            prev.map((b: BatchState, idx: number) =>
               idx === i
                 ? { ...b, status: 'error', error: err instanceof Error ? err.message : String(err) }
                 : b,
@@ -166,7 +234,7 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
 
   const dispatch = useCallback(
     async (submitBatch: (recipients: Recipient[]) => Promise<string>) => {
-      const indices = batches.map((_, i) => i);
+      const indices = batches.map((_: Recipient[], i: number) => i);
       await runBatches(indices, submitBatch);
     },
     [batches, runBatches],
@@ -176,9 +244,9 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
     async (submitBatch: (recipients: Recipient[]) => Promise<string>) => {
       // Only retry batches that are not yet successful — prevents duplicate payments
       const indices = batchStates
-        .map((b, i) => ({ b, i }))
-        .filter(({ b }) => b.status === 'error' || b.status === 'idle')
-        .map(({ i }) => i);
+        .map((b: BatchState, i: number) => ({ b, i }))
+        .filter(({ b }: { b: BatchState; i: number }) => b.status === 'error' || b.status === 'idle')
+        .map(({ i }: { b: BatchState; i: number }) => i);
       await runBatches(indices, submitBatch);
     },
     [batchStates, runBatches],
@@ -191,15 +259,22 @@ export function useBulkSplitter(): UseBulkSplitterReturn {
     setVoters([]);
     setBatches([]);
     setBatchStates([]);
+    setLastSuccessfulIndex(null);
     setError(null);
-  }, []);
+    localStorage.removeItem(persistenceKey);
+    sessionStorage.removeItem(LAST_SUCCESS_INDEX_KEY);
+  }, [persistenceKey]);
 
   return {
     status,
     voters,
     batches,
     batchStates,
-    totalRecipients: batches.reduce((acc, b) => acc + b.length, 0),
+    totalRecipients: batches.reduce((acc: number, b: Recipient[]) => acc + b.length, 0),
+    lastSuccessfulIndex,
+    remainingRecipients: batchStates
+      .filter((b) => b.status === 'error' || b.status === 'idle')
+      .flatMap((b) => b.recipients),
     error,
     parse,
     calculate,

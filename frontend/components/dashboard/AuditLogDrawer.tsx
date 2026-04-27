@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Drawer } from "../Drawer";
-import { ExternalLink, ArrowUpRight, ArrowDownRight, History as HistoryIcon, ShieldCheck } from "lucide-react";
+import { ExternalLink, ArrowUpRight, ArrowDownRight, History as HistoryIcon, ShieldCheck, Shield } from "lucide-react";
+import Link from "next/link";
 
 interface AuditLogItem {
   id: string;
@@ -99,8 +100,8 @@ export function AuditLogDrawer({ isOpen, onClose }: AuditLogDrawerProps) {
         {error && (
           <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-sm text-rose-400">
             {error}
-            <button 
-              onClick={fetchAuditLog} 
+            <button
+              onClick={fetchAuditLog}
               className="ml-2 underline hover:text-rose-300"
             >
               Retry
@@ -117,7 +118,7 @@ export function AuditLogDrawer({ isOpen, onClose }: AuditLogDrawerProps) {
         {!isLoading && events.length > 0 && (
           <div className="space-y-4">
             {events.map((event) => (
-              <div 
+              <div
                 key={event.id}
                 className="group rounded-2xl border border-white/5 bg-white/[0.02] p-4 transition-all hover:border-white/10 hover:bg-white/[0.04]"
               >
@@ -165,7 +166,7 @@ export function AuditLogDrawer({ isOpen, onClose }: AuditLogDrawerProps) {
                     </span>
                   </div>
                 )}
-                
+
                 <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
                   <span className="text-[9px] text-white/20 font-mono">ID: {event.streamId.slice(0, 12)}...</span>
                   <span className="text-[9px] text-white/20">Ledger: {event.ledger}</span>
@@ -173,6 +174,18 @@ export function AuditLogDrawer({ isOpen, onClose }: AuditLogDrawerProps) {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Link to full audit-trail visualizer */}
+        {!isLoading && (
+          <Link
+            href="/dashboard/audit-trail"
+            onClick={onClose}
+            className="flex items-center justify-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.05] px-4 py-3 text-xs text-cyan-400 hover:bg-cyan-400/10 transition-colors"
+          >
+            <Shield className="h-4 w-4" />
+            Open Audit-Trail Visualizer →
+          </Link>
         )}
       </div>
     </Drawer>

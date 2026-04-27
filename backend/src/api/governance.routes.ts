@@ -5,6 +5,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import validateRequest from "../middleware/validateRequest.js";
 import stellarAddressSchema from "../validation/stellar.js";
 import { VotingPowerService } from "../services/voting-power.service.js";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 interface IndexedProposalRow {
   id: string;
@@ -30,6 +31,7 @@ const votingPowerParamsSchema = z.object({
  */
 router.post(
   "/governance/proposals",
+  requireAuth,
   validateRequest({
     body: z.object({
       creator: stellarAddressSchema,

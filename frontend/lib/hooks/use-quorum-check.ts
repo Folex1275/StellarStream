@@ -5,7 +5,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useWallet } from "@/lib/wallet-context";
-import SorobanRpc from "@stellar/stellar-sdk/lib/rpc";
+import { Horizon } from "@stellar/stellar-sdk";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,24 +93,20 @@ export function useQuorumCheck(): QuorumCheckResult {
     setError(null);
 
     try {
-      const rpc = new SorobanRpc.Server(RPC_URL, {
-        allowHttp: RPC_URL.startsWith("http://"),
-      });
+      const horizon = new Horizon.Server("https://horizon.stellar.org");
 
-      // Fetch account data from Stellar RPC
-      const accountData = await rpc.getAccount(address);
+      // Fetch account data from Horizon
+      const accountData = await horizon.loadAccount(address);
 
-      // Extract thresholds
-      const accountThresholds = accountData.thresholds();
+      // Extract thresholds (Account has these as properties)
       const newThresholds: AccountThreshold = {
-        low: accountThresholds.low_threshold,
-        med: accountThresholds.med_threshold,
-        high: accountThresholds.high_threshold,
+        low: accountData.thresholds.low_threshold,
+        med: accountData.thresholds.med_threshold,
+        high: accountData.thresholds.high_threshold,
       };
 
       // Extract signers
-      const accountSigners = accountData.signers();
-      const parsedSigners: Signer[] = accountSigners.map((signer) => ({
+      const parsedSigners: Signer[] = accountData.signers.map((signer) => ({
         key: signer.key,
         weight: signer.weight,
         type: (() => {

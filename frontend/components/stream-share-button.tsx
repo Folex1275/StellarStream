@@ -121,13 +121,20 @@ export default function StreamShareButton({
           top: calc(100% + 8px);
           right: 0;
           min-width: 220px;
-          background: rgba(10, 10, 20, 0.95);
-          backdrop-filter: blur(16px);
+          background: rgba(10, 10, 20, 0.97);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 14px;
           padding: 8px;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
           z-index: 100;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .share-dropdown {
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
         }
 
         .dropdown-item {
@@ -164,12 +171,19 @@ export default function StreamShareButton({
         .qr-modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(8px);
+          background: rgba(0, 0, 0, 0.85);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 9999;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .qr-modal-overlay {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .qr-modal {

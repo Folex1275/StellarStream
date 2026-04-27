@@ -381,9 +381,21 @@ export default function EmptyState({ onCreateStream }: EmptyStateProps) {
           color: #00e5ff;
           cursor: pointer;
           transition: all 0.25s ease;
-          backdrop-filter: blur(12px);
           overflow: hidden;
           text-transform: uppercase;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .es-cta {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .es-cta {
+            transition: none;
+          }
         }
 
         .es-cta::before {

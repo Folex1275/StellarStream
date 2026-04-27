@@ -18,6 +18,8 @@ export type ProtocolStatus = {
     emergencyReason: string | null;
     /** Timestamp of when emergency mode was detected */
     emergencyDetectedAt: Date | null;
+    /** The current protocol fee in basis points (1 bp = 0.01%) */
+    feeBps: number;
     /** Whether the initial status fetch is still in-flight */
     isLoading: boolean;
     /** Last time the status was successfully polled */
@@ -30,6 +32,7 @@ const ProtocolStatusContext = createContext<ProtocolStatus>({
     isEmergency: false,
     emergencyReason: null,
     emergencyDetectedAt: null,
+    feeBps: 30, // Default 0.3%
     isLoading: true,
     lastChecked: null,
 });
@@ -45,11 +48,13 @@ const ProtocolStatusContext = createContext<ProtocolStatus>({
 //   return {
 //     isEmergency: result.is_emergency,
 //     reason:      result.emergency_reason ?? null,
+//     fee_bps:     result.fee_bps,
 //   };
 //
 async function fetchProtocolStatus(): Promise<{
     isEmergency: boolean;
     reason: string | null;
+    feeBps: number;
 }> {
     // Simulate network round-trip
     await new Promise((r) => setTimeout(r, 600));
@@ -61,11 +66,12 @@ async function fetchProtocolStatus(): Promise<{
         return {
             isEmergency: true,
             reason: "Contract paused by multisig guardian — funds are safe.",
+            feeBps: 30,
         };
     }
     // ── /DEV TOGGLE ─────────────────────────────────────────────────────────────
 
-    return { isEmergency: false, reason: null };
+    return { isEmergency: false, reason: null, feeBps: 30 };
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -77,19 +83,21 @@ export function ProtocolStatusProvider({ children }: { children: ReactNode }) {
         isEmergency: false,
         emergencyReason: null,
         emergencyDetectedAt: null,
+        feeBps: 30,
         isLoading: true,
         lastChecked: null,
     });
 
     const poll = useCallback(async () => {
         try {
-            const { isEmergency, reason } = await fetchProtocolStatus();
+            const { isEmergency, reason, feeBps } = await fetchProtocolStatus();
             setStatus((prev) => ({
                 isEmergency,
                 emergencyReason: reason,
                 // Preserve the original detection timestamp so the banner doesn't reset
                 emergencyDetectedAt:
                     isEmergency && !prev.isEmergency ? new Date() : prev.emergencyDetectedAt,
+                feeBps,
                 isLoading: false,
                 lastChecked: new Date(),
             }));
@@ -98,6 +106,7 @@ export function ProtocolStatusProvider({ children }: { children: ReactNode }) {
             setStatus((prev) => ({ ...prev, isLoading: false, lastChecked: new Date() }));
         }
     }, []);
+
 
     useEffect(() => {
         poll();

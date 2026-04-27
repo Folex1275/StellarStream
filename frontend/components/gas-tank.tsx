@@ -14,12 +14,20 @@
  * - Visual fuel gauge with animated liquid
  * - "Cosmic Red" warning state when balance < 5 XLM
  * - Refill links to LOBSTR/Binance swap pages
+ * - Splits Remaining Calculator: Shows "Approx. X splits remaining" based on
+ *   current balance and average split cost (balance / average_split_cost)
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Wallet, AlertTriangle, X } from "lucide-react";
+import { ExternalLink, Wallet, AlertTriangle, X, Sparkles } from "lucide-react";
 import { useWallet } from "@/lib/wallet-context";
+import { useSplitsRemaining } from "@/lib/use-splits-remaining";
+import { useInterval } from "@/lib/hooks/use-interval";
+import { usePageVisibility } from "@/lib/hooks/use-page-visibility";
+import { fetchAccountBalances, HORIZON_MAINNET_URL, HORIZON_TESTNET_URL } from "@/lib/horizon";
+import { normalizeNetworkName } from "@/lib/network";
+import { GasTankAdvisor } from "./dashboard/GasTankAdvisor";
 
 // Refill links for different exchanges
 const REFILL_LINKS = {
@@ -39,15 +47,24 @@ export default function GasTank({
   warningThreshold = 5,
   position = "sidebar",
 }: GasTankProps) {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected, network } = useWallet();
   const [balance, setBalance] = useState<number>(0);
+  const [previousBalance, setPreviousBalance] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRefillModal, setShowRefillModal] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
+  
+  // Page visibility for pausing polling
+  const isPageVisible = usePageVisibility();
+  
+  // Get splits remaining calculation
+  const { approximateSplits, isLoading: splitsLoading } = useSplitsRemaining(balance);
 
   // Fetch XLM balance
   const fetchBalance = useCallback(async () => {
-    if (!address) {
+    if (!address || !network) {
       setBalance(0);
       setIsLoading(false);
       return;
@@ -57,15 +74,20 @@ export default function GasTank({
     setError(null);
 
     try {
-      // In production, this would use stellar-sdk to fetch the balance
-      // For now, we'll simulate a balance check
-      // const server = new Stellar.Server("https://horizon-testnet.stellar.org");
-      // const account = await server.loadAccount(address);
-      // const xlmBalance = account.balances.find(b => b.asset_type === "native");
+      const normalizedNetwork = normalizeNetworkName(network);
+      const horizonUrl = normalizedNetwork === "mainnet" ? HORIZON_MAINNET_URL : HORIZON_TESTNET_URL;
       
-      // Mock balance for demo
-      const mockBalance = 3.42; // Simulated low balance
-      setBalance(mockBalance);
+      const balances = await fetchAccountBalances(address, horizonUrl);
+      const xlmBalance = parseFloat(balances.xlm);
+      
+      // Check if balance changed for pulse animation
+      if (previousBalance !== xlmBalance && previousBalance !== 0) {
+        setIsPulsing(true);
+        setTimeout(() => setIsPulsing(false), 1000); // Pulse for 1 second
+      }
+      
+      setPreviousBalance(xlmBalance);
+      setBalance(xlmBalance);
     } catch (err) {
       console.error("Failed to fetch XLM balance:", err);
       setError("Failed to fetch balance");
@@ -73,16 +95,18 @@ export default function GasTank({
     } finally {
       setIsLoading(false);
     }
-  }, [address]);
+  }, [address, network, previousBalance]);
 
-  // Fetch balance on mount and when address changes
+  // Fetch balance on mount and when address/network changes
   useEffect(() => {
     fetchBalance();
-    
-    // Poll balance every 30 seconds
-    const interval = setInterval(fetchBalance, 30000);
-    return () => clearInterval(interval);
   }, [fetchBalance]);
+
+  // Poll balance every 30 seconds, but only when page is visible
+  useInterval(fetchBalance, isPageVisible ? 30000 : null);
+
+  const isLowBalance = balance < warningThreshold;
+  const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
 
   const isLowBalance = balance < warningThreshold;
   const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
@@ -222,6 +246,21 @@ export default function GasTank({
           transition: color 0.3s ease;
         }
 
+        .balance-value.pulse {
+          animation: balance-pulse 1s ease-in-out;
+        }
+
+        @keyframes balance-pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+          }
+        }
+
         .balance-value.normal {
           color: #00e5ff;
         }
@@ -234,6 +273,35 @@ export default function GasTank({
           font-size: 11px;
           color: rgba(255, 255, 255, 0.4);
           letter-spacing: 0.05em;
+        }
+
+        /* Splits Remaining Indicator */
+        .splits-remaining {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          padding: 8px 12px;
+          background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(0, 160, 200, 0.05));
+          border: 1px solid rgba(0, 229, 255, 0.15);
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #00e5ff;
+          width: 100%;
+          text-align: center;
+        }
+
+        .splits-remaining-label {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.5);
+          letter-spacing: 0.05em;
+        }
+
+        .splits-remaining-value {
+          font-family: 'Space Mono', monospace;
+          font-weight: 700;
+          color: #00e5ff;
         }
 
         /* Warning Badge */
@@ -266,12 +334,19 @@ export default function GasTank({
         .refill-modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.7);
-          backdrop-filter: blur(8px);
+          background: rgba(0, 0, 0, 0.85);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 9999;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .refill-modal-overlay {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .refill-modal {
@@ -401,6 +476,13 @@ export default function GasTank({
             <Wallet className={`w-5 h-5 ${isLowBalance ? "text-[#ff6b2b]" : "text-[#00e5ff]"}`} />
           </div>
           <span className="gas-tank-title">Gas Tank</span>
+          <button 
+            onClick={() => setShowAdvisor(true)}
+            className="ml-auto p-1.5 rounded-lg bg-white/5 border border-white/10 text-cyan-400/60 hover:text-cyan-400 hover:bg-white/10 transition-all"
+            title="Gas Tank Advisor"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         {/* Gauge */}
@@ -418,10 +500,19 @@ export default function GasTank({
 
         {/* Balance Display */}
         <div className="balance-display">
-          <span className={`balance-value ${isLowBalance ? "low" : "normal"}`}>
+          <span className={`balance-value ${isLowBalance ? "low" : "normal"} ${isPulsing ? "pulse" : ""}`}>
             {isLoading ? "..." : balance.toFixed(2)}
           </span>
           <span className="balance-unit">XLM</span>
+        </div>
+
+        {/* Splits Remaining Indicator */}
+        <div className="splits-remaining">
+          <span className="splits-remaining-label">Approx.</span>
+          <span className="splits-remaining-value">
+            {splitsLoading ? "..." : approximateSplits}
+          </span>
+          <span className="splits-remaining-label">splits</span>
         </div>
 
         {/* Warning Badge - Cosmic Red */}
@@ -537,6 +628,17 @@ export default function GasTank({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <GasTankAdvisor 
+        isOpen={showAdvisor}
+        onClose={() => setShowAdvisor(false)}
+        currentBalanceXlm={balance}
+        onApplySuggestion={(amount) => {
+          // In a real app, this would open the refill modal with the amount pre-filled
+          // or trigger a deposit transaction. For now, we'll just show the refill modal.
+          setShowRefillModal(true);
+        }}
+      />
     </>
   );
 }

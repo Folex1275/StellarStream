@@ -36,10 +36,11 @@ export function parseSnapshotData(rawData: string): Voter[] {
   const headerLine = lines[0].toLowerCase();
   const hasHeader = headerLine.includes('address');
   const dataLines = hasHeader ? lines.slice(1) : lines;
-  // Detect optional tax_id column position from header
-  const taxIdColIndex = hasHeader
-    ? headerLine.split(',').findIndex((h) => h.trim() === 'tax_id')
-    : -1;
+  const headers = hasHeader ? headerLine.split(',').map((h) => h.trim()) : [];
+  // Detect optional column positions from header
+  const taxIdColIndex = headers.indexOf('tax_id');
+  const memoColIndex = headers.indexOf('memo');
+  const memoTypeColIndex = headers.indexOf('memo_type');
   return dataLines.map((line) => {
     const cols = line.split(',');
     const [address, score] = cols;

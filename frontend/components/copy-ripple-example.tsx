@@ -68,11 +68,18 @@ export default function CopyRippleExample() {
         }
 
         .stats-panel {
-          background: rgba(10, 10, 20, 0.6);
+          background: rgba(10, 10, 20, 0.90);
           border: 1px solid rgba(0, 229, 255, 0.2);
           border-radius: 16px;
           padding: 24px;
-          backdrop-filter: blur(12px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .stats-panel {
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
         }
 
         .stats-title {

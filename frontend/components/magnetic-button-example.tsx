@@ -74,13 +74,20 @@ export default function MagneticButtonExample() {
         }
 
         .button-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 48px;
           text-align: center;
           min-width: 300px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .button-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .button-label {
@@ -99,12 +106,19 @@ export default function MagneticButtonExample() {
         }
 
         .stats-panel {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 32px;
           margin-top: 48px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .stats-panel {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .stats-title {
@@ -147,12 +161,19 @@ export default function MagneticButtonExample() {
         }
 
         .features-list {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 24px;
           padding: 32px;
           margin-top: 48px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .features-list {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .features-title {
@@ -206,11 +227,18 @@ export default function MagneticButtonExample() {
         }
 
         .use-case-card {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 20px;
           padding: 32px;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .use-case-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .use-case-title {

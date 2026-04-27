@@ -120,9 +120,7 @@ export default function StreamSummaryCard({
         .stream-card {
           position: relative;
           width: 380px;
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(0, 229, 255, 0.15);
           border-radius: 20px;
           padding: 24px;
@@ -134,6 +132,14 @@ export default function StreamSummaryCard({
             0 8px 40px rgba(0, 0, 0, 0.6),
             0 0 60px rgba(0, 229, 255, 0.04) inset;
           transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .stream-card {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .stream-card::before {
@@ -363,11 +369,23 @@ export default function StreamSummaryCard({
           letter-spacing: 0.08em;
           text-transform: uppercase;
           cursor: pointer;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
           transition: all 0.25s ease;
           position: relative;
           overflow: hidden;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .view-details-btn {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .stream-card,
+          .view-details-btn {
+            transition: none;
+          }
         }
 
         .view-details-btn::before {

@@ -15,6 +15,7 @@ export interface Asset {
   decimals: number;
   totalSupply?: string;
   isVerified: boolean;
+  stellarExpertRating?: number;
   anchorInfo?: {
     name: string;
     url: string;
@@ -50,6 +51,7 @@ const DEFAULT_ASSETS: Asset[] = [
     name: "Stellar Lumens",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 10,
     chain: "stellar",
     anchorInfo: { name: "Stellar Development Foundation", url: "https://stellar.org" },
   },
@@ -60,6 +62,7 @@ const DEFAULT_ASSETS: Asset[] = [
     domain: "circle.com",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 9,
     chain: "stellar",
     anchorInfo: { name: "Circle", url: "https://circle.com" },
   },
@@ -70,6 +73,7 @@ const DEFAULT_ASSETS: Asset[] = [
     domain: "tempo.eu.com",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 7,
     chain: "stellar",
     anchorInfo: { name: "Tempo", url: "https://tempo.eu.com" },
   },
@@ -80,6 +84,7 @@ const DEFAULT_ASSETS: Asset[] = [
     domain: "tempo.eu.com",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 6,
     chain: "stellar",
     anchorInfo: { name: "Tempo", url: "https://tempo.eu.com" },
   },
@@ -90,6 +95,7 @@ const DEFAULT_ASSETS: Asset[] = [
     domain: "tempo.eu.com",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 5,
     chain: "stellar",
     anchorInfo: { name: "Tempo", url: "https://tempo.eu.com" },
   },
@@ -100,6 +106,7 @@ const DEFAULT_ASSETS: Asset[] = [
     domain: "tempo.eu.com",
     decimals: 7,
     isVerified: true,
+    stellarExpertRating: 5,
     chain: "stellar",
     anchorInfo: { name: "Tempo", url: "https://tempo.eu.com" },
   },
@@ -108,6 +115,7 @@ const DEFAULT_ASSETS: Asset[] = [
     name: "Ethereum",
     decimals: 18,
     isVerified: true,
+    stellarExpertRating: 8,
     chain: "ethereum",
   },
   {
@@ -115,6 +123,7 @@ const DEFAULT_ASSETS: Asset[] = [
     name: "Bitcoin",
     decimals: 8,
     isVerified: true,
+    stellarExpertRating: 8,
     chain: "other",
   },
 ];
@@ -237,7 +246,7 @@ export function DeepSpaceAssetBrowser({
   const [assets, setAssets] = useState<Asset[]>(DEFAULT_ASSETS);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<"all" | "verified" | "stellar" | "cross-chain">("all");
+  const [selectedCategory, setSelectedCategory] = useState<"all" | "verified" | "stellar" | "cross-chain" | "top-rated">("all");
 
   /**
    * Fetch assets from backend whitelist API
@@ -270,6 +279,8 @@ export function DeepSpaceAssetBrowser({
     }
   }, [isOpen, apiEndpoint, fetchAssets]);
 
+  const TOP_RATED_THRESHOLD = 7;
+
   // Filter assets based on search and category
   const filteredAssets = useMemo(() => {
     let result = assets;
@@ -281,9 +292,13 @@ export function DeepSpaceAssetBrowser({
       result = result.filter((a) => a.chain === "stellar");
     } else if (selectedCategory === "cross-chain") {
       result = result.filter((a) => a.chain !== "stellar");
+    } else if (selectedCategory === "top-rated") {
+      result = result.filter(
+        (a) => a.stellarExpertRating !== undefined && a.stellarExpertRating >= TOP_RATED_THRESHOLD
+      );
     }
 
-    // Filter by search query
+    // Filter by search query — supports code, name, domain, anchor name, and issuer address
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -291,13 +306,16 @@ export function DeepSpaceAssetBrowser({
           asset.code.toLowerCase().includes(query) ||
           asset.name.toLowerCase().includes(query) ||
           asset.domain?.toLowerCase().includes(query) ||
-          asset.anchorInfo?.name.toLowerCase().includes(query)
+          asset.anchorInfo?.name.toLowerCase().includes(query) ||
+          asset.issuer?.toLowerCase().includes(query)
       );
     }
 
-    // Sort: verified first, then alphabetically
+    // Sort: verified first, then by rating descending, then alphabetically
     return result.sort((a, b) => {
       if (a.isVerified !== b.isVerified) return a.isVerified ? -1 : 1;
+      const ratingDiff = (b.stellarExpertRating ?? 0) - (a.stellarExpertRating ?? 0);
+      if (ratingDiff !== 0) return ratingDiff;
       return a.code.localeCompare(b.code);
     });
   }, [assets, searchQuery, selectedCategory]);
@@ -362,19 +380,20 @@ export function DeepSpaceAssetBrowser({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by code, name, or domain..."
+              placeholder="Search by code, name, domain, or issuer address..."
               className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500/50"
               autoFocus
             />
           </div>
 
           {/* Category Filters */}
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mt-4">
             {[
               { id: "all", label: "All Assets" },
               { id: "verified", label: "Verified" },
               { id: "stellar", label: "Stellar" },
               { id: "cross-chain", label: "Cross-Chain" },
+              { id: "top-rated", label: "★ Top Rated" },
             ].map((cat) => (
               <button
                 key={cat.id}
@@ -426,8 +445,22 @@ export function DeepSpaceAssetBrowser({
                         </span>
                         {asset.isVerified && <VerifiedBadge anchor={asset.anchorInfo?.name} />}
                         <ChainBadge chain={asset.chain} />
+                        {asset.stellarExpertRating !== undefined && (
+                          <span
+                            className="flex items-center gap-0.5 text-xs text-yellow-400"
+                            title={`Stellar Expert Rating: ${asset.stellarExpertRating}/10`}
+                          >
+                            <Star size={11} className="fill-yellow-400" />
+                            {asset.stellarExpertRating}
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm text-gray-400 truncate">{asset.name}</p>
+                      {asset.issuer && (
+                        <p className="text-xs text-gray-500 font-mono mt-0.5" title={asset.issuer}>
+                          {asset.issuer.slice(0, 6)}…{asset.issuer.slice(-6)}
+                        </p>
+                      )}
                       {asset.anchorInfo && (
                         <p className="text-xs text-gray-500 truncate mt-0.5">
                           {asset.anchorInfo.name}

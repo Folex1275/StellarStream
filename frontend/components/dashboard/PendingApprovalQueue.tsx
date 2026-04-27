@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Clock, CheckCircle2, XCircle, Pen, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Pen, RefreshCw, AlertTriangle, Loader2, Smartphone } from "lucide-react";
 import { usePendingStreams, type PendingStream, type Signer } from "@/lib/use-pending-streams";
 import { toast } from "@/lib/toast";
+import { ConflictStateCard } from "./ConflictStateCard";
+import { SwipeCard } from "./SwipeCard";
+import ExpiryCountdown from "./ExpiryCountdown";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,21 +96,30 @@ function PendingStreamCard({
 }) {
     const progress = (signedCount / stream.requiredSignatures) * 100;
     const isFullySigned = signedCount >= stream.requiredSignatures;
+    const isExpired = stream.expiresAt.getTime() - Date.now() <= 0;
     const expiresUrgent =
-        stream.expiresAt.getTime() - Date.now() < 1000 * 60 * 60 * 6; // < 6h
+        stream.expiresAt.getTime() - Date.now() < 1000 * 60 * 60 * 6 && !isExpired; // < 6h
 
     return (
         <div
-            className={`relative rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 hover:bg-white/[0.05] ${isFullySigned
+            className={`relative rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 hover:bg-white/[0.05] ${
+                isExpired
+                    ? "border-red-500/50 bg-red-500/[0.04]"
+                    : isFullySigned
                     ? "border-[#00f5ff]/50 bg-[#00f5ff]/[0.04]"
                     : expiresUrgent
-                        ? "border-orange-500/40 bg-orange-500/[0.03]"
-                        : "border-white/10 bg-white/[0.03]"
-                }`}
+                    ? "border-orange-500/40 bg-orange-500/[0.03]"
+                    : "border-white/10 bg-white/[0.03]"
+            }`}
         >
             {/* Urgency indicator */}
             {expiresUrgent && !isFullySigned && (
                 <div className="absolute -top-px left-4 right-4 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+            )}
+            
+            {/* Expired indicator */}
+            {isExpired && !isFullySigned && (
+                <div className="absolute -top-px left-4 right-4 h-px bg-gradient-to-r from-transparent via-red-500/80 to-transparent" />
             )}
 
             {/* Header row */}
@@ -117,6 +129,12 @@ function PendingStreamCard({
                         <span className="font-mono text-[11px] text-white/40 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">
                             {stream.streamId}
                         </span>
+                        {isExpired && !isFullySigned && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-red-400 border border-red-500/30 bg-red-500/10 rounded-full px-2 py-0.5">
+                                <XCircle size={9} />
+                                Expired
+                            </span>
+                        )}
                         {expiresUrgent && !isFullySigned && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-orange-400 border border-orange-500/30 bg-orange-500/10 rounded-full px-2 py-0.5">
                                 <AlertTriangle size={9} />
@@ -144,7 +162,7 @@ function PendingStreamCard({
                 </div>
 
                 {/* Sign Now button */}
-                {!stream.hasCurrentUserSigned && !isFullySigned && (
+                {!stream.hasCurrentUserSigned && !isFullySigned && !isExpired && (
                     <button
                         onClick={onSign}
                         disabled={isSigning}
@@ -165,6 +183,14 @@ function PendingStreamCard({
                             </>
                         )}
                     </button>
+                )}
+                
+                {/* Expired state message */}
+                {isExpired && !isFullySigned && (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 border border-red-500/20 bg-red-500/5 text-xs text-red-400/70">
+                        <XCircle size={13} />
+                        Expired
+                    </div>
                 )}
 
                 {stream.hasCurrentUserSigned && !isFullySigned && (
@@ -251,13 +277,11 @@ function PendingStreamCard({
             {/* Footer row */}
             <div className="flex items-center justify-between text-[11px] text-white/30">
                 <span>Created {timeAgo(stream.createdAt)}</span>
-                <span
-                    className={`flex items-center gap-1 ${expiresUrgent && !isFullySigned ? "text-orange-400/70" : ""
-                        }`}
-                >
-                    <Clock size={10} />
-                    Expires in {timeUntil(stream.expiresAt)}
-                </span>
+                <ExpiryCountdown
+                    expiresAt={stream.expiresAt}
+                    isCompleted={isFullySigned}
+                    size="sm"
+                />
             </div>
         </div>
     );
@@ -282,18 +306,34 @@ function EmptyState() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PendingApprovalQueue() {
-    const { streams, signingIds, lastRefreshed, signStream, signedCount } = usePendingStreams();
-    const [filter, setFilter] = useState<"all" | "mine" | "ready">("all");
+    const { streams, signingIds, lastRefreshed, signStream, signedCount, restartProposal } = usePendingStreams();
+    const [filter, setFilter] = useState<"all" | "mine" | "ready" | "conflict">("all");
+    const [restartingIds, setRestartingIds] = useState<Set<string>>(new Set());
 
     const filtered = useMemo(() => {
         return streams.filter((s) => {
-            if (filter === "mine") return !s.hasCurrentUserSigned;
-            if (filter === "ready") return signedCount(s) >= s.requiredSignatures - 1;
+            const hasConflict = s.signers.some((sg) => sg.status === "rejected");
+            if (filter === "conflict") return hasConflict;
+            if (filter === "mine") return !s.hasCurrentUserSigned && !hasConflict;
+            if (filter === "ready") return signedCount(s) >= s.requiredSignatures - 1 && !hasConflict;
             return true;
         });
     }, [streams, filter, signedCount]);
 
     const awaitingMySignature = streams.filter((s) => !s.hasCurrentUserSigned).length;
+    const conflictCount = streams.filter((s) => s.signers.some((sg) => sg.status === "rejected")).length;
+
+    const handleRestart = async (stream: PendingStream) => {
+        setRestartingIds((prev) => new Set(prev).add(stream.id));
+        try {
+            restartProposal(stream.id);
+            toast.success({ title: "Proposal Restarted", description: `All signatures for ${stream.streamId} have been cleared.`, duration: 5000 });
+        } catch {
+            toast.error({ title: "Restart Failed", description: "Please try again.", duration: 5000 });
+        } finally {
+            setRestartingIds((prev) => { const n = new Set(prev); n.delete(stream.id); return n; });
+        }
+    };
 
     const handleSign = async (stream: PendingStream) => {
         try {
@@ -320,9 +360,15 @@ export default function PendingApprovalQueue() {
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
-                                Multi-Sig
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
+                                    Multi-Sig
+                                </p>
+                                <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-purple-400 uppercase">
+                                    <Smartphone size={10} />
+                                    Swipe Enabled
+                                </span>
+                            </div>
                             {awaitingMySignature > 0 && (
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00f5ff]/30 bg-[#00f5ff]/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-[#00f5ff] uppercase">
                                     <span className="relative flex h-1.5 w-1.5">
@@ -335,8 +381,9 @@ export default function PendingApprovalQueue() {
                         </div>
                         <h1 className="font-heading mt-2 text-3xl md:text-4xl">Pending Approvals</h1>
                         <p className="font-body mt-1 text-sm text-white/40 max-w-lg">
-                            Streams awaiting multi-signature approval before activation. Sign to advance
-                            each request toward the required threshold.
+                            {typeof window !== "undefined" && window.innerWidth < 768
+                                ? "Swipe right to approve, left to reject. High-value transactions require biometric confirmation."
+                                : "Streams awaiting multi-signature approval before activation. Sign to advance each request toward the required threshold."}
                         </p>
                     </div>
 
@@ -346,18 +393,22 @@ export default function PendingApprovalQueue() {
                             {[
                                 { label: "Total", value: streams.length },
                                 { label: "Need Sig", value: awaitingMySignature, accent: true },
+                                { label: "Conflict", value: conflictCount, danger: true },
                             ].map((stat) => (
                                 <div
                                     key={stat.label}
-                                    className={`rounded-xl border px-3 py-2 text-center ${stat.accent && stat.value > 0
-                                            ? "border-[#00f5ff]/30 bg-[#00f5ff]/[0.06]"
-                                            : "border-white/10 bg-white/[0.04]"
-                                        }`}
+                                    className={`rounded-xl border px-3 py-2 text-center ${
+                                        stat.danger && stat.value > 0
+                                            ? "border-red-500/30 bg-red-500/[0.06]"
+                                            : stat.accent && stat.value > 0
+                                                ? "border-[#00f5ff]/30 bg-[#00f5ff]/[0.06]"
+                                                : "border-white/10 bg-white/[0.04]"
+                                    }`}
                                 >
-                                    <p
-                                        className={`font-heading text-xl leading-none ${stat.accent && stat.value > 0 ? "text-[#00f5ff]" : "text-white"
-                                            }`}
-                                    >
+                                    <p className={`font-heading text-xl leading-none ${
+                                        stat.danger && stat.value > 0 ? "text-red-400" :
+                                        stat.accent && stat.value > 0 ? "text-[#00f5ff]" : "text-white"
+                                    }`}>
                                         {stat.value}
                                     </p>
                                     <p className="font-body text-[10px] tracking-widest text-white/40 uppercase mt-0.5">
@@ -384,6 +435,7 @@ export default function PendingApprovalQueue() {
                             { key: "all", label: "All Pending" },
                             { key: "mine", label: "My Signature" },
                             { key: "ready", label: "Almost Ready" },
+                            { key: "conflict", label: `Conflicts${conflictCount > 0 ? ` (${conflictCount})` : ""}` },
                         ] as const
                     ).map((tab) => (
                         <button
@@ -406,16 +458,44 @@ export default function PendingApprovalQueue() {
                     <EmptyState />
                 </div>
             ) : (
-                filtered.map((stream) => (
-                    <div key={stream.id} className="col-span-full lg:col-span-6">
-                        <PendingStreamCard
-                            stream={stream}
-                            isSigning={signingIds.has(stream.id)}
-                            onSign={() => handleSign(stream)}
-                            signedCount={signedCount(stream)}
-                        />
-                    </div>
-                ))
+                filtered.map((stream) => {
+                    const hasConflict = stream.signers.some((sg) => sg.status === "rejected");
+                    return (
+                        <div key={stream.id} className="col-span-full lg:col-span-6">
+                            {hasConflict ? (
+                                <ConflictStateCard
+                                    stream={stream}
+                                    signedCount={signedCount(stream)}
+                                    isRestarting={restartingIds.has(stream.id)}
+                                    onRestart={() => handleRestart(stream)}
+                                />
+                            ) : (
+                                <>
+                                    {/* Mobile: Swipe Card */}
+                                    <div className="md:hidden">
+                                        <SwipeCard
+                                            stream={stream}
+                                            isSigning={signingIds.has(stream.id)}
+                                            onApprove={() => handleSign(stream)}
+                                            signedCount={signedCount(stream)}
+                                            enableSwipe={!stream.hasCurrentUserSigned}
+                                        />
+                                    </div>
+
+                                    {/* Desktop: Traditional Card */}
+                                    <div className="hidden md:block">
+                                        <PendingStreamCard
+                                            stream={stream}
+                                            isSigning={signingIds.has(stream.id)}
+                                            onSign={() => handleSign(stream)}
+                                            signedCount={signedCount(stream)}
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    );
+                })
             )}
         </>
     );

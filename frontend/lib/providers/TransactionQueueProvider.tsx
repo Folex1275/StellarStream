@@ -24,12 +24,17 @@ export interface TransactionEntry {
   streamId?: string;
   status: TransactionStatus;
   pollFailureCount: number;
+  feeStroops?: number;
+  maxFeeStroops?: number;
+  bumpedFeeStroops?: number;
+  retryCount?: number;
+  lastBumpedAt?: number;
   ledger?: number;
   blockTime?: number;
 }
 
-export type EnqueuePayload = Pick<TransactionEntry, "type" | "hash" | "sender"> &
-  Partial<Pick<TransactionEntry, "receiver" | "amount" | "token" | "streamId">>;
+type EnqueuePayload = Pick<TransactionEntry, "type" | "hash" | "sender"> &
+  Partial<Pick<TransactionEntry, "receiver" | "amount" | "token" | "streamId" | "feeStroops" | "maxFeeStroops">>;
 
 type QueueAction =
   | { type: "ENQUEUE"; payload: TransactionEntry }

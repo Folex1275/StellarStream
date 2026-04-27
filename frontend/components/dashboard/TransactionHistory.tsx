@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useFilterSync } from "@/hooks/useFilterSync";
+import AdvancedFilterSidebar, { TransactionFilters } from "./AdvancedFilterSidebar";
+import { DisbursementHistoryCard } from "@/components/dashboard/DisbursementHistoryCard";
+import type { DraftProposal } from "@/app/api/v3/proposals/pending/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +40,43 @@ const TRANSACTIONS: Transaction[] = [
   { id: "10", date: "2026-02-20T21:55:00Z", type: "Deposit",        asset: "AQUA", amount: 43_670,   status: "Success", from: "0x7b...22fd", to: "0xc2...88b3", hash: "0xyz2...7890" },
   { id: "11", date: "2026-02-20T18:12:00Z", type: "Stream Update",  asset: "USDC", amount: 9_900,    status: "Success", from: "0xc2...88b3", to: "0x9a...f03d", hash: "0xyz3...1234" },
   { id: "12", date: "2026-02-20T11:08:00Z", type: "Withdrawal",     asset: "XLM",  amount: 30_000,   status: "Pending", from: "0x9a...f03d", to: "0x3f...a91c", hash: "0xyz4...5678" },
+];
+
+// ─── Mock Disbursement History ────────────────────────────────────────────────
+// Replace with a real fetch from /api/v3/proposals/history (or equivalent)
+
+const PAST_DISBURSEMENTS: DraftProposal[] = [
+  {
+    id: "hist-001",
+    title: "February Contributor Payroll",
+    drafter: "GABC...7XYZ",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 28).toISOString(),
+    expiresAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 26).toISOString(),
+    token: "USDC",
+    totalAmount: 18_500,
+    status: "approved",
+    recipients: [
+      { address: "GBTY...8NOP", amount: 8000, token: "USDC", note: "Lead Engineer" },
+      { address: "GCQR...2STU", amount: 6500, token: "USDC", note: "Designer" },
+      { address: "GDZX...4KLM", amount: 4000, token: "USDC", note: "QA" },
+    ],
+  },
+  {
+    id: "hist-002",
+    title: "January DAO Rewards Split",
+    drafter: "GABC...7XYZ",
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 58).toISOString(),
+    expiresAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 56).toISOString(),
+    token: "XLM",
+    totalAmount: 50_000,
+    status: "approved",
+    recipients: [
+      { address: "GBTY...8NOP", amount: 20000, token: "XLM" },
+      { address: "GCQR...2STU", amount: 15000, token: "XLM" },
+      { address: "GDZX...4KLM", amount: 10000, token: "XLM" },
+      { address: "GFGH...9QRS", amount: 5000,  token: "XLM" },
+    ],
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -154,7 +195,17 @@ export default function TransactionHistory() {
   const [statusFilter, setStatusFilter] = useState<TxStatus | "All">("All");
   const [search, setSearch]         = useState("");
   const [page, setPage]             = useState(1);
+  const [filterSidebarOpen, setFilterSidebarOpen] = useState(false);
   const PER_PAGE = 8;
+
+  // Advanced filters with URL sync
+  const { filters: advancedFilters, updateFilters: updateAdvancedFilters, clearFilters: clearAdvancedFilters } = useFilterSync<TransactionFilters>({
+    status: [],
+    assetType: [],
+    senderRole: [],
+    amountMin: null,
+    amountMax: null,
+  });
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -166,6 +217,21 @@ export default function TransactionHistory() {
     let rows = [...TRANSACTIONS];
     if (typeFilter !== "All")   rows = rows.filter(r => r.type === typeFilter);
     if (statusFilter !== "All") rows = rows.filter(r => r.status === statusFilter);
+    
+    // Apply advanced filters
+    if (advancedFilters.status.length > 0) {
+      rows = rows.filter(r => advancedFilters.status.includes(r.status));
+    }
+    if (advancedFilters.assetType.length > 0) {
+      rows = rows.filter(r => advancedFilters.assetType.includes(r.asset));
+    }
+    if (advancedFilters.amountMin !== null) {
+      rows = rows.filter(r => r.amount >= advancedFilters.amountMin!);
+    }
+    if (advancedFilters.amountMax !== null) {
+      rows = rows.filter(r => r.amount <= advancedFilters.amountMax!);
+    }
+    
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter(r =>
@@ -186,7 +252,7 @@ export default function TransactionHistory() {
       return 0;
     });
     return rows;
-  }, [sortKey, sortDir, typeFilter, statusFilter, search]);
+  }, [sortKey, sortDir, typeFilter, statusFilter, search, advancedFilters]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -261,6 +327,18 @@ export default function TransactionHistory() {
             ))}
           </div>
 
+          {/* ── Disbursement History ── */}
+          <div style={{ marginBottom: 32 }}>
+            <p style={{ fontSize: 10, letterSpacing: 3, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", marginBottom: 12 }}>
+              Past Disbursements
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+              {PAST_DISBURSEMENTS.map((d) => (
+                <DisbursementHistoryCard key={d.id} proposal={d} />
+              ))}
+            </div>
+          </div>
+
           {/* ── Glass card ── */}
           <div style={{
             background: "rgba(255,255,255,0.025)",
@@ -282,6 +360,15 @@ export default function TransactionHistory() {
               borderBottom: "1px solid rgba(255,255,255,0.05)",
               display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center",
             }}>
+              {/* Advanced Filter Sidebar Toggle */}
+              <AdvancedFilterSidebar
+                filters={advancedFilters}
+                onFiltersChange={updateAdvancedFilters}
+                onClearAll={clearAdvancedFilters}
+                isOpen={filterSidebarOpen}
+                onToggle={() => setFilterSidebarOpen(!filterSidebarOpen)}
+              />
+
               {/* Search */}
               <input
                 className="search-input"

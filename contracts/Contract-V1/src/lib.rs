@@ -54,7 +54,7 @@ use storage::{PROPOSAL_COUNT, RECEIPT, RESTRICTED_ADDRESSES, STREAM_COUNT};
 use types::{
     ContributorRequest, CurveType, DataKey, Milestone, ProposalApprovedEvent, ProposalCreatedEvent,
     ReceiptMetadata, RequestCreatedEvent, RequestExecutedEvent, RequestKey, RequestStatus, Role,
-    Stream, StreamCancelledEvent, StreamCreatedEvent, StreamProposal, StreamReceipt,
+    Stream, StreamCancelledEvent, StreamCreatedEvent, StreamProposal, StreamReceipt, StreamRequest,
 };
 
 #[contract]
@@ -415,6 +415,49 @@ impl StellarStreamContract {
         Self::mint_receipt(&env, stream_id, &receiver);
 
         Ok(stream_id)
+    }
+
+    /// Maximum number of recipients allowed in a single batch call.
+    /// Prevents exceeding the Stellar ledger's maximum transaction size.
+    pub const MAX_RECIPIENTS: u32 = 120;
+
+    /// Create multiple streams in a single call.
+    ///
+    /// Returns `Error::BatchSizeExceeded` if the number of requests exceeds
+    /// `MAX_RECIPIENTS`.
+    pub fn create_batch_streams(
+        env: Env,
+        sender: Address,
+        token: Address,
+        requests: Vec<StreamRequest>,
+    ) -> Result<Vec<u64>, Error> {
+        if requests.len() > Self::MAX_RECIPIENTS {
+            return Err(Error::BatchSizeExceeded);
+        }
+
+        sender.require_auth();
+
+        let mut stream_ids: Vec<u64> = Vec::new(&env);
+
+        for req in requests.iter() {
+            let milestones: Vec<Milestone> = Vec::new(&env);
+            let stream_id = Self::create_stream_with_milestones(
+                env.clone(),
+                sender.clone(),
+                req.receiver,
+                token.clone(),
+                req.amount,
+                req.start_time,
+                req.end_time,
+                milestones,
+                CurveType::Linear,
+                false,
+                req.vault_address,
+            )?;
+            stream_ids.push_back(stream_id);
+        }
+
+        Ok(stream_ids)
     }
 
     pub fn initialize(env: Env, admin: Address) {

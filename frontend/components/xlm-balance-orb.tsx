@@ -103,8 +103,13 @@ export default function XLMBalanceOrb({
           position: relative;
           animation: orb-pulse 2s ease-in-out infinite, float-gentle 3s ease-in-out infinite;
           transition: all 0.3s ease;
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .xlm-orb {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .xlm-orb:hover {
@@ -134,9 +139,7 @@ export default function XLMBalanceOrb({
           position: absolute;
           bottom: 70px;
           width: 320px;
-          background: rgba(10, 10, 20, 0.95);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.97);
           border: 1px solid rgba(255, 165, 0, 0.3);
           border-radius: 20px;
           padding: 20px;
@@ -146,6 +149,14 @@ export default function XLMBalanceOrb({
             0 0 60px rgba(255, 165, 0, 0.1) inset;
           animation: bubble-expand 0.3s ease-out;
           color: #e8eaf6;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .xlm-bubble {
+            background: rgba(10, 10, 20, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .xlm-bubble.position-left {
@@ -292,6 +303,22 @@ export default function XLMBalanceOrb({
         .close-button:hover {
           background: rgba(255, 255, 255, 0.1);
           color: rgba(232, 234, 246, 0.9);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .xlm-orb {
+            animation: none;
+          }
+          .xlm-orb::before {
+            animation: none;
+          }
+          .xlm-bubble {
+            animation: none;
+          }
+          .bubble-button,
+          .close-button {
+            transition: none;
+          }
         }
 
         @media (max-width: 768px) {

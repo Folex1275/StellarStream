@@ -52,8 +52,7 @@ export default function XLMBalanceOrbExample() {
         }
 
         .controls-panel {
-          background: rgba(10, 10, 20, 0.85);
-          backdrop-filter: blur(24px);
+          background: rgba(10, 10, 20, 0.92);
           border: 1px solid rgba(255, 165, 0, 0.15);
           border-radius: 20px;
           padding: 32px;
@@ -61,6 +60,14 @@ export default function XLMBalanceOrbExample() {
           box-shadow: 
             0 0 0 1px rgba(255, 165, 0, 0.05),
             0 8px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .controls-panel {
+            background: rgba(10, 10, 20, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .control-group {

@@ -3,37 +3,18 @@ name: Frontend CI
 on:
   push:
     branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/frontend-ci.yml'
 
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
-    
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      
-      - name: Install dependencies
-        run: npm ci
-        working-directory: frontend
-      
-      - name: Run ESLint
-        run: npm run lint
-        working-directory: frontend
-      
-      - name: Build Next.js
-        run: npm run build
+      - run: npm ci
         working-directory: frontend

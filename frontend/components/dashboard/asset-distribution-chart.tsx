@@ -147,13 +147,19 @@ export default function AssetDistributionChart({
           align-items: center;
           gap: 8px;
           padding: 8px 14px;
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(10, 10, 20, 0.80);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 10px;
           cursor: pointer;
           transition: all 0.25s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .legend-item {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
         }
 
         .legend-item:hover {

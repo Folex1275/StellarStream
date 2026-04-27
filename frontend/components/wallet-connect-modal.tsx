@@ -72,6 +72,34 @@ function XBullIcon({ className }: { className?: string }) {
   );
 }
 
+// Albedo wallet icon (SVG)
+function AlbedoIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="16" cy="16" r="16" fill="url(#albedo-gradient)" />
+      <path
+        d="M9 22L16 10l7 12"
+        stroke="white"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="16" cy="18" r="2" fill="white" />
+      <defs>
+        <linearGradient id="albedo-gradient" x1="0" y1="0" x2="32" y2="32">
+          <stop stopColor="#00c389" />
+          <stop offset="1" stopColor="#008f67" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 // Stellar logo icon
 function StellarIcon({ className }: { className?: string }) {
   return (
@@ -103,7 +131,7 @@ interface WalletTileProps {
   title: string;
   description: string;
   icon: React.ReactNode;
-  accentColor: "cyan" | "violet";
+  accentColor: "cyan" | "violet" | "emerald";
   onClick: () => void;
   isLoading?: boolean;
   disabled?: boolean;
@@ -136,6 +164,13 @@ function WalletTile({
       glow: "hover:shadow-[0_0_30px_rgba(138,0,255,0.2)]",
       text: "text-violet-400",
       iconBg: "bg-violet-500/20",
+    },
+    emerald: {
+      bg: "bg-emerald-500/10 hover:bg-emerald-500/20",
+      border: "border-emerald-500/30 hover:border-emerald-500/50",
+      glow: "hover:shadow-[0_0_30px_rgba(16,185,129,0.2)]",
+      text: "text-emerald-400",
+      iconBg: "bg-emerald-500/20",
     },
   };
 
@@ -193,6 +228,7 @@ export function WalletConnectModal() {
     closeModal,
     connectFreighter,
     connectXBull,
+    connectAlbedo,
     isConnecting,
     error,
     isConnected,
@@ -205,6 +241,9 @@ export function WalletConnectModal() {
     if (!addr) return "";
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
+
+  const walletTypeLabel =
+    walletType === "freighter" ? "Freighter" : walletType === "xbull" ? "xBull" : "Albedo";
 
   return (
     <Dialog.Root open={isModalOpen} onOpenChange={(open) => !open && closeModal()}>
@@ -272,7 +311,7 @@ export function WalletConnectModal() {
                           <div>
                             <p className="text-sm text-gray-400">Connected</p>
                             <p className="text-white font-medium">
-                              {walletType === "freighter" ? "Freighter" : "xBull"} • {formatAddress(address)}
+                              {walletTypeLabel} • {formatAddress(address)}
                             </p>
                           </div>
                         </div>
@@ -313,7 +352,18 @@ export function WalletConnectModal() {
                         isLoading={isConnecting && walletType === null}
                       />
 
-                      {/* Tile 3: What is Freighter? (Small) */}
+                      {/* Tile 3: Connect Albedo (Medium) */}
+                      <WalletTile
+                        title="Connect Albedo"
+                        description="Web-signing wallet"
+                        icon={<AlbedoIcon className="w-8 h-8" />}
+                        accentColor="emerald"
+                        size="medium"
+                        onClick={connectAlbedo}
+                        isLoading={isConnecting && walletType === null}
+                      />
+
+                      {/* Tile 4: What is Freighter? (Small) */}
                       <a
                         href="https://www.freighter.app/"
                         target="_blank"
@@ -326,7 +376,7 @@ export function WalletConnectModal() {
                         </span>
                       </a>
 
-                      {/* Tile 4: What is xBull? (Small) */}
+                      {/* Tile 5: What is xBull? (Small) */}
                       <a
                         href="https://xbull.app/"
                         target="_blank"
@@ -336,6 +386,19 @@ export function WalletConnectModal() {
                         <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-violet-400 transition-colors" />
                         <span className="text-xs text-gray-400 group-hover:text-white transition-colors">
                           What is xBull?
+                        </span>
+                      </a>
+
+                      {/* Tile 6: What is Albedo? (Small) */}
+                      <a
+                        href="https://albedo.link/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex flex-col items-center justify-center gap-2 p-4 rounded-[24px] bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-300 cursor-pointer group"
+                      >
+                        <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-emerald-400 transition-colors" />
+                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors">
+                          What is Albedo?
                         </span>
                       </a>
                     </div>

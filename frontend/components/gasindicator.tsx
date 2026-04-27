@@ -287,8 +287,7 @@ export default function GasIndicator({
           top: 50%;
           transform: translateY(-50%);
           width: 220px;
-          background: rgba(8, 8, 18, 0.95);
-          backdrop-filter: blur(16px);
+          background: rgba(8, 8, 18, 0.97);
           border: 1px solid rgba(0,229,255,0.2);
           border-radius: 12px;
           padding: 12px 14px;
@@ -298,6 +297,21 @@ export default function GasIndicator({
           opacity: 0;
           transform: translateY(-50%) translateX(-6px);
           transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .gas-tooltip {
+            background: rgba(8, 8, 18, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .gas-tooltip {
+            transition: none;
+            transform: translateY(-50%) translateX(0);
+          }
         }
 
         .gas-tooltip.visible {

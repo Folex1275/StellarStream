@@ -443,15 +443,27 @@ export default function MigrationWizard({
         .mw-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(3, 3, 3, 0.82);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(3, 3, 3, 0.92);
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 9999;
           padding: 16px;
           animation: mw-fade-in 0.25s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .mw-overlay {
+            background: rgba(3, 3, 3, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mw-overlay {
+            animation: none;
+          }
         }
 
         @keyframes mw-fade-in {
@@ -1079,11 +1091,17 @@ export default function MigrationWizard({
         .mw-atomic-bar-wrapper {
           margin: 12px 0;
           padding: 14px 16px;
-          background: rgba(255,255,255,0.02);
+          background: rgba(10, 10, 20, 0.80);
           border: 1px solid rgba(255,255,255,0.06);
           border-radius: 12px;
-          /* Glass shimmer */
-          backdrop-filter: blur(8px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .mw-atomic-bar-wrapper {
+            background: rgba(255,255,255,0.02);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .mw-atomic-bar-label {
@@ -1228,8 +1246,15 @@ export default function MigrationWizard({
           position: relative;
           z-index: 1;
           border-top: 1px solid rgba(255,255,255,0.05);
-          background: rgba(3,3,3,0.3);
-          backdrop-filter: blur(8px);
+          background: rgba(3,3,3,0.75);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .mw-footer {
+            background: rgba(3,3,3,0.3);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .mw-btn {

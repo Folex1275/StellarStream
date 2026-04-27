@@ -39,6 +39,57 @@ pub fn calculate_flow(total: i128, duration: i128, elapsed: i128) -> i128 {
     }
 }
 
+/// Compute `floor(total * (elapsed / duration)^2)` for exponential (back-loaded)
+/// streams.
+///
+/// Uses the identity `total * elapsed^2 / duration^2` with overflow-safe
+/// intermediate arithmetic:
+///   1. Compute `ratio = elapsed * SCALE / duration`  (scaled fraction, ≤ SCALE)
+///   2. Compute `ratio^2 / SCALE`                     (squared fraction, ≤ SCALE)
+///   3. Compute `total * ratio_sq / SCALE`            (final amount)
+///
+/// Because `ratio ≤ SCALE = 10^7`, `ratio^2 ≤ 10^14` which fits comfortably
+/// in i128 (max ~1.7 × 10^38). Returns 0 on degenerate input.
+pub fn calculate_exponential_unlocked(total: i128, duration: i128, elapsed: i128) -> i128 {
+    if duration <= 0 || elapsed <= 0 || total <= 0 {
+        return 0;
+    }
+    if elapsed >= duration {
+        return total;
+    }
+    // ratio = elapsed / duration, scaled by SCALE (≤ SCALE = 10^7)
+    let ratio = match elapsed.checked_mul(SCALE) {
+        Some(v) => v / duration,
+        None => {
+            // elapsed * SCALE overflowed — fall back to plain integer path
+            // (still correct, just loses sub-unit precision)
+            return total / duration / duration * elapsed * elapsed;
+        }
+    };
+    // ratio_sq = ratio^2 / SCALE  (still ≤ SCALE)
+    let ratio_sq = ratio * ratio / SCALE;
+    // result = total * ratio_sq / SCALE
+    total * ratio_sq / SCALE
+}
+
+/// Calculate a share based on basis points (1 BPS = 0.01%).
+/// 
+/// Logic: (amount * bps) / 10,000
+pub fn calculate_share(amount: i128, bps: u32) -> i128 {
+    if bps == 0 {
+        return 0;
+    }
+    // Using simple arithmetic; stroop-denominated amounts (i128) won't 
+    // overflow when multiplied by 10,000 (max ~10^22 vs i128::MAX ~10^38).
+    (amount * bps as i128) / 10_000
+}
+
+/// Calculate the residual share for the final recipient to ensure 
+/// strict atomicity and prevent locked funds (Rounding Strategy).
+pub fn calculate_residual_share(total_amount: i128, sum_distributed: i128) -> i128 {
+    total_amount.saturating_sub(sum_distributed)
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FixedPoint(pub i128);
 
@@ -229,5 +280,79 @@ mod tests {
         let a = FixedPoint::from_amount(10);
         let b = FixedPoint::from_raw(0);
         assert_eq!(a.checked_div(b), Err(Error::Overflow));
+    }
+
+    // ── calculate_exponential_unlocked ───────────────────────────────────────
+
+    #[test]
+    fn test_exponential_zero_elapsed() {
+        assert_eq!(calculate_exponential_unlocked(1_000_000, 100, 0), 0);
+    }
+
+    #[test]
+    fn test_exponential_full_duration() {
+        assert_eq!(calculate_exponential_unlocked(1_000_000, 100, 100), 1_000_000);
+        assert_eq!(calculate_exponential_unlocked(1_000_000, 100, 200), 1_000_000);
+    }
+
+    #[test]
+    fn test_exponential_halfway_is_quarter() {
+        // At 50% elapsed: (0.5)^2 = 0.25 → 25% of total
+        let result = calculate_exponential_unlocked(1_000_000, 100, 50);
+        assert_eq!(result, 250_000);
+    }
+
+    #[test]
+    fn test_exponential_quarter_elapsed() {
+        // At 25% elapsed: (0.25)^2 = 0.0625 → 6.25% of total
+        let result = calculate_exponential_unlocked(1_000_000, 100, 25);
+        assert_eq!(result, 62_500);
+    }
+
+    #[test]
+    fn test_exponential_back_loaded_vs_linear() {
+        // Exponential should always be ≤ linear for elapsed < duration
+        let total = 1_000_000_i128;
+        let duration = 100_i128;
+        for t in 1..100 {
+            let exp = calculate_exponential_unlocked(total, duration, t);
+            let lin = calculate_flow(total, duration, t);
+            assert!(exp <= lin, "t={t}: exp={exp} > lin={lin}");
+        }
+    }
+
+    #[test]
+    fn test_exponential_degenerate_inputs() {
+        assert_eq!(calculate_exponential_unlocked(0, 100, 50), 0);
+        assert_eq!(calculate_exponential_unlocked(1_000_000, 0, 50), 0);
+        assert_eq!(calculate_exponential_unlocked(1_000_000, 100, -1), 0);
+    }
+
+    // ── BPS Math ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_calculate_share() {
+        // 33.33% of 1000
+        assert_eq!(calculate_share(1000, 3333), 333);
+        // 100%
+        assert_eq!(calculate_share(1000, 10000), 1000);
+        // 0%
+        assert_eq!(calculate_share(1000, 0), 0);
+    }
+
+    #[test]
+    fn test_rounding_strategy_residual() {
+        let total = 1000i128;
+        // Two recipients with 3333 BPS each
+        let share1 = calculate_share(total, 3333); // 333
+        let share2 = calculate_share(total, 3333); // 333
+        
+        let sum_distributed = share1 + share2; // 666
+        
+        // Final recipient with 3334 BPS (sum = 10000)
+        let share3 = calculate_residual_share(total, sum_distributed);
+        
+        assert_eq!(share3, 334);
+        assert_eq!(share1 + share2 + share3, total);
     }
 }

@@ -9,6 +9,7 @@ import statsRouter from "./stats.routes.js";
 import affiliateRouter from "../affiliate.routes.js";
 import adminAssetsRouter from "./admin/assets.routes.js";
 import healthRouter from "./health.routes.js";
+import trustRouter from "./trust.routes.js";
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use("/streams", streamsRouter);
 router.use("/stats", statsRouter);
 router.use("/affiliate", affiliateRouter);
 router.use("/admin/assets", adminAssetsRouter);
+router.use("/", trustRouter);
 router.use("/", healthRouter);
 
 export default router;

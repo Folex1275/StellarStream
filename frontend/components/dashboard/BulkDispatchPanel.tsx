@@ -2,16 +2,22 @@
 
 // components/dashboard/BulkDispatchPanel.tsx
 // Issue #695 — Bulk-Retry for Failed Batch Transactions
-// Issue #689 — Multi-Asset Value-Aggregator in USD
+// Issue #778 — Batch-Transfer Progress Overlay integration
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BatchState } from "@/lib/bulk-splitter/use-bulk-splitter";
 import type { Recipient } from "@/lib/bulk-splitter/types";
+import {
+  BatchProgressOverlay,
+  saveBatchProgress,
+  clearBatchProgress,
+} from "@/components/batch-progress-overlay";
 import {
   usePriceFetcher,
   calculateTotalUsdValue,
   formatUsdValue,
 } from "@/lib/hooks";
+import { getExplorerLink } from "@/lib/explorer";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_META: Record<
@@ -31,9 +37,12 @@ function shortenAddr(addr: string) {
 // ─── BatchRow ─────────────────────────────────────────────────────────────────
 function BatchRow({ index, state }: { index: number; state: BatchState }) {
   const meta = STATUS_META[state.status];
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = state.status === "success" && state.recipients.length > 0 && !!state.txHash;
+
   return (
     <div
-      className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-300"
+      className="rounded-xl border transition-all duration-300 overflow-hidden"
       style={{
         borderColor:
           state.status === "error"
@@ -49,51 +58,100 @@ function BatchRow({ index, state }: { index: number; state: BatchState }) {
             : "rgba(255,255,255,0.02)",
       }}
     >
-      {/* Status icon */}
-      <span
-        className="text-base w-5 text-center flex-shrink-0 tabular-nums"
-        style={{
-          color: meta.color,
-          animation: state.status === "pending" ? "spin 1s linear infinite" : "none",
-        }}
-      >
-        {state.status === "pending" ? (
-          <svg className="inline animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-          </svg>
-        ) : (
-          meta.icon
-        )}
-      </span>
+      {/* Main row */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Status icon */}
+        <span
+          className="text-base w-5 text-center flex-shrink-0 tabular-nums"
+          style={{ color: meta.color }}
+        >
+          {state.status === "pending" ? (
+            <svg className="inline animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+          ) : (
+            meta.icon
+          )}
+        </span>
 
-      {/* Batch info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-body text-xs font-bold text-white/70">
-            Batch {index + 1}
-          </span>
-          <span className="font-body text-[10px] text-white/30">
-            {state.recipients.length} recipient{state.recipients.length !== 1 ? "s" : ""}
-          </span>
+        {/* Batch info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-body text-xs font-bold text-white/70">
+              Batch {index + 1}
+            </span>
+            <span className="font-body text-[10px] text-white/30">
+              {state.recipients.length} recipient{state.recipients.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          {state.status === "error" && state.error && (
+            <p className="font-body text-[10px] text-red-400/80 mt-0.5 truncate">{state.error}</p>
+          )}
+          {state.status === "success" && state.txHash && (
+            <a
+              href={getExplorerLink(state.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-body text-[10px] text-emerald-400/60 mt-0.5 font-mono truncate hover:text-emerald-400 transition-colors inline-flex items-center gap-1"
+              title="View transaction on Stellar.Expert"
+            >
+              {shortenAddr(state.txHash)}
+              <svg className="h-2.5 w-2.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          )}
         </div>
-        {state.status === "error" && state.error && (
-          <p className="font-body text-[10px] text-red-400/80 mt-0.5 truncate">{state.error}</p>
-        )}
-        {state.status === "success" && state.txHash && (
-          <p className="font-body text-[10px] text-emerald-400/60 mt-0.5 font-mono truncate">
-            {shortenAddr(state.txHash)}
-          </p>
-        )}
+
+        {/* Status badge + expand toggle */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span
+            className="font-body text-[10px] font-bold tracking-wider uppercase"
+            style={{ color: meta.color }}
+          >
+            {meta.label}
+          </span>
+          {canExpand && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-white/30 hover:text-white/60 transition-colors"
+              title={expanded ? "Hide recipients" : "Show recipients"}
+            >
+              <svg className={`h-3.5 w-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Status badge */}
-      <span
-        className="font-body text-[10px] font-bold tracking-wider uppercase flex-shrink-0"
-        style={{ color: meta.color }}
-      >
-        {meta.label}
-      </span>
+      {/* Per-recipient deep-links (expanded) */}
+      {expanded && canExpand && state.txHash && (
+        <div className="border-t border-white/[0.06] px-4 py-2 space-y-1 max-h-48 overflow-y-auto">
+          {state.recipients.map((r) => (
+            <a
+              key={r.address}
+              href={getExplorerLink(state.txHash!, r.address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-white/[0.04] transition-colors group"
+              title={`View ${r.address} on Stellar.Expert`}
+            >
+              <span className="font-mono text-[10px] text-white/50 group-hover:text-white/80 transition-colors truncate">
+                {shortenAddr(r.address)}
+              </span>
+              <svg className="h-3 w-3 text-white/20 group-hover:text-emerald-400/70 flex-shrink-0 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -145,9 +203,27 @@ export function BulkDispatchPanel({
   const allDone = total > 0 && batchStates.every((b) => b.status === "success" || b.status === "error");
   const isRunning = pending > 0;
 
+  // Issue #778 — persist batch progress to sessionStorage so overlay survives refresh
+  useEffect(() => {
+    if (total === 0) return;
+    const overlayStatus = allDone ? "done" : failed > 0 && !isRunning ? "error" : "running";
+    saveBatchProgress({
+      sessionId: "bulk-dispatch",
+      current: succeeded,
+      total,
+      status: overlayStatus,
+    });
+    if (overlayStatus === "done") clearBatchProgress();
+  }, [total, succeeded, failed, isRunning, allDone]);
+
   if (total === 0) return null;
 
+  const overlayProgress = isRunning || (failed > 0 && !allDone)
+    ? { sessionId: "bulk-dispatch", current: succeeded, total, status: isRunning ? "running" as const : "error" as const }
+    : null;
+
   return (
+    <>
     <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
@@ -246,5 +322,9 @@ export function BulkDispatchPanel({
         </div>
       )}
     </div>
+
+    {/* Issue #778 — persistent progress overlay */}
+    <BatchProgressOverlay progress={overlayProgress} />
+    </>
   );
 }

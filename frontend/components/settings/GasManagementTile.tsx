@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, Fuel, Loader2, RefreshCw, ToggleLeft, ToggleRight, X, Zap } from "lucide-react";
 import { useGasBuffer } from "@/lib/use-gas-buffer";
+import { useAutoPilot } from "@/lib/use-auto-pilot";
 import { toast } from "@/lib/toast";
+import { QuickRefillButton } from "@/components/quick-refill-button";
+import { GasTankRefillWizard } from "@/components/gas-tank-refill-wizard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -17,6 +20,10 @@ const LOW_GAS_XLM = 5;
 /** Smart Prompt: suggest a top-up when balance drops below this level */
 const SMART_PROMPT_THRESHOLD_XLM = 10;
 const SMART_PROMPT_DEPOSIT_XLM = 50;
+
+/** Auto-Pilot: auto-refill when balance drops below this threshold */
+const AUTO_PILOT_THRESHOLD_XLM = 15;
+const AUTO_PILOT_REFILL_XLM = 25;
 
 // ─── AmountInput ──────────────────────────────────────────────────────────────
 
@@ -59,11 +66,19 @@ function AmountInput({
 
 // ─── GasManagementTile ────────────────────────────────────────────────────────
 
-export default function GasManagementTile() {
+interface GasManagementTileProps {
+    /** XLM required by the currently drafted split. When provided and > current
+     *  balance, the Quick-Refill button is shown (Issue #792). */
+    requiredXlm?: number;
+}
+
+export default function GasManagementTile({ requiredXlm = 0 }: GasManagementTileProps) {
     const { status, loading, error, pendingOp, deposit, withdraw, refresh } = useGasBuffer();
+    const { config, error: autoPilotError, updateConfig, calculateGasRequirements, isAutoRefillPossible, clearError } = useAutoPilot();
     const [depositAmt, setDepositAmt] = useState("");
     const [withdrawAmt, setWithdrawAmt] = useState("");
     const [promptDismissed, setPromptDismissed] = useState(false);
+    const [showRefillWizard, setShowRefillWizard] = useState(false);
 
     const isLowGas =
         status !== null &&
@@ -124,11 +139,10 @@ export default function GasManagementTile() {
 
     return (
         <div
-            className={`rounded-2xl border backdrop-blur-xl transition-colors duration-300 ${
-                isLowGas
+            className={`rounded-2xl border backdrop-blur-xl transition-colors duration-300 ${isLowGas
                     ? "border-orange-500/40 bg-orange-500/[0.03]"
                     : "border-white/10 bg-white/[0.03]"
-            }`}
+                }`}
         >
             {/* Low-gas top accent */}
             {isLowGas && (
@@ -140,11 +154,10 @@ export default function GasManagementTile() {
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                         <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
-                                isLowGas
+                            className={`flex h-10 w-10 items-center justify-center rounded-xl border ${isLowGas
                                     ? "border-orange-500/30 bg-orange-500/10"
                                     : "border-white/10 bg-white/[0.05]"
-                            }`}
+                                }`}
                         >
                             <Fuel
                                 size={18}
@@ -158,14 +171,23 @@ export default function GasManagementTile() {
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={refresh}
-                        disabled={loading}
-                        className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-white/40 hover:text-white transition-colors"
-                    >
-                        <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
-                        Refresh
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowRefillWizard(true)}
+                            className="flex items-center gap-1 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-[11px] text-cyan-300 hover:bg-cyan-400/20 transition-colors"
+                        >
+                            <Fuel size={11} />
+                            Fuel Up
+                        </button>
+                        <button
+                            onClick={refresh}
+                            disabled={loading}
+                            className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-white/40 hover:text-white transition-colors"
+                        >
+                            <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
+                            Refresh
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Low Gas Warning ── */}
@@ -183,6 +205,11 @@ export default function GasManagementTile() {
                             </p>
                         </div>
                     </div>
+                )}
+
+                {/* ── Quick Refill (Issue #792) ── */}
+                {!loading && requiredXlm > 0 && (
+                    <QuickRefillButton requiredXlm={requiredXlm} />
                 )}
 
                 {/* ── Smart Prompt: suggest top-up when balance < 10 XLM ── */}
@@ -211,6 +238,56 @@ export default function GasManagementTile() {
                     </div>
                 )}
 
+                {/* ── Auto-Pilot Toggle ── */}
+                <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
+                            <Zap size={16} />
+                        </div>
+                        <div className="flex-1">
+                            <p className="font-body text-xs font-semibold text-white">Auto-Pilot</p>
+                            <p className="font-body text-[10px] text-white/40 mt-0.5">
+                                Auto-refill when balance &lt; {config.thresholdXlm} XLM
+                            </p>
+                            {autoPilotError && (
+                                <p className="font-body text-[10px] text-red-400 mt-1 flex items-center gap-1">
+                                    <span>⚠</span>
+                                    {autoPilotError.message}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {autoPilotError && (
+                            <button
+                                onClick={clearError}
+                                className="p-1 text-white/40 hover:text-white transition-colors"
+                                aria-label="Clear error"
+                                title="Clear error"
+                            >
+                                <X size={12} />
+                            </button>
+                        )}
+                        <button
+                            onClick={() => updateConfig({ enabled: !config.enabled })}
+                            disabled={!!autoPilotError}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                config.enabled ? "bg-violet-500" : "bg-white/10"
+                            }`}
+                            aria-label={`Auto-Pilot is ${config.enabled ? 'enabled' : 'disabled'}. Click to ${config.enabled ? 'disable' : 'enable'} Auto-Pilot`}
+                            aria-pressed={config.enabled}
+                            role="switch"
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    config.enabled ? "translate-x-6" : "translate-x-1"
+                                }`}
+                                aria-hidden="true"
+                            />
+                        </button>
+                    </div>
+                </div>
+
                 {/* ── Status Stats ── */}
                 {loading ? (
                     <div className="flex items-center justify-center py-6">
@@ -236,9 +313,8 @@ export default function GasManagementTile() {
                                     className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-center"
                                 >
                                     <p
-                                        className={`font-heading text-sm leading-tight ${
-                                            s.accent ? "text-orange-400" : "text-white"
-                                        }`}
+                                        className={`font-heading text-sm leading-tight ${s.accent ? "text-orange-400" : "text-white"
+                                            }`}
                                     >
                                         {s.value}
                                     </p>
@@ -323,6 +399,12 @@ export default function GasManagementTile() {
                     </div>
                 </div>
             </div>
+
+            {/* Gas Tank Refill Wizard */}
+            <GasTankRefillWizard
+                isOpen={showRefillWizard}
+                onClose={() => setShowRefillWizard(false)}
+            />
         </div>
     );
 }

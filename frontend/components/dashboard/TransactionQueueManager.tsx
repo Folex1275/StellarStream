@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, ChevronUp, ChevronDown, Loader2, CheckCircle2, XCircle, ListTodo } from "lucide-react";
 import { useTransactionQueue } from "@/lib/providers/TransactionQueueProvider";
@@ -21,6 +21,13 @@ function truncateHash(hash: string): string {
   if (!hash) return "";
   if (hash.length <= 10) return hash;
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
+const STUCK_TRANSACTION_MS = 15_000;
+const STUCK_FEE_STEP = 100;
+
+function formatStroops(value: number): string {
+  return `${value.toLocaleString()} stroops`;
 }
 
 function TransactionEntryRow({ entry }: { entry: TransactionEntry }) {
@@ -48,11 +55,10 @@ function TransactionEntryRow({ entry }: { entry: TransactionEntry }) {
           <span className="text-xs font-medium text-white truncate">
             {TYPE_LABELS[entry.type] ?? entry.type}
           </span>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
-            entry.status === "confirmed" ? "bg-green-400/20 text-green-400" :
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${entry.status === "confirmed" ? "bg-green-400/20 text-green-400" :
             entry.status === "failed" ? "bg-red-400/20 text-red-400" :
-            "bg-cyan-400/20 text-cyan-400"
-          }`}>
+              "bg-cyan-400/20 text-cyan-400"
+            }`}>
             {entry.status}
           </span>
         </div>
@@ -82,6 +88,12 @@ function TransactionEntryRow({ entry }: { entry: TransactionEntry }) {
             <span className="text-[10px] text-yellow-400">poll failed</span>
           )}
         </div>
+
+        {entry.bumpedFeeStroops != null && (
+          <p className="text-[10px] text-cyan-200 mt-2 font-mono">
+            Bumped fee: {entry.bumpedFeeStroops.toLocaleString()} stroops
+          </p>
+        )}
       </div>
 
       {/* Dismiss button for terminal entries */}
@@ -103,13 +115,28 @@ interface TransactionQueueManagerProps {
 }
 
 export function TransactionQueueManager({ collapsed = false }: TransactionQueueManagerProps) {
-  const { entries, dismissAllCompleted } = useTransactionQueue();
+  const { entries, dismissAllCompleted, updateStatus } = useTransactionQueue();
   const [expanded, setExpanded] = useState(false);
+  const [speedUpSubmitted, setSpeedUpSubmitted] = useState(false);
+  const [selectedFee, setSelectedFee] = useState(100);
   const announcerRef = useRef<HTMLDivElement>(null);
   const prevEntriesRef = useRef<TransactionEntry[]>([]);
 
+  const now = Date.now();
   const pendingCount = entries.filter((e) => e.status === "pending").length;
+  const stuckEntries = entries.filter((e) => e.status === "pending" && now - e.timestamp > STUCK_TRANSACTION_MS);
+  const stuckEntry = stuckEntries[0];
   const hasCompleted = entries.some((e) => e.status === "confirmed" || e.status === "failed");
+
+  const minFee = stuckEntry?.feeStroops ?? 100;
+  const maxFee = stuckEntry?.maxFeeStroops ?? Math.max(minFee * 10, 500_000);
+
+  useEffect(() => {
+    if (!stuckEntry) return;
+    setSelectedFee(stuckEntry.bumpedFeeStroops ?? stuckEntry.feeStroops ?? minFee);
+  }, [stuckEntry?.id, stuckEntry?.bumpedFeeStroops, stuckEntry?.feeStroops, minFee]);
+
+  const queuedEntries = useMemo(() => [...entries].sort((a, b) => b.timestamp - a.timestamp), [entries]);
 
   // ARIA live region announcements on status change
   useEffect(() => {
@@ -125,10 +152,21 @@ export function TransactionQueueManager({ collapsed = false }: TransactionQueueM
     prevEntriesRef.current = entries;
   }, [entries]);
 
+  const handleSpeedUp = () => {
+    if (!stuckEntry) return;
+    updateStatus(stuckEntry.id, "pending", {
+      bumpedFeeStroops: selectedFee,
+      maxFeeStroops: maxFee,
+      retryCount: (stuckEntry.retryCount ?? 0) + 1,
+      lastBumpedAt: Date.now(),
+      pollFailureCount: 0,
+    });
+    setSpeedUpSubmitted(true);
+    window.setTimeout(() => setSpeedUpSubmitted(false), 2000);
+  };
+
   // Render nothing when queue is empty
   if (entries.length === 0) return null;
-
-  const sortedEntries = [...entries].sort((a, b) => b.timestamp - a.timestamp);
 
   // Icon-only mode when sidebar is collapsed
   if (collapsed) {
@@ -139,6 +177,11 @@ export function TransactionQueueManager({ collapsed = false }: TransactionQueueM
           {pendingCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cyan-400 text-[8px] font-bold text-black px-1">
               {pendingCount}
+            </span>
+          )}
+          {stuckEntries.length > 0 && (
+            <span className="absolute -left-1 -bottom-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold text-black px-1">
+              !
             </span>
           )}
         </div>
@@ -197,8 +240,58 @@ export function TransactionQueueManager({ collapsed = false }: TransactionQueueM
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="px-2 pb-2 space-y-1.5 max-h-64 overflow-y-auto">
-              {sortedEntries.map((entry) => (
+            <div className="px-2 pb-2 space-y-2 max-h-64 overflow-y-auto">
+              {stuckEntry && (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.08] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-200/80">
+                        Stuck transaction
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-white">
+                        {TYPE_LABELS[stuckEntry.type] ?? stuckEntry.type} has been pending for more than 15 seconds.
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] font-semibold text-white/70">
+                      {truncateHash(stuckEntry.hash)}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-center justify-between text-[10px] text-white/40">
+                      <span>Selected max fee</span>
+                      <span className="font-mono text-white">{formatStroops(selectedFee)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={minFee}
+                      max={maxFee}
+                      step={STUCK_FEE_STEP}
+                      value={selectedFee}
+                      onChange={(event) => setSelectedFee(Number(event.target.value))}
+                      className="w-full accent-amber-300"
+                    />
+                    <div className="flex items-center justify-between text-[10px] text-white/30">
+                      <span>{formatStroops(minFee)} min</span>
+                      <span>{formatStroops(maxFee)} max</span>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <button
+                        type="button"
+                        onClick={handleSpeedUp}
+                        disabled={speedUpSubmitted}
+                        className="w-full rounded-2xl bg-amber-400 px-3 py-2 text-sm font-semibold text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                      >
+                        {speedUpSubmitted ? "Fee bumped" : "Bump fee & resubmit"}
+                      </button>
+                      <p className="text-[10px] text-white/40">
+                        This will increase the max fee used when resubmitting the pending transaction.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {queuedEntries.map((entry) => (
                 <TransactionEntryRow key={entry.id} entry={entry} />
               ))}
               {hasCompleted && (

@@ -42,11 +42,18 @@ export default function ProjectionTabs({
           display: flex;
           gap: 8px;
           padding: 8px;
-          background: rgba(10, 10, 20, 0.6);
+          background: rgba(10, 10, 20, 0.82);
           border-radius: 16px;
           border: 1px solid rgba(100, 100, 120, 0.2);
           position: relative;
-          backdrop-filter: blur(8px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .tabs-header {
+            background: rgba(10, 10, 20, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         .tab-button {
@@ -88,12 +95,19 @@ export default function ProjectionTabs({
 
         .tab-button.active {
           color: #ffffff;
-          background: rgba(0, 229, 255, 0.1);
+          background: rgba(0, 229, 255, 0.18);
           border: 1px solid rgba(0, 229, 255, 0.3);
-          backdrop-filter: blur(24px);
           box-shadow: 
             0 0 20px rgba(0, 229, 255, 0.3),
             inset 0 0 20px rgba(0, 229, 255, 0.1);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .tab-button.active {
+            background: rgba(0, 229, 255, 0.1);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .tab-button.active::before {
@@ -129,11 +143,18 @@ export default function ProjectionTabs({
         .tab-content {
           margin-top: 24px;
           padding: 24px;
-          background: rgba(10, 10, 20, 0.4);
+          background: rgba(10, 10, 20, 0.80);
           border-radius: 16px;
           border: 1px solid rgba(100, 100, 120, 0.2);
-          backdrop-filter: blur(8px);
           animation: fadeIn 0.3s ease;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .tab-content {
+            background: rgba(10, 10, 20, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+          }
         }
 
         @keyframes fadeIn {
@@ -165,6 +186,15 @@ export default function ProjectionTabs({
 
         .tab-button.active + .light-beam-effect {
           opacity: 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .tab-button {
+            transition: none;
+          }
+          .tab-content {
+            animation: none;
+          }
         }
 
         /* Keyboard focus styles */

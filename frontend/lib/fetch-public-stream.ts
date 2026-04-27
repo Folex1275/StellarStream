@@ -1,5 +1,6 @@
 import { Contract, rpc as SorobanRpc, scValToNative, xdr } from "@stellar/stellar-sdk";
 import type { StreamData } from "@/components/view-stream-client";
+import { getOrganizationMetadata } from "@/lib/server/org-metadata-store";
 
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://soroban-rpc.stellar.org";
 const CONTRACT_ID = process.env.NEXT_PUBLIC_NEBULA_CONTRACT_ID || process.env.NEXT_PUBLIC_CONTRACT_ID || "";
@@ -40,6 +41,9 @@ export async function fetchPublicStream(streamId: string): Promise<StreamData | 
     await new Promise(resolve => setTimeout(resolve, 800));
 
     // Mock response that would normally come from scValToNative(result.retval)
+    const orgId = "demo-org";
+    const orgMetadata = getOrganizationMetadata(orgId);
+
     return {
       id: streamId,
       name: `Stream #${streamId.slice(0, 4)}`,
@@ -52,6 +56,11 @@ export async function fetchPublicStream(streamId: string): Promise<StreamData | 
       receiver: "GA3...9R1T",
       startTime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
       endTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+      organization: {
+        id: orgId,
+        name: "Demo Organization",
+        logo_url: orgMetadata?.logo_url,
+      },
     };
   } catch (error) {
     console.error("Error fetching public stream:", error);

@@ -412,13 +412,20 @@ export function FlowPairShowcase() {
           width: 100%;
           max-width: 460px;
           padding: 20px 28px;
-          background: rgba(255,255,255,0.025);
+          background: rgba(10, 10, 20, 0.80);
           border: 1px solid rgba(255,255,255,0.07);
           border-radius: 16px;
           margin-bottom: 10px;
-          backdrop-filter: blur(12px);
           transition: border-color 0.2s, background 0.2s;
           cursor: default;
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .showcase-card {
+            background: rgba(255,255,255,0.025);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+          }
         }
 
         .showcase-card:hover {

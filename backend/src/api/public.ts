@@ -8,7 +8,7 @@ const MAX_SEARCH_LIMIT = 50;
  */
 export async function getStats(_req: Request, res: Response): Promise<void> {
   try {
-    const [totalStreams, bySenderCount, byReceiverCount] = await Promise.all([
+    const [totalStreams, bySenderCount, byReceiverCount, tvlSnapshot] = await Promise.all([
       prisma.stream.count(),
       prisma.stream.groupBy({
         by: ['sender'],
@@ -18,6 +18,7 @@ export async function getStats(_req: Request, res: Response): Promise<void> {
         by: ['receiver'],
         _count: { id: true },
       }),
+      getGlobalTvlSnapshot(),
     ]);
 
     const uniqueSenders = bySenderCount.length;
@@ -27,6 +28,9 @@ export async function getStats(_req: Request, res: Response): Promise<void> {
       totalStreams,
       uniqueSenders,
       uniqueReceivers,
+      globalTvl: tvlSnapshot.totalActiveAmount,
+      activeStreams: tvlSnapshot.activeStreamCount,
+      tvlRefreshedAt: tvlSnapshot.refreshedAt,
     });
   } catch (err) {
     console.error('[GET /stats]', err);
@@ -35,6 +39,55 @@ export async function getStats(_req: Request, res: Response): Promise<void> {
       message: 'Failed to compute stats.',
     });
   }
+}
+
+async function getGlobalTvlSnapshot(): Promise<{
+  totalActiveAmount: string;
+  activeStreamCount: number;
+  refreshedAt: string | null;
+}> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{
+      totalActiveAmount: string;
+      activeStreamCount: bigint | number;
+      refreshedAt: Date | string | null;
+    }>>`
+      SELECT
+        "totalActiveAmount",
+        "activeStreamCount",
+        "refreshedAt"
+      FROM "GlobalTvlView"
+      WHERE "id" = 1
+    `;
+
+    const row = rows[0];
+    if (row) {
+      return {
+        totalActiveAmount: row.totalActiveAmount,
+        activeStreamCount: Number(row.activeStreamCount),
+        refreshedAt: row.refreshedAt ? new Date(row.refreshedAt).toISOString() : null,
+      };
+    }
+  } catch {
+    // Fall back to a live aggregate when the materialized view is unavailable.
+  }
+
+  const fallback = await prisma.$queryRaw<Array<{
+    totalActiveAmount: string;
+    activeStreamCount: bigint | number;
+  }>>`
+    SELECT
+      COALESCE(SUM(CASE WHEN "status" = 'ACTIVE' THEN "amount"::numeric ELSE 0 END), 0)::text AS "totalActiveAmount",
+      COUNT(*) FILTER (WHERE "status" = 'ACTIVE') AS "activeStreamCount"
+    FROM "Stream"
+  `;
+
+  const row = fallback[0] ?? { totalActiveAmount: "0", activeStreamCount: 0 };
+  return {
+    totalActiveAmount: row.totalActiveAmount,
+    activeStreamCount: Number(row.activeStreamCount),
+    refreshedAt: null,
+  };
 }
 
 /**

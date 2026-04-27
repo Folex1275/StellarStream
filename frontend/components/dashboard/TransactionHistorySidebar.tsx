@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
+import { getExplorerLink } from "@/lib/explorer";
+import { TransactionDetailsModal } from "./TransactionDetailsModal";
 import { 
   X, 
   History, 
@@ -18,7 +20,7 @@ import {
   Check,
   Loader2,
   Download,
-} from "lucide-react";
+import { TransactionDetailsModal } from "./TransactionDetailsModal";
 
 /**
  * Transaction event types
@@ -333,6 +335,7 @@ export function TransactionHistorySidebar({
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionEvent | null>(null);
 
   /**
    * Fetch audit log from backend
@@ -545,7 +548,8 @@ export function TransactionHistorySidebar({
                             return (
                               <div
                                 key={event.id}
-                                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                                onClick={() => setSelectedTransaction(event)}
+                                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
                               >
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between mb-3">
@@ -590,10 +594,11 @@ export function TransactionHistorySidebar({
                                   <div>
                                     <p className="text-xs text-gray-500 mb-0.5">From</p>
                                     <a
-                                      href={getStellarExpertAccountUrl(event.sender)}
+                                      href={getExplorerLink(event.hash, event.sender)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-sm text-cyan-400 hover:text-cyan-300 font-mono truncate block"
+                                      title={`View ${event.sender} on Stellar.Expert`}
                                     >
                                       {event.sender}
                                     </a>
@@ -602,10 +607,11 @@ export function TransactionHistorySidebar({
                                     <div>
                                       <p className="text-xs text-gray-500 mb-0.5">To</p>
                                       <a
-                                        href={getStellarExpertAccountUrl(event.receiver)}
+                                        href={getExplorerLink(event.hash, event.receiver)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-sm text-cyan-400 hover:text-cyan-300 font-mono truncate block"
+                                        title={`View ${event.receiver} on Stellar.Expert`}
                                       >
                                         {event.receiver}
                                       </a>
@@ -633,7 +639,7 @@ export function TransactionHistorySidebar({
                                   </div>
                                   
                                   <a
-                                    href={getStellarExpertUrl(event.hash)}
+                                    href={getExplorerLink(event.hash)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
@@ -687,6 +693,13 @@ export function TransactionHistorySidebar({
           </div>
         </div>
       </Dialog>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        isOpen={!!selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        transaction={selectedTransaction}
+      />
     </Transition>
   );
 }

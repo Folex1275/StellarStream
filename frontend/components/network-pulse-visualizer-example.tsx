@@ -50,11 +50,18 @@ export default function NetworkPulseVisualizerExample() {
         }
 
         .visualizer-section {
-          background: rgba(6, 6, 15, 0.4);
+          background: rgba(6, 6, 15, 0.90);
           border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 16px;
           padding: 32px;
-          backdrop-filter: blur(24px);
+        }
+
+        @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+          .visualizer-section {
+            background: rgba(6, 6, 15, 0.4);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+          }
         }
 
         .section-title {

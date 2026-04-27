@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, ShieldCheck } from "lucide-react";
 import { VerifiedNebulaBadge } from "@/components/VerifiedNebulaBadge";
+import { OrganizationAvatar } from "@/components/organization-avatar";
 
 // ─── Types (duplicated here to avoid importing from the server page) ──────────
 
@@ -25,6 +26,11 @@ export interface StreamData {
   startTime: string; // ISO string — serialisable across server→client boundary
   endTime: string;
   apy?: number;
+  organization?: {
+    id: string;
+    name: string;
+    logo_url?: string;
+  };
 }
 
 // ─── Live counter ─────────────────────────────────────────────────────────────
@@ -64,7 +70,16 @@ export function ViewStreamClient({ stream }: { stream: StreamData }) {
       className="glass-card max-w-lg w-full mx-auto p-8 space-y-6"
     >
       {/* Verified Badge Header */}
-      <div className="flex justify-center -mt-12 mb-8">
+      <div className="flex flex-col items-center justify-center -mt-12 mb-8 gap-3">
+        {stream.organization && (
+          <OrganizationAvatar
+            logoUrl={stream.organization.logo_url}
+            stellarAddress={stream.organization.id}
+            size={56}
+            className="rounded-2xl border border-white/20 shadow-[0_0_24px_rgba(0,245,255,0.2)]"
+            altText={`${stream.organization.name} logo`}
+          />
+        )}
         <VerifiedNebulaBadge />
       </div>
 

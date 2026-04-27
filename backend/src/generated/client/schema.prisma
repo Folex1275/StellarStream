@@ -40,6 +40,7 @@ model Stream {
 
   @@index([sender])
   @@index([receiver])
+  @@index([status])
   @@index([streamId])
   @@index([contractId])
   @@index([legacy])
@@ -130,6 +131,8 @@ model EventLog {
   receiver       String?
   amount         BigInt?
   metadata       String? // JSON string
+  parentHash     String?  @map("parent_hash") // SHA-256 hash of the previous log entry
+  entryHash      String?  @map("entry_hash") // SHA-256(canonical(this_entry) + parentHash)
   createdAt      DateTime @default(now())
 
   @@unique([txHash, eventIndex])
@@ -342,6 +345,18 @@ model GlobalStats {
   updatedAt     DateTime @updatedAt
 }
 
+// V3 Splitter protocol statistics (#649)
+model GlobalStats_V3 {
+  id              String   @id @default("v3_global")
+  totalVolumeUsd  String   @default("0") // Cumulative USD volume through V3 splitter
+  dailyVolumeUsd  String   @default("0") // Last 24h volume
+  totalSplits     Int      @default(0) // Total disbursements
+  totalRecipients Int      @default(0) // Total unique recipients
+  updatedAt       DateTime @updatedAt
+
+  @@map("GlobalStats_V3")
+}
+
 // Daily TVL snapshots for growth charts
 model TvlSnapshot {
   id        String   @id @default(cuid())
@@ -405,4 +420,228 @@ model AssetConfig {
 
   @@index([isVerified])
   @@index([isVisible])
+}
+
+// ── V3 Fund-Split Tables ──────────────────────────────────────────────────────
+
+// Header record for a single fund-split disbursement
+model Disbursement {
+  id            String   @id @default(cuid())
+  senderAddress String   @map("sender_address")
+  totalAmount   String   @map("total_amount")
+  asset         String
+  txHash        String   @unique @map("tx_hash")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  recipients SplitRecipient[]
+
+  @@index([senderAddress])
+  @@index([txHash])
+}
+
+// Individual payout row linked to a parent Disbursement
+model SplitRecipient {
+  id               String       @id @default(cuid())
+  disbursementId   String       @map("disbursement_id")
+  recipientAddress String       @map("recipient_address")
+  amount           String
+  status           PayoutStatus @default(PENDING)
+
+  disbursement Disbursement @relation(fields: [disbursementId], references: [id])
+
+  @@index([disbursementId])
+  @@index([recipientAddress])
+}
+
+enum PayoutStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+// Unified registry mapping Stellar Asset IDs to their source-chain equivalents
+model AssetMapping {
+  id             String   @id @default(cuid())
+  stellarAssetId String   @unique // "SYMBOL:ISSUER" or contract address
+  symbol         String
+  sourceChain    String // "stellar" | "ethereum" | "polygon" | etc.
+  sourceContract String? // Origin-chain contract address (null for native Stellar)
+  label          String // Human-readable e.g. "USDC (Circle/Stellar)"
+  bridgeProtocol String? // "wormhole" | "squid" | null for native
+  decimals       Int      @default(7)
+  isNative       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([symbol])
+  @@index([sourceChain])
+}
+
+// Time-series price history for tax and reporting purposes
+model PriceHistory {
+  id         String   @id @default(cuid())
+  asset      String // Asset identifier e.g. "native" or "USDC:ISSUER"
+  symbol     String // Human-readable symbol e.g. "XLM", "USDC"
+  priceUsd   Float // USD price at the time of recording
+  source     String // "coingecko" | "dex"
+  recordedAt DateTime @default(now())
+
+  @@index([asset, recordedAt])
+  @@index([recordedAt])
+}
+
+// Aggregated dust-loss report per asset across all protocol versions (Issue #179)
+model ProtocolInefficiencyReport {
+  id              String   @id @default(cuid())
+  asset           String // Token address / asset identifier
+  protocolVersion Int      @map("protocol_version") // 1, 2, 3…
+  totalDustAmount String   @map("total_dust_amount") // Cumulative dust (stroops)
+  eventCount      Int      @default(0) @map("event_count")
+  firstSeenLedger Int?     @map("first_seen_ledger")
+  lastSeenLedger  Int?     @map("last_seen_ledger")
+  generatedAt     DateTime @default(now()) @map("generated_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([asset, protocolVersion])
+  @@index([asset])
+  @@index([protocolVersion])
+  @@map("protocol_inefficiency_report")
+}
+
+// Log of payment splits with linked USD price at time of split
+model SplitLog {
+  id              String    @id @default(cuid())
+  streamId        String
+  asset           String
+  amount          String
+  sender          String
+  receiver        String
+  txHash          String    @unique
+  priceUsd        Float? // USD price at time of split
+  priceSource     String? // Where the price came from
+  priceRecordedAt DateTime? // When the price was recorded
+  executedAt      DateTime  @default(now())
+
+  @@index([streamId])
+  @@index([executedAt])
+  @@index([txHash])
+}
+
+model MonitoredTransaction {
+  id            String    @id @default(cuid())
+  txHash        String    @unique @map("tx_hash")
+  txXdr         String    @map("tx_xdr")
+  sourceAddress String    @map("source_address")
+  originalFeeSt String    @map("original_fee_stroops")
+  currentFeeSt  String    @map("current_fee_stroops")
+  bumpCount     Int       @default(0) @map("bump_count")
+  maxBumps      Int       @default(3) @map("max_bumps")
+  status        String    @default("PENDING")
+  submittedAt   DateTime  @default(now()) @map("submitted_at")
+  confirmedAt   DateTime? @map("confirmed_at")
+  lastBumpAt    DateTime? @map("last_bump_at")
+  errorMessage  String?   @map("error_message")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([submittedAt])
+  @@map("MonitoredTransaction")
+}
+
+// Split-draft version control (#961)
+// Header record for a draft that can have multiple versions
+model DisbursementDraft {
+  id             String   @id @default(cuid())
+  senderAddress  String   @map("sender_address")
+  name           String?
+  asset          String
+  currentVersion Int      @default(1) @map("current_version")
+  status         String   @default("DRAFT")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  versions DisbursementDraftVersion[]
+
+  @@index([senderAddress])
+  @@index([status])
+  @@map("DisbursementDraft")
+}
+
+// Individual version snapshot of a draft
+model DisbursementDraftVersion {
+  id          String   @id @default(cuid())
+  draftId     String   @map("draft_id")
+  version     Int
+  totalAmount String   @map("total_amount")
+  recipients  Json
+  changeNote  String?  @map("change_note")
+  changedBy   String   @map("changed_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  draft DisbursementDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, version])
+  @@index([draftId])
+  @@map("DisbursementDraftVersion")
+}
+
+// Multi-sig proposal store for collecting partial signatures (#954)
+model MultisigProposal {
+  id              String   @id @default(cuid())
+  proposalId      String   @unique @map("proposal_id")
+  organizationId  String   @map("organization_id")
+  transactionXdr  String   @map("transaction_xdr")
+  signatures      Json     @default("[]") // Array of {signer: String, signature: String}
+  requiredSigners Int      @map("required_signers")
+  status          String   @default("PENDING") // PENDING, SIGNED, SUBMITTED, FAILED
+  submittedTxHash String?  @map("submitted_tx_hash")
+  errorMessage    String?  @map("error_message")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  expiresAt       DateTime @map("expires_at")
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("MultisigProposal")
+}
+
+// Cached Stellar asset metadata from Stellar-Expert (#955)
+model CachedAsset {
+  id           String   @id @default(cuid())
+  tokenAddress String   @unique @map("token_address")
+  code         String
+  issuer       String
+  name         String?
+  description  String?
+  imageUrl     String?  @map("image_url")
+  isVerified   Boolean  @default(false) @map("is_verified")
+  decimals     Int      @default(7)
+  lastSyncedAt DateTime @map("last_synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([tokenAddress])
+  @@index([isVerified])
+  @@index([lastSyncedAt])
+  @@map("CachedAsset")
+}
+
+// Split-link shortened URLs (#957)
+model SplitLink {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  fullUrl        String    @map("full_url")
+  payloadHash    String    @unique @map("payload_hash")
+  creatorAddress String    @map("creator_address")
+  clickCount     Int       @default(0) @map("click_count")
+  lastClickedAt  DateTime? @map("last_clicked_at")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([slug])
+  @@index([creatorAddress])
+  @@index([createdAt])
+  @@map("SplitLink")
 }

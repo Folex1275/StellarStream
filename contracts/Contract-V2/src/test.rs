@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate::types::{PermitArgs, StreamArgs};
+use crate::types::{PermitArgs, PendingRateUpdate, SimulationReport, StreamArgs, SwapStreamArgs};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
     token::TokenClient,
@@ -1284,6 +1284,231 @@ fn test_create_stream_with_fee_requires_treasury() {
 }
 
 #[test]
+fn test_gas_buffer_deposit_withdraw_and_query() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let beneficiary = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&admin, &1_000_000_000);
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    // Initial buffer is empty.
+    assert_eq!(v2_client.get_gas_buffer_balance(&admin), 0);
+
+    // Deposit 100M stroops into sender's buffer.
+    let deposit_amount = 100_000_000;
+    v2_client.deposit_gas_buffer(&admin, &deposit_amount).unwrap();
+    assert_eq!(v2_client.get_gas_buffer_balance(&admin), deposit_amount);
+
+    // Withdraw 40M to beneficiary.
+    v2_client
+        .withdraw_gas_buffer(&admin, &40_000_000, &beneficiary)
+        .unwrap();
+    assert_eq!(v2_client.get_gas_buffer_balance(&admin), 60_000_000);
+    assert_eq!(token_client.balance(&beneficiary), 40_000_000);
+}
+
+#[test]
+fn test_split_multi_asset_requires_gas_buffer() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver1 = Address::generate(&env);
+    let receiver2 = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        crate::types::MultiAssetRecipient {
+            address: receiver1.clone(),
+            asset: token_id.clone(),
+            amount: 100_000_000,
+        },
+        crate::types::MultiAssetRecipient {
+            address: receiver2.clone(),
+            asset: token_id.clone(),
+            amount: 100_000_000,
+        },
+    ];
+
+    // Without gas buffer, split should fail.
+    let result = v2_client.try_split_multi_asset(&sender, &recipients);
+    assert_eq!(result, Err(Ok(Error::InsufficientGasBuffer)));
+
+    // Fund sender buffer and retry.
+    asset_client.mint(&sender, &100_000_000);
+    v2_client.deposit_gas_buffer(&sender, &GAS_FEE_PER_SPLIT_STROOPS).unwrap();
+
+    v2_client.split_multi_asset(&sender, &recipients).unwrap();
+
+    assert_eq!(token_client.balance(&receiver1), 100_000_000);
+    assert_eq!(token_client.balance(&receiver2), 100_000_000);
+    assert_eq!(v2_client.get_gas_buffer_balance(&sender), 0);
+}
+
+#[test]
+fn test_split_funds_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver1 = Address::generate(&env);
+    let receiver2 = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    // Deposit exactly one execution's gas buffer fee.
+    v2_client
+        .deposit_gas_buffer(&sender, &GAS_FEE_PER_SPLIT_STROOPS)
+        .unwrap();
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        crate::types::Recipient {
+            address: receiver1.clone(),
+            amount: 100_000_000,
+        },
+        crate::types::Recipient {
+            address: receiver2.clone(),
+            amount: 100_000_000,
+        },
+    ];
+
+    v2_client
+        .split_funds(&sender, &token_id, &recipients)
+        .unwrap();
+
+    assert_eq!(token_client.balance(&receiver1), 100_000_000);
+    assert_eq!(token_client.balance(&receiver2), 100_000_000);
+    assert_eq!(v2_client.get_gas_buffer_balance(&sender), 0);
+}
+
+#[test]
+fn test_split_funds_fails_atomically_on_insufficient_balance() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver1 = Address::generate(&env);
+    let receiver2 = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    // Mint only enough for the gas-buffer deposit + the first recipient.
+    asset_client.mint(&sender, &(GAS_FEE_PER_SPLIT_STROOPS + 100_000_000));
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    // Deposit exactly one execution's gas buffer fee.
+    v2_client
+        .deposit_gas_buffer(&sender, &GAS_FEE_PER_SPLIT_STROOPS)
+        .unwrap();
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        crate::types::Recipient {
+            address: receiver1.clone(),
+            amount: 100_000_000,
+        },
+        crate::types::Recipient {
+            address: receiver2.clone(),
+            amount: 1,
+        },
+    ];
+
+    let sender_balance_before = token_client.balance(&sender);
+
+    // Should fail atomically (insufficient balance on second transfer).
+    let result = v2_client.try_split_funds(&sender, &token_id, &recipients);
+    assert!(result.is_err());
+
+    // No recipients should receive tokens.
+    assert_eq!(token_client.balance(&receiver1), 0);
+    assert_eq!(token_client.balance(&receiver2), 0);
+
+    // Sender balance should be unchanged from immediately before the call.
+    assert_eq!(token_client.balance(&sender), sender_balance_before);
+}
+
+#[test]
+fn test_split_multi_asset_fails_on_non_token_asset() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, _, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    let bad_asset = Address::generate(&env); // not an asset contract
+
+    let recipients = soroban_sdk::vec![
+        &env,
+        crate::types::MultiAssetRecipient { address: receiver.clone(), asset: bad_asset, amount: 100_000_000 },
+    ];
+
+    let result = v2_client.try_split_multi_asset(&sender, &recipients);
+    assert_eq!(result, Err(Ok(Error::AssetInterfaceNotSupported)));
+}
+
+#[test]
+fn test_split_multi_asset_fails_on_too_many_recipients() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, _, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &10_000_000_000);
+
+    let (_, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_fee_token(&token_id);
+
+    let mut recipients = soroban_sdk::vec!(&env);
+    for i in 0..121 {
+        recipients.push_back(crate::types::MultiAssetRecipient {
+            address: Address::generate(&env),
+            asset: token_id.clone(),
+            amount: 1_000_000,
+        });
+    }
+
+    let result = v2_client.try_split_multi_asset(&sender, &recipients);
+    assert_eq!(result, Err(Ok(Error::BatchTooLarge)));
+}
+
+#[test]
 fn test_withdraw_treasury_transfers_pending_fees() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1907,713 +2132,512 @@ fn test_yield_bearing_stream() {
     assert_eq!(token_client.balance(&receiver), 500_000_000);
 }
 
-// ── Issue #410: Yield-Split routing tests ────────────────────────────────────
+// ── Issue #934: Decommission Logic ───────────────────────────────────────────
 
 #[test]
-fn test_yield_split_routes_interest_to_receiver() {
+fn test_decommission_blocks_create_stream() {
     let env = Env::default();
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    client.decommission_contract();
+
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-
-    let vault_id = env.register_contract(None, MockVault);
-    asset_client.mint(&sender, &1_000_000_000);
-    // Pre-fund contract to cover simulated interest payout
-    asset_client.mint(&v2_client.address, &100_000_000);
-
-    env.ledger().set_timestamp(500);
-
-    // yield_recipient = 1 (Receiver)
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 500_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: Some(vault_id.clone()),
-        yield_enabled: true,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 1,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    // At t=500, 50% unlocked = 250_000_000 principal
-    // MockVault returns 10% interest = 25_000_000
-    v2_client.withdraw(&sid, &receiver);
-
-    // Receiver should have principal (250M) + interest (25M) = 275M
-    assert_eq!(token_client.balance(&receiver), 275_000_000);
-}
-
-#[test]
-fn test_yield_split_routes_interest_to_sender() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-
-    let vault_id = env.register_contract(None, MockVault);
-    asset_client.mint(&sender, &1_000_000_000);
-    asset_client.mint(&v2_client.address, &100_000_000);
-
-    env.ledger().set_timestamp(500);
-
-    // yield_recipient = 0 (Sender)
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 500_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: Some(vault_id.clone()),
-        yield_enabled: true,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    let sender_balance_before = token_client.balance(&sender);
-    v2_client.withdraw(&sid, &receiver);
-
-    // Receiver gets only principal (250M), sender gets interest (25M)
-    assert_eq!(token_client.balance(&receiver), 250_000_000);
-    assert_eq!(token_client.balance(&sender), sender_balance_before + 25_000_000);
-}
-
-// ── Issue #411: Stream-Splitting tests ───────────────────────────────────────
-
-#[test]
-fn test_split_stream_routes_bps_to_split_address() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let tax_vault = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-
-    asset_client.mint(&sender, &1_000_000_000);
-
-    // Create a stream with no initial split
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 1_000_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    // Receiver sets a 20% split to their tax vault
-    v2_client.split_stream(&sid, &Some(tax_vault.clone()), &2000u32);
-
-    // At t=500: 50% unlocked = 500_000_000
-    env.ledger().set_timestamp(500);
-    v2_client.withdraw(&sid, &receiver);
-
-    // 20% of 500M = 100M to tax_vault, 80% = 400M to receiver
-    assert_eq!(token_client.balance(&tax_vault), 100_000_000);
-    assert_eq!(token_client.balance(&receiver), 400_000_000);
-}
-
-#[test]
-fn test_split_stream_rejects_invalid_bps() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
-
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 1_000_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    // 10000 bps (100%) must be rejected
-    let result = v2_client.try_split_stream(&sid, &None, &10000u32);
-    assert!(result.is_err());
-}
-
-// ── Issue #412: Compliance Oracle tests ──────────────────────────────────────
-
-#[contract]
-pub struct MockOracle;
-
-#[contractimpl]
-impl MockOracle {
-    /// Returns false (flagged) for any address stored under key "blocked".
-    pub fn is_allowed(env: Env, addr: Address) -> bool {
-        let blocked: Option<Address> = env.storage().instance().get(&symbol_short!("blocked"));
-        blocked.map(|b| b != addr).unwrap_or(true)
-    }
-
-    pub fn set_blocked(env: Env, addr: Address) {
-        env.storage().instance().set(&symbol_short!("blocked"), &addr);
-    }
-}
-
-#[test]
-fn test_compliance_oracle_blocks_flagged_sender_on_create() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
-
-    let oracle_id = env.register_contract(None, MockOracle);
-    let oracle_client = MockOracleClient::new(&env, &oracle_id);
-
-    // Register oracle and flag the sender
-    v2_client.set_compliance_oracle(&oracle_id);
-    oracle_client.set_blocked(&sender);
-
-    let result = v2_client.try_create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 100_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_compliance_oracle_blocks_flagged_beneficiary_on_withdraw() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
-
-    // Create stream before oracle is set
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 1_000_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    // Now install oracle and flag the receiver
-    let oracle_id = env.register_contract(None, MockOracle);
-    let oracle_client = MockOracleClient::new(&env, &oracle_id);
-    v2_client.set_compliance_oracle(&oracle_id);
-    oracle_client.set_blocked(&receiver);
-
-    env.ledger().set_timestamp(500);
-    let result = v2_client.try_withdraw(&sid, &receiver);
-    assert!(result.is_err());
-}
-
-#[test]
-fn test_compliance_oracle_allows_clean_address() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-    let unrelated = Address::generate(&env); // only this one is blocked
-    let token_admin = Address::generate(&env);
-    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
-
-    let oracle_id = env.register_contract(None, MockOracle);
-    let oracle_client = MockOracleClient::new(&env, &oracle_id);
-    v2_client.set_compliance_oracle(&oracle_id);
-    oracle_client.set_blocked(&unrelated); // sender/receiver are clean
-
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 1_000_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 1000,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    env.ledger().set_timestamp(500);
-    v2_client.withdraw(&sid, &receiver);
-    assert_eq!(token_client.balance(&receiver), 500_000_000);
-}<'a>(env: &'a Env, penalty_bps: u32) -> (ContractClient<'a>, Address, Address, Address, u64) {
-    env.mock_all_auths();
-    let admin = Address::generate(env);
-    let sender = Address::generate(env);
-    let receiver = Address::generate(env);
-
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(env, &contract_id);
-    client.init(&admin);
-
-    let (token_addr, _, asset_admin) = create_token(env, &admin);
-    asset_admin.mint(&sender, &200_000_000);
-
-    env.ledger().with_mut(|li| li.timestamp = 0);
-
-    let stream_id = client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_addr,
-        total_amount: 100_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 100,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
-
-    (client, sender, receiver, admin, stream_id)
-}
-
-#[test]
-fn test_sender_cancel_applies_penalty() {
-    let env = Env::default();
-    // 1000 bps = 10% penalty
-    let (client, sender, receiver, _, stream_id) = make_penalised_stream(&env, 1000);
-
-    let (_, _, token_client) = create_token(&env, &Address::generate(&env));
-    let stream = client.get_stream(&stream_id).unwrap();
-    let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-
-    // Cancel at t=50: unlocked = 50_000_000, remaining = 50_000_000
-    // penalty = 50_000_000 * 1000 / 10000 = 5_000_000
-    // to_receiver = 50_000_000 (earned) + 5_000_000 (penalty) = 55_000_000
-    // to_sender   = 50_000_000 - 5_000_000 = 45_000_000
-    env.ledger().with_mut(|li| li.timestamp = 50);
-    client.cancel(&stream_id, &sender);
-
-    assert_eq!(token_client.balance(&receiver), 55_000_000);
-    assert_eq!(token_client.balance(&sender), 145_000_000); // 200M minted - 100M deposited + 45M returned
-}
-
-#[test]
-fn test_receiver_cancel_no_penalty() {
-    let env = Env::default();
-    let (client, sender, receiver, _, stream_id) = make_penalised_stream(&env, 1000);
-
-    let stream = client.get_stream(&stream_id).unwrap();
-    let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-
-    // Receiver cancels at t=50 — no penalty applies
-    // to_receiver = 50_000_000, to_sender = 50_000_000
-    env.ledger().with_mut(|li| li.timestamp = 50);
-    client.cancel(&stream_id, &receiver);
-
-    assert_eq!(token_client.balance(&receiver), 50_000_000);
-    assert_eq!(token_client.balance(&sender), 150_000_000);
-}
-
-#[test]
-fn test_zero_penalty_bps_no_penalty() {
-    let env = Env::default();
-    let (client, sender, receiver, _, stream_id) = make_penalised_stream(&env, 0);
-
-    let stream = client.get_stream(&stream_id).unwrap();
-    let token_client = soroban_sdk::token::TokenClient::new(&env, &stream.token);
-
-    env.ledger().with_mut(|li| li.timestamp = 50);
-    client.cancel(&stream_id, &sender);
-
-    // No penalty: standard split
-    assert_eq!(token_client.balance(&receiver), 50_000_000);
-    assert_eq!(token_client.balance(&sender), 150_000_000);
-}
-
-#[test]
-fn test_invalid_penalty_bps_rejected() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let admin = Address::generate(&env);
-    let sender = Address::generate(&env);
-    let receiver = Address::generate(&env);
-
-    let contract_id = env.register(Contract, ());
-    let client = ContractClient::new(&env, &contract_id);
-    client.init(&admin);
-
-    let (token_addr, _, asset_admin) = create_token(&env, &admin);
-    asset_admin.mint(&sender, &200_000_000);
+    let (token_id, _, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
 
     let result = client.try_create_stream(&StreamArgs {
         sender: sender.clone(),
         receiver: receiver.clone(),
-        token: token_addr,
-        total_amount: 100_000_000,
+        token: token_id.clone(),
+        total_amount: 500_000_000,
         start_time: 0,
         cliff_time: 0,
-        end_time: 100,
+        end_time: 1000,
         step_duration: 0,
         multiplier_bps: 0,
-        penalty_bps: 10_001, // > 100%
+        vault_address: None,
+        yield_enabled: false,
     });
-
-    assert_eq!(result, Err(Ok(ContractError::InvalidPenalty)));
+    assert!(result.is_err());
 }
 
-// ── Issue #413: Circular Event Log tests ─────────────────────────────────────
-
 #[test]
-fn test_event_log_appends_and_reads_in_order() {
+fn test_decommission_withdraw_allowed_within_claim_window() {
     let env = Env::default();
     env.mock_all_auths();
+    env.ledger().set_timestamp(1000);
 
     let admin = Address::generate(&env);
+    let (contract_id, client) = setup_v2(&env, &admin);
+
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
+    let (token_id, token_client, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
 
-    let sid = v2_client.create_stream(&StreamArgs {
+    client.create_stream(&StreamArgs {
         sender: sender.clone(),
         receiver: receiver.clone(),
         token: token_id.clone(),
         total_amount: 1_000_000_000,
         start_time: 0,
         cliff_time: 0,
-        end_time: 1000,
+        end_time: 2000,
         step_duration: 0,
         multiplier_bps: 0,
-        penalty_bps: 0,
         vault_address: None,
         yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
     });
 
-    // Append 3 entries
-    v2_client.append_event_log(&sid, &soroban_sdk::Bytes::from_slice(&env, b"event_a"));
-    v2_client.append_event_log(&sid, &soroban_sdk::Bytes::from_slice(&env, b"event_b"));
-    v2_client.append_event_log(&sid, &soroban_sdk::Bytes::from_slice(&env, b"event_c"));
+    // Decommission at t=1000 → claim_deadline = 1000 + 90*24*3600
+    client.decommission_contract();
 
-    let log = v2_client.get_stream_event_log(&sid);
-    assert_eq!(log.len(), 3);
-    assert_eq!(log.get(0).unwrap(), soroban_sdk::Bytes::from_slice(&env, b"event_a"));
-    assert_eq!(log.get(2).unwrap(), soroban_sdk::Bytes::from_slice(&env, b"event_c"));
+    // Advance to t=1500 (still within 90-day window)
+    env.ledger().set_timestamp(1500);
+    let withdrawn = client.withdraw(&0, &receiver);
+    assert!(withdrawn > 0);
+    assert!(token_client.balance(&receiver) > 0);
 }
 
 #[test]
-fn test_event_log_circular_eviction_at_cap() {
+fn test_decommission_withdraw_blocked_after_claim_window() {
     let env = Env::default();
     env.mock_all_auths();
+    env.ledger().set_timestamp(1000);
 
     let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
-    asset_client.mint(&sender, &1_000_000_000);
+    let (token_id, _, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
 
-    let sid = v2_client.create_stream(&StreamArgs {
+    client.create_stream(&StreamArgs {
         sender: sender.clone(),
         receiver: receiver.clone(),
         token: token_id.clone(),
         total_amount: 1_000_000_000,
         start_time: 0,
         cliff_time: 0,
-        end_time: 1000,
+        end_time: 100_000_000,
         step_duration: 0,
         multiplier_bps: 0,
-        penalty_bps: 0,
         vault_address: None,
         yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
     });
 
-    // Fill to cap (50) then add 2 more
-    for i in 0u32..52 {
-        let mut payload = [0u8; 4];
-        payload.copy_from_slice(&i.to_be_bytes());
-        v2_client.append_event_log(&sid, &soroban_sdk::Bytes::from_slice(&env, &payload));
+    client.decommission_contract();
+
+    // Jump past the 90-day claim window (90 * 24 * 3600 = 7_776_000 seconds)
+    env.ledger().set_timestamp(1000 + 7_776_001);
+    let result = client.try_withdraw(&0, &receiver);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_decommission_only_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    // Calling without init (no admin) should fail — but here admin is set.
+    // Verify state is Active before decommission.
+    assert_eq!(client.get_contract_state(), crate::types::ContractState::Active);
+    client.decommission_contract();
+    assert_eq!(client.get_contract_state(), crate::types::ContractState::Terminated);
+}
+
+// ── Issue #937: Sanctions Oracle ─────────────────────────────────────────────
+
+/// Minimal mock oracle contract for testing.
+mod mock_oracle {
+    use soroban_sdk::{contract, contractimpl, Address, Env, Vec};
+
+    #[contract]
+    pub struct MockOracle;
+
+    #[contractimpl]
+    impl MockOracle {
+        pub fn is_sanctioned(env: Env, address: Address) -> bool {
+            // Treat any address stored under key "BLOCKED" as sanctioned.
+            let blocked: Vec<Address> = env
+                .storage()
+                .instance()
+                .get(&soroban_sdk::symbol_short!("BLOCKED"))
+                .unwrap_or(Vec::new(&env));
+            blocked.contains(&address)
+        }
+
+        pub fn block(env: Env, address: Address) {
+            let mut blocked: Vec<Address> = env
+                .storage()
+                .instance()
+                .get(&soroban_sdk::symbol_short!("BLOCKED"))
+                .unwrap_or(Vec::new(&env));
+            blocked.push_back(address);
+            env.storage()
+                .instance()
+                .set(&soroban_sdk::symbol_short!("BLOCKED"), &blocked);
+        }
     }
-
-    let log = v2_client.get_stream_event_log(&sid);
-
-    // Buffer must not exceed 50
-    assert_eq!(log.len(), 50);
-
-    // Oldest surviving entry should be index 2 (0 and 1 were evicted)
-    let expected_oldest = soroban_sdk::Bytes::from_slice(&env, &2u32.to_be_bytes());
-    assert_eq!(log.get(0).unwrap(), expected_oldest);
-
-    // Newest entry should be index 51
-    let expected_newest = soroban_sdk::Bytes::from_slice(&env, &51u32.to_be_bytes());
-    assert_eq!(log.get(49).unwrap(), expected_newest);
 }
 
 #[test]
-#[should_panic(expected = "StreamNotFullyWithdrawn")]
-fn test_close_and_archive_fails_partial_withdraw() {
+fn test_sanctions_oracle_blocks_cancel_to_sanctioned_receiver() {
     let env = Env::default();
     env.mock_all_auths();
+    env.ledger().set_timestamp(500);
 
     let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let (token_id, _, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
-    v2_client.add_to_whitelist(&token_id);
+    let (token_id, _, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
 
-    asset_client.mint(&sender, &100_000_000);
-
-    let sid = v2_client.create_stream(&StreamArgs {
+    client.create_stream(&StreamArgs {
         sender: sender.clone(),
         receiver: receiver.clone(),
         token: token_id.clone(),
-        total_amount: 100_000_000,
+        total_amount: 1_000_000_000,
         start_time: 0,
         cliff_time: 0,
-        end_time: 100,
+        end_time: 1000,
         step_duration: 0,
         multiplier_bps: 0,
-        penalty_bps: 0,
         vault_address: None,
         yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
     });
 
-    // Withdraw only 50% 
-    env.ledger().with_mut(|li| li.timestamp = 50);
-    let withdrawn = v2_client.withdraw(&sid, &receiver);
-    assert_eq!(withdrawn, 50_000_000);
+    // Deploy and configure oracle
+    let oracle_id = env.register(mock_oracle::MockOracle, ());
+    let oracle_client = mock_oracle::MockOracleClient::new(&env, &oracle_id);
+    oracle_client.block(&receiver);
 
-    // Fail: not fully withdrawn
-    v2_client.close_and_archive(&sid, &receiver);
+    client.set_oracle_address(&oracle_id);
+
+    // Cancel should fail because receiver is sanctioned
+    let result = client.try_cancel(&0, &sender);
+    assert!(result.is_err());
 }
 
 #[test]
-fn test_close_and_archive_success() {
+fn test_sanctions_oracle_blocks_withdraw_to_sanctioned_beneficiary() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().set_timestamp(500);
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let (token_id, _, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
+
+    client.create_stream(&StreamArgs {
+        sender: sender.clone(),
+        receiver: receiver.clone(),
+        token: token_id.clone(),
+        total_amount: 1_000_000_000,
+        start_time: 0,
+        cliff_time: 0,
+        end_time: 1000,
+        step_duration: 0,
+        multiplier_bps: 0,
+        vault_address: None,
+        yield_enabled: false,
+    });
+
+    let oracle_id = env.register(mock_oracle::MockOracle, ());
+    let oracle_client = mock_oracle::MockOracleClient::new(&env, &oracle_id);
+    oracle_client.block(&receiver);
+
+    client.set_oracle_address(&oracle_id);
+
+    let result = client.try_withdraw(&0, &receiver);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_sanctions_oracle_no_oracle_set_allows_transfer() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().set_timestamp(500);
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let (token_id, token_client, sac) = create_token(&env, &admin);
+    sac.mint(&sender, &1_000_000_000);
+
+    client.create_stream(&StreamArgs {
+        sender: sender.clone(),
+        receiver: receiver.clone(),
+        token: token_id.clone(),
+        total_amount: 1_000_000_000,
+        start_time: 0,
+        cliff_time: 0,
+        end_time: 1000,
+        step_duration: 0,
+        multiplier_bps: 0,
+        vault_address: None,
+        yield_enabled: false,
+    });
+
+    // No oracle set — withdraw should succeed normally
+    let withdrawn = client.withdraw(&0, &receiver);
+    assert!(withdrawn > 0);
+    assert!(token_client.balance(&receiver) > 0);
+}
+
+// ── Issue #938 — Variable-Fee Tiered Logic tests ────────────────────────────
+
+#[test]
+fn test_set_get_fee_tiers_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 100_000_000, // 100M stroops
+            fee_bps: 100,           // 1%
+        },
+        FeeTier {
+            threshold: 1_000_000_000, // 1B stroops
+            fee_bps: 50,            // 0.5%
+        },
+    ];
+
+    client.set_fee_tiers(&tiers);
+
+    let fetched_tiers = client.get_fee_tiers();
+    assert_eq!(fetched_tiers.len(), 2);
+    assert_eq!(fetched_tiers.get(0).unwrap(), tiers.get(0).unwrap());
+    assert_eq!(fetched_tiers.get(1).unwrap(), tiers.get(1).unwrap());
+}
+
+#[test]
+fn test_set_fee_tiers_admin_only() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let non_admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 100_000_000,
+            fee_bps: 100,
+        },
+    ];
+
+    // Attempt to set tiers without admin auth (should fail)
+    let result = client.try_set_fee_tiers(&tiers);
+    assert!(result.is_err());
+
+    // Mock non_admin auth, still fails
+    env.mock_auths(&[non_admin.into()]);
+    let result = client.try_set_fee_tiers(&tiers);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_set_fee_tiers_fee_too_high() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    // Attempt to set a tier with fee_bps > MAX_FEE_BPS (500)
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 100_000_000,
+            fee_bps: MAX_FEE_BPS + 1, // 501 BPS
+        },
+    ];
+
+    let result = client.try_set_fee_tiers(&tiers);
+    assert_eq!(result, Err(Ok(Error::FeeTooHigh)));
+}
+
+#[test]
+fn test_get_fee_tiers_empty() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    let fetched_tiers = client.get_fee_tiers();
+    assert!(fetched_tiers.is_empty());
+}
+
+#[test]
+fn test_create_stream_with_tiered_fee_no_discount() {
     let env = Env::default();
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
     let sender = Address::generate(&env);
     let receiver = Address::generate(&env);
+    let treasury = Address::generate(&env);
     let token_admin = Address::generate(&env);
     let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
-    let (_, v2_client) = setup_v2(&env, &admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (contract_id, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_treasury(&treasury);
     v2_client.add_to_whitelist(&token_id);
+    v2_client.set_fee_bps(&200u32); // Default fee 2%
 
-    asset_client.mint(&sender, &100_000_000);
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 500_000_000, // 500M stroops
+            fee_bps: 100,           // 1%
+        },
+    ];
+    v2_client.set_fee_tiers(&tiers);
 
-    let sid = v2_client.create_stream(&StreamArgs {
-        sender: sender.clone(),
-        receiver: receiver.clone(),
-        token: token_id.clone(),
-        total_amount: 100_000_000,
-        start_time: 0,
-        cliff_time: 0,
-        end_time: 100,
-        step_duration: 0,
-        multiplier_bps: 0,
-        penalty_bps: 0,
-        vault_address: None,
-        yield_enabled: false,
-        is_recurrent: false,
-        cycle_duration: 0,
-        cancellation_type: 0,
-        affiliate: None,
-        yield_recipient: 0,
-        split_address: None,
-        split_bps: 0,
-    });
+    // Amount below threshold (100M < 500M), should apply default 2% fee
+    let total_amount = 100_000_000;
+    let expected_fee = (total_amount * 200) / 10_000; // 2% of 100M = 2M
+    let expected_stream_amount = total_amount - expected_fee;
 
-    // Withdraw fully
-    env.ledger().with_mut(|li| li.timestamp = 100);
-    let withdrawn = v2_client.withdraw(&sid, &receiver);
-    assert_eq!(withdrawn, 100_000_000);
-    assert_eq!(token_client.balance(&receiver), 100_000_000);
-
-    // Verify stream still exists
+    let sid = v2_client.create_stream(&stream_args(&sender, &receiver, &token_id, total_amount));
     let stream = v2_client.get_stream(&sid).unwrap();
-    assert_eq!(stream.withdrawn_amount, 100_000_000);
-    assert_eq!(stream.total_amount, 100_000_000);
 
-    // Archive
-    v2_client.close_and_archive(&sid, &receiver);
-
-    // Stream gone
-    assert!(v2_client.get_stream(&sid).is_none());
+    assert_eq!(stream.total_amount, expected_stream_amount);
+    assert_eq!(v2_client.get_pending_fees(&treasury, &token_id), expected_fee);
 }
 
 #[test]
-fn test_set_fee_bps_respects_cap() {
+fn test_create_stream_with_tiered_fee_discount_applied() {
     let env = Env::default();
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
-    let (_, v2_client) = setup_v2(&env, &admin);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
 
-    // Below cap (4%) OK
-    v2_client.set_fee_bps(&400);
-    assert_eq!(v2_client.get_fee_bps(), 400);
+    asset_client.mint(&sender, &2_000_000_000);
 
-    // At cap (5%) OK  
-    v2_client.set_fee_bps(&500);
-    assert_eq!(v2_client.get_fee_bps(), 500);
+    let (contract_id, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_treasury(&treasury);
+    v2_client.add_to_whitelist(&token_id);
+    v2_client.set_fee_bps(&200u32); // Default fee 2%
 
-    // Above cap (6%) fails
-    let result = v2_client.try_set_fee_bps(&600);
-    assert_eq!(result, Err(Ok(Error::FeeTooHigh)));
-    
-    // Still at 500
-    assert_eq!(v2_client.get_fee_bps(), 500);
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 500_000_000, // 500M stroops
+            fee_bps: 100,           // 1%
+        },
+        FeeTier {
+            threshold: 1_000_000_000, // 1B stroops
+            fee_bps: 50,            // 0.5%
+        },
+    ];
+    v2_client.set_fee_tiers(&tiers);
+
+    // Amount above second threshold (1.5B > 1B), should apply 0.5% fee
+    let total_amount = 1_500_000_000;
+    let expected_fee = (total_amount * 50) / 10_000; // 0.5% of 1.5B = 7.5M
+    let expected_stream_amount = total_amount - expected_fee;
+
+    let sid = v2_client.create_stream(&stream_args(&sender, &receiver, &token_id, total_amount));
+    let stream = v2_client.get_stream(&sid).unwrap();
+
+    assert_eq!(stream.total_amount, expected_stream_amount);
+    assert_eq!(v2_client.get_pending_fees(&treasury, &token_id), expected_fee);
+}
+
+#[test]
+fn test_create_stream_with_tiered_fee_exact_threshold() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (contract_id, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_treasury(&treasury);
+    v2_client.add_to_whitelist(&token_id);
+    v2_client.set_fee_bps(&200u32); // Default fee 2%
+
+    let tiers = vec![
+        &env,
+        FeeTier {
+            threshold: 500_000_000, // 500M stroops
+            fee_bps: 100,           // 1%
+        },
+    ];
+    v2_client.set_fee_tiers(&tiers);
+
+    // Amount exactly at threshold (500M), should apply 1% fee
+    let total_amount = 500_000_000;
+    let expected_fee = (total_amount * 100) / 10_000; // 1% of 500M = 5M
+    let expected_stream_amount = total_amount - expected_fee;
+
+    let sid = v2_client.create_stream(&stream_args(&sender, &receiver, &token_id, total_amount));
+    let stream = v2_client.get_stream(&sid).unwrap();
+
+    assert_eq!(stream.total_amount, expected_stream_amount);
+    assert_eq!(v2_client.get_pending_fees(&treasury, &token_id), expected_fee);
+}
+
+#[test]
+fn test_create_stream_with_tiered_fee_no_tiers_set() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let treasury = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, token_client, asset_client) = create_token(&env, &token_admin);
+
+    asset_client.mint(&sender, &1_000_000_000);
+
+    let (contract_id, v2_client) = setup_v2(&env, &admin);
+    v2_client.set_treasury(&treasury);
+    v2_client.add_to_whitelist(&token_id);
+    v2_client.set_fee_bps(&200u32); // Default fee 2%
+
+    // No tiers set, should apply default 2% fee regardless of amount
+    let total_amount = 1_500_000_000;
+    let expected_fee = (total_amount * 200) / 10_000; // 2% of 1.5B = 30M
+    let expected_stream_amount = total_amount - expected_fee;
+
+    let sid = v2_client.create_stream(&stream_args(&sender, &receiver, &token_id, total_amount));
+    let stream = v2_client.get_stream(&sid).unwrap();
+
+    assert_eq!(stream.total_amount, expected_stream_amount);
+    assert_eq!(v2_client.get_pending_fees(&treasury, &token_id), expected_fee);
 }
