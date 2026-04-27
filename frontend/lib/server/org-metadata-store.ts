@@ -1,7 +1,16 @@
+export interface CustomDomain {
+  domain: string;
+  dnsVerified: boolean;
+  sslVerified: boolean;
+  createdAt: string;
+  verifiedAt?: string;
+}
+
 export interface OrganizationMetadata {
   orgId: string;
   logo_url?: string;
   logo_provider?: "s3" | "ipfs";
+  customDomains?: CustomDomain[];
   updatedAt: string;
 }
 
@@ -33,6 +42,7 @@ export function setOrganizationMetadata(
     orgId,
     logo_url: patch.logo_url ?? current?.logo_url,
     logo_provider: patch.logo_provider ?? current?.logo_provider,
+    customDomains: patch.customDomains ?? current?.customDomains,
     updatedAt: new Date().toISOString(),
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { ShieldAlert, ArrowLeftRight, Fingerprint, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ShieldAlert, ArrowLeftRight, Fingerprint, LockKeyhole, ShieldCheck, ChevronDown, ChevronUp, Activity } from "lucide-react";
 import { useProtocolStatus } from "@/lib/use-protocol-status";
 import { Can } from "@/components/Can";
 import PrivacyShieldToggle from "@/components/privacy-shield-toggle";
@@ -1360,7 +1360,7 @@ export function HighValueConfirmModal({
 }
 
 // ─── Step 3: Review & Sign ────────────────────────────────────────────────────
-function Step3({
+export function Step3({
   form,
   onSign,
   signing,
@@ -1399,6 +1399,9 @@ function Step3({
   onSetupQuickSign: () => void;
   onVerifyQuickSign: () => void;
 }) {
+  const { feeBps } = useProtocolStatus();
+  const [showFeeBreakdown, setShowFeeBreakdown] = useState(false);
+
   const asset = ASSETS.find((a) => a.symbol === form.asset);
   const durationSeconds =
     DURATION_PRESETS.find((p) => p.label === form.durationPreset)?.seconds ?? 0;
@@ -1407,9 +1410,10 @@ function Step3({
   const endDate =
     durationSeconds > 0 ? new Date(Date.now() + durationSeconds * 1000) : null;
   const totalAmount = parseFloat(form.totalAmount) || 0;
-  const protocolFee = totalAmount * 0.003;
+  const protocolFee = totalAmount * (feeBps / 10000);
   const networkFee = Math.max(0.00001, totalAmount * 0.0001);
   const recipientAmount = Math.max(0, totalAmount - protocolFee - networkFee);
+
 
   const claimableRecipients = Object.values(recipientValidation).filter(
     (status) =>
@@ -1518,6 +1522,61 @@ function Step3({
           </div>
         ))}
       </div>
+
+      {/* Fee Breakdown Accordion (Issue #ProtocolFeeTransparency) */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden transition-all duration-300">
+        <button
+          onClick={() => setShowFeeBreakdown(!showFeeBreakdown)}
+          className="flex w-full items-center justify-between px-5 py-4 hover:bg-white/[0.05] transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-400/10 border border-amber-400/20">
+              <Activity size={14} className="text-amber-400" />
+            </div>
+            <span className="font-body text-xs font-bold tracking-wider uppercase text-white/70">
+              Fee Breakdown
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {!showFeeBreakdown && (
+              <span className="font-body text-[11px] font-bold text-amber-400/60">
+                {fmt(protocolFee)} {form.asset}
+              </span>
+            )}
+            {showFeeBreakdown ? <ChevronUp size={16} className="text-white/30" /> : <ChevronDown size={16} className="text-white/30" />}
+          </div>
+        </button>
+
+        <div
+          className={`px-5 overflow-hidden transition-all duration-500 ease-in-out ${
+            showFeeBreakdown ? "max-h-64 pb-5 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <span className="font-body text-xs text-white/40">Gross Amount</span>
+              <span className="font-body text-xs font-bold text-white/80">{fmt(totalAmount)} {form.asset}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="font-body text-xs text-white/40">Protocol Fee</span>
+                <span className="font-body text-[10px] text-amber-400/50">Rate: {(feeBps / 100).toFixed(2)}% ({feeBps} bps)</span>
+              </div>
+              <span className="font-body text-xs font-bold text-amber-300">-{fmt(protocolFee)} {form.asset}</span>
+            </div>
+            <div className="h-px bg-white/5" />
+            <div className="flex items-center justify-between">
+              <span className="font-body text-xs font-bold text-cyan-400/80">Net Recipient Total</span>
+              <span className="font-body text-sm font-bold text-cyan-400">{fmt(recipientAmount)} {form.asset}</span>
+            </div>
+            <p className="font-body text-[10px] text-white/25 leading-relaxed mt-2">
+              The protocol fee is deducted upfront to cover router maintainance and security. 
+              Network fees are estimates and may vary slightly during execution.
+            </p>
+          </div>
+        </div>
+      </div>
+
 
       <SimulationWaterfall
         asset={form.asset}

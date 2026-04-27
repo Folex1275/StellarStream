@@ -48,7 +48,7 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
         ratePerSecond: 0.02893,
         duration: 20,
         createdAt: new Date(Date.now() - 1000 * 60 * 30),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 47),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 47), // 2 days - Green
         requiredSignatures: 3,
         signers: [
             { address: "GABC...7XYZ", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 28) },
@@ -68,7 +68,7 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
         ratePerSecond: 0.00723,
         duration: 60,
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 22),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 10), // 10 hours - Orange
         requiredSignatures: 2,
         signers: [
             { address: MOCK_CURRENT_USER, status: "pending" },
@@ -87,7 +87,7 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
         ratePerSecond: 0.00463,
         duration: 14,
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 19),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 3), // 3 hours - Red (Urgent)
         requiredSignatures: 4,
         signers: [
             { address: "GABC...7XYZ", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 4) },
@@ -108,7 +108,7 @@ const INITIAL_PENDING_STREAMS: PendingStream[] = [
         ratePerSecond: 0.01447,
         duration: 30,
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8),
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 16),
+        expiresAt: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago - Expired
         requiredSignatures: 3,
         signers: [
             { address: "GABC...7XYZ", status: "signed", signedAt: new Date(Date.now() - 1000 * 60 * 60 * 7) },

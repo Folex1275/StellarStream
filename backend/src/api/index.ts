@@ -5,6 +5,7 @@ import { Router, Request, Response } from "express";
 import { AuditLogService } from "../services/audit-log.service.js";
 import { AuditChainVerificationService } from "../services/audit-chain-verification.service.js";
 import { logger } from "../logger.js";
+import { SorobanRpc } from "@stellar/stellar-sdk";
 import streamsRouter from "./streams.routes";
 import yieldRouter from "./yield.routes.js";
 import snapshotRouter from "./snapshot.routes";
@@ -127,6 +128,65 @@ router.get("/audit-log/:streamId", async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: "Failed to retrieve stream events",
+    });
+  }
+});
+
+/**
+ * GET /api/v1/transaction/:txHash
+ * Returns raw transaction data including XDR and events for a specific transaction hash
+ */
+router.get("/transaction/:txHash", async (req: Request, res: Response) => {
+  try {
+    const { txHash } = req.params;
+
+    if (!txHash) {
+      res.status(400).json({
+        success: false,
+        error: "Transaction hash is required",
+      });
+      return;
+    }
+
+    // Initialize Soroban RPC server
+    const server = new SorobanRpc.Server(process.env.STELLAR_RPC_URL || "https://soroban-testnet.stellar.org");
+
+    // Fetch transaction data
+    const txResponse = await server.getTransaction(txHash);
+
+    if (!txResponse) {
+      res.status(404).json({
+        success: false,
+        error: "Transaction not found",
+      });
+      return;
+    }
+
+    // Get events for this transaction
+    const eventsResponse = await server.getEvents({
+      startLedger: txResponse.ledger,
+      endLedger: txResponse.ledger,
+      filters: [{
+        type: "transaction",
+        transactionHash: txHash,
+      }],
+    });
+
+    res.json({
+      success: true,
+      xdr: txResponse.envelopeXdr?.toXDR() || txResponse.resultXdr?.toXDR(),
+      json: {
+        transaction: txResponse,
+        ledger: txResponse.ledger,
+        status: txResponse.status,
+      },
+      events: eventsResponse.events || [],
+    });
+  } catch (error) {
+    logger.error("Failed to retrieve transaction data", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to retrieve transaction data",
     });
   }
 });

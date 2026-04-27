@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from "@headlessui/react";
 import { getExplorerLink } from "@/lib/explorer";
+import { TransactionDetailsModal } from "./TransactionDetailsModal";
 import { 
   X, 
   History, 
@@ -19,7 +20,7 @@ import {
   Check,
   Loader2,
   Download,
-} from "lucide-react";
+import { TransactionDetailsModal } from "./TransactionDetailsModal";
 
 /**
  * Transaction event types
@@ -334,6 +335,7 @@ export function TransactionHistorySidebar({
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTransaction, setSelectedTransaction] = useState<TransactionEvent | null>(null);
 
   /**
    * Fetch audit log from backend
@@ -546,7 +548,8 @@ export function TransactionHistorySidebar({
                             return (
                               <div
                                 key={event.id}
-                                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                                onClick={() => setSelectedTransaction(event)}
+                                className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
                               >
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between mb-3">
@@ -690,6 +693,13 @@ export function TransactionHistorySidebar({
           </div>
         </div>
       </Dialog>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        isOpen={!!selectedTransaction}
+        onClose={() => setSelectedTransaction(null)}
+        transaction={selectedTransaction}
+      />
     </Transition>
   );
 }

@@ -17,3 +17,9 @@ export {
   formatUsdValue,
 } from "./use-price-fetcher";
 export type { TokenPrice, PriceData } from "./use-price-fetcher";
+
+// Polling interval hook
+export { useInterval } from "./use-interval";
+
+// Page visibility hook
+export { usePageVisibility } from "./use-page-visibility";

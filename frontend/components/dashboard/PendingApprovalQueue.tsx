@@ -6,6 +6,7 @@ import { usePendingStreams, type PendingStream, type Signer } from "@/lib/use-pe
 import { toast } from "@/lib/toast";
 import { ConflictStateCard } from "./ConflictStateCard";
 import { SwipeCard } from "./SwipeCard";
+import ExpiryCountdown from "./ExpiryCountdown";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,21 +96,30 @@ function PendingStreamCard({
 }) {
     const progress = (signedCount / stream.requiredSignatures) * 100;
     const isFullySigned = signedCount >= stream.requiredSignatures;
+    const isExpired = stream.expiresAt.getTime() - Date.now() <= 0;
     const expiresUrgent =
-        stream.expiresAt.getTime() - Date.now() < 1000 * 60 * 60 * 6; // < 6h
+        stream.expiresAt.getTime() - Date.now() < 1000 * 60 * 60 * 6 && !isExpired; // < 6h
 
     return (
         <div
-            className={`relative rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 hover:bg-white/[0.05] ${isFullySigned
+            className={`relative rounded-2xl border backdrop-blur-xl p-5 transition-all duration-300 hover:bg-white/[0.05] ${
+                isExpired
+                    ? "border-red-500/50 bg-red-500/[0.04]"
+                    : isFullySigned
                     ? "border-[#00f5ff]/50 bg-[#00f5ff]/[0.04]"
                     : expiresUrgent
-                        ? "border-orange-500/40 bg-orange-500/[0.03]"
-                        : "border-white/10 bg-white/[0.03]"
-                }`}
+                    ? "border-orange-500/40 bg-orange-500/[0.03]"
+                    : "border-white/10 bg-white/[0.03]"
+            }`}
         >
             {/* Urgency indicator */}
             {expiresUrgent && !isFullySigned && (
                 <div className="absolute -top-px left-4 right-4 h-px bg-gradient-to-r from-transparent via-orange-500/60 to-transparent" />
+            )}
+            
+            {/* Expired indicator */}
+            {isExpired && !isFullySigned && (
+                <div className="absolute -top-px left-4 right-4 h-px bg-gradient-to-r from-transparent via-red-500/80 to-transparent" />
             )}
 
             {/* Header row */}
@@ -119,6 +129,12 @@ function PendingStreamCard({
                         <span className="font-mono text-[11px] text-white/40 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5">
                             {stream.streamId}
                         </span>
+                        {isExpired && !isFullySigned && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-red-400 border border-red-500/30 bg-red-500/10 rounded-full px-2 py-0.5">
+                                <XCircle size={9} />
+                                Expired
+                            </span>
+                        )}
                         {expiresUrgent && !isFullySigned && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase text-orange-400 border border-orange-500/30 bg-orange-500/10 rounded-full px-2 py-0.5">
                                 <AlertTriangle size={9} />
@@ -146,7 +162,7 @@ function PendingStreamCard({
                 </div>
 
                 {/* Sign Now button */}
-                {!stream.hasCurrentUserSigned && !isFullySigned && (
+                {!stream.hasCurrentUserSigned && !isFullySigned && !isExpired && (
                     <button
                         onClick={onSign}
                         disabled={isSigning}
@@ -167,6 +183,14 @@ function PendingStreamCard({
                             </>
                         )}
                     </button>
+                )}
+                
+                {/* Expired state message */}
+                {isExpired && !isFullySigned && (
+                    <div className="flex-shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 border border-red-500/20 bg-red-500/5 text-xs text-red-400/70">
+                        <XCircle size={13} />
+                        Expired
+                    </div>
                 )}
 
                 {stream.hasCurrentUserSigned && !isFullySigned && (
@@ -253,13 +277,11 @@ function PendingStreamCard({
             {/* Footer row */}
             <div className="flex items-center justify-between text-[11px] text-white/30">
                 <span>Created {timeAgo(stream.createdAt)}</span>
-                <span
-                    className={`flex items-center gap-1 ${expiresUrgent && !isFullySigned ? "text-orange-400/70" : ""
-                        }`}
-                >
-                    <Clock size={10} />
-                    Expires in {timeUntil(stream.expiresAt)}
-                </span>
+                <ExpiryCountdown
+                    expiresAt={stream.expiresAt}
+                    isCompleted={isFullySigned}
+                    size="sm"
+                />
             </div>
         </div>
     );
