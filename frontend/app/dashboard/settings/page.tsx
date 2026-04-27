@@ -3,7 +3,7 @@
 import { useState } from "react";
 import SecurityPrivacyPage from "@/components/settings/SecurityPrivacyPage";
 import GasManagementTile from "@/components/settings/GasManagementTile";
-import { OrganizationAvatarBrandingCard } from "@/components/settings/OrganizationAvatarBrandingCard";
+import { CustomDomainsCard } from "@/components/settings/CustomDomainsCard";
 import { AdminQuorumSettings } from "@/components/settings/AdminQuorumSettings";
 import { WebhookIntegrationsCard } from "@/components/settings/WebhookIntegrationsCard";
 import GasLedger from "@/components/gasledger";
@@ -54,6 +54,7 @@ export default function SettingsPage() {
         <>
           <TeamManagementCard />
           <OrganizationAvatarBrandingCard />
+          <CustomDomainsCard />
           <GasManagementTile />
           {/* Gas Ledger — transaction history (#1023) */}
           <GasLedger walletAddress="demo-wallet" />
