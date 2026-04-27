@@ -1,12 +1,16 @@
 export type CollaboratorRole = "Admin" | "Accountant" | "Viewer";
+export type InviteStatus = "pending" | "accepted" | "rejected" | "expired";
 
 export interface PendingInvite {
   id: string;
   orgId: string;
   recipient: string;
   role: CollaboratorRole;
-  status: "pending";
+  status: InviteStatus;
   invitedAt: string;
+  acceptedAt?: string;
+  acceptedBy?: string;
+  rejectedAt?: string;
 }
 
 type InviteStore = Map<string, PendingInvite[]>;
@@ -74,3 +78,73 @@ export function revokeInvite(
   store.set(orgId, current);
   return removedInvite;
 }
+
+/**
+ * Find an invite by its token (id)
+ * Returns the invite from any organization
+ */
+export function findInviteByToken(token: string): PendingInvite | null {
+  const store = getStore();
+  for (const orgInvites of store.values()) {
+    const invite = orgInvites.find((inv) => inv.id === token);
+    if (invite) return invite;
+  }
+  return null;
+}
+
+/**
+ * Accept an invitation
+ * Updates the invite status and records acceptance details
+ */
+export function acceptInvite(
+  token: string,
+  acceptedBy: string,
+): PendingInvite | null {
+  const invite = findInviteByToken(token);
+  if (!invite) return null;
+
+  const store = getStore();
+  const orgInvites = store.get(invite.orgId) ?? [];
+  const index = orgInvites.findIndex((inv) => inv.id === token);
+
+  if (index === -1) return null;
+
+  const updatedInvite: PendingInvite = {
+    ...orgInvites[index],
+    status: "accepted",
+    acceptedAt: new Date().toISOString(),
+    acceptedBy,
+  };
+
+  orgInvites[index] = updatedInvite;
+  store.set(invite.orgId, orgInvites);
+
+  return updatedInvite;
+}
+
+/**
+ * Reject an invitation
+ * Updates the invite status and records rejection
+ */
+export function rejectInvite(token: string): PendingInvite | null {
+  const invite = findInviteByToken(token);
+  if (!invite) return null;
+
+  const store = getStore();
+  const orgInvites = store.get(invite.orgId) ?? [];
+  const index = orgInvites.findIndex((inv) => inv.id === token);
+
+  if (index === -1) return null;
+
+  const updatedInvite: PendingInvite = {
+    ...orgInvites[index],
+    status: "rejected",
+    rejectedAt: new Date().toISOString(),
+  };
+
+  orgInvites[index] = updatedInvite;
+  store.set(invite.orgId, orgInvites);
+
+  return updatedInvite;
+}
+
