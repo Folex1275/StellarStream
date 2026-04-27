@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Clock, CheckCircle2, XCircle, Pen, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Pen, RefreshCw, AlertTriangle, Loader2, Smartphone } from "lucide-react";
 import { usePendingStreams, type PendingStream, type Signer } from "@/lib/use-pending-streams";
 import { toast } from "@/lib/toast";
 import { ConflictStateCard } from "./ConflictStateCard";
+import { SwipeCard } from "./SwipeCard";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -337,9 +338,15 @@ export default function PendingApprovalQueue() {
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div>
                         <div className="flex items-center gap-3 flex-wrap">
-                            <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
-                                Multi-Sig
-                            </p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-body text-xs tracking-[0.12em] text-white/60 uppercase">
+                                    Multi-Sig
+                                </p>
+                                <span className="hidden md:inline-flex items-center gap-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-purple-400 uppercase">
+                                    <Smartphone size={10} />
+                                    Swipe Enabled
+                                </span>
+                            </div>
                             {awaitingMySignature > 0 && (
                                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00f5ff]/30 bg-[#00f5ff]/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-[#00f5ff] uppercase">
                                     <span className="relative flex h-1.5 w-1.5">
@@ -352,8 +359,9 @@ export default function PendingApprovalQueue() {
                         </div>
                         <h1 className="font-heading mt-2 text-3xl md:text-4xl">Pending Approvals</h1>
                         <p className="font-body mt-1 text-sm text-white/40 max-w-lg">
-                            Streams awaiting multi-signature approval before activation. Sign to advance
-                            each request toward the required threshold.
+                            {typeof window !== "undefined" && window.innerWidth < 768
+                                ? "Swipe right to approve, left to reject. High-value transactions require biometric confirmation."
+                                : "Streams awaiting multi-signature approval before activation. Sign to advance each request toward the required threshold."}
                         </p>
                     </div>
 
@@ -440,12 +448,28 @@ export default function PendingApprovalQueue() {
                                     onRestart={() => handleRestart(stream)}
                                 />
                             ) : (
-                                <PendingStreamCard
-                                    stream={stream}
-                                    isSigning={signingIds.has(stream.id)}
-                                    onSign={() => handleSign(stream)}
-                                    signedCount={signedCount(stream)}
-                                />
+                                <>
+                                    {/* Mobile: Swipe Card */}
+                                    <div className="md:hidden">
+                                        <SwipeCard
+                                            stream={stream}
+                                            isSigning={signingIds.has(stream.id)}
+                                            onApprove={() => handleSign(stream)}
+                                            signedCount={signedCount(stream)}
+                                            enableSwipe={!stream.hasCurrentUserSigned}
+                                        />
+                                    </div>
+
+                                    {/* Desktop: Traditional Card */}
+                                    <div className="hidden md:block">
+                                        <PendingStreamCard
+                                            stream={stream}
+                                            isSigning={signingIds.has(stream.id)}
+                                            onSign={() => handleSign(stream)}
+                                            signedCount={signedCount(stream)}
+                                        />
+                                    </div>
+                                </>
                             )}
                         </div>
                     );
