@@ -690,6 +690,7 @@ model SplitLink {
   fullUrl         String   @map("full_url")
   payloadHash     String   @unique @map("payload_hash")
   creatorAddress  String   @map("creator_address")
+  passwordHash    String?  @map("password_hash") // SHA-256 of the password; null = no protection
   clickCount      Int      @default(0) @map("click_count")
   lastClickedAt   DateTime? @map("last_clicked_at")
   expiresAt       DateTime? @map("expires_at")

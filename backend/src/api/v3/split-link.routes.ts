@@ -158,17 +158,27 @@ router.get('/s/:slug', async (req: Request<{ slug: string }>, res: Response) => 
   }
 });
 
-// GET /api/v3/split-links/:slug - Get link info
+// GET /api/v3/split-links/:slug - Get link info (returns 401 if password-protected and no valid token)
 router.get('/split-links/:slug', async (req: Request<{ slug: string }>, res: Response) => {
   try {
     const { slug } = req.params;
 
-    const link = await prisma.splitLink.findUnique({
-      where: { slug },
-    });
+    const link = await prisma.splitLink.findUnique({ where: { slug } });
 
     if (!link) {
       return res.status(404).json({ error: 'Link not found' });
+    }
+
+    // If password-protected, require a valid unlock token in the Authorization header
+    if (link.password_hash) {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      const expectedToken = createHash('sha256')
+        .update(`${link.id}:${link.password_hash}:${process.env.JWT_SECRET ?? 'secret'}`)
+        .digest('hex');
+
+      if (token !== expectedToken) {
+        return res.status(401).json({ error: 'Password required', passwordProtected: true });
+      }
     }
 
     const response: SplitLinkResponse = {
@@ -185,6 +195,44 @@ router.get('/split-links/:slug', async (req: Request<{ slug: string }>, res: Res
     return res.status(200).json(response);
   } catch (error) {
     logger.error('Error fetching split link:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/v3/split-links/:slug/unlock - Verify password, return access token
+router.post('/split-links/:slug/unlock', async (req: Request<{ slug: string }>, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const { password } = req.body as { password?: string };
+
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+
+    const link = await prisma.splitLink.findUnique({ where: { slug } });
+
+    if (!link) {
+      return res.status(404).json({ error: 'Link not found' });
+    }
+
+    if (!link.password_hash) {
+      return res.status(400).json({ error: 'This link is not password-protected' });
+    }
+
+    const submittedHash = createHash('sha256').update(password).digest('hex');
+
+    if (submittedHash !== link.password_hash) {
+      return res.status(403).json({ error: 'Incorrect password' });
+    }
+
+    // Derive a deterministic access token from the link id + stored hash + server secret
+    const accessToken = createHash('sha256')
+      .update(`${link.id}:${link.password_hash}:${process.env.JWT_SECRET ?? 'secret'}`)
+      .digest('hex');
+
+    return res.status(200).json({ accessToken });
+  } catch (error) {
+    logger.error('Error unlocking split link:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
