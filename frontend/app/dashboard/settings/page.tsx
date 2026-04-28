@@ -3,6 +3,7 @@
 import { useState } from "react";
 import SecurityPrivacyPage from "@/components/settings/SecurityPrivacyPage";
 import GasManagementTile from "@/components/settings/GasManagementTile";
+import BrandingPage from "@/components/settings/BrandingPage";
 import { CustomDomainsCard } from "@/components/settings/CustomDomainsCard";
 import { AdminQuorumSettings } from "@/components/settings/AdminQuorumSettings";
 import { WebhookIntegrationsCard } from "@/components/settings/WebhookIntegrationsCard";
@@ -77,6 +78,11 @@ export default function SettingsPage() {
         </>
       )}
 
+      {/* ── Brand Identity (#1006) ── */}
+      <BrandingPage />
+
+      {/* ── Security & Privacy Suite (#157) ── */}
+      <SecurityPrivacyPage />
       {/* ── Developer Settings ── */}
       <DeveloperSettingsCard />
 
