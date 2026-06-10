@@ -108,9 +108,6 @@ export default function GasTank({
   const isLowBalance = balance < warningThreshold;
   const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
 
-  const isLowBalance = balance < warningThreshold;
-  const fillPercent = Math.min((balance / maxDisplay) * 100, 100);
-
   return (
     <>
       <style>{`

@@ -281,7 +281,7 @@ export default function TransactionHistory() {
 
       <div style={{
         minHeight: "100vh",
-        background: "#06060f",
+        background: "transparent",
         padding: "32px 24px",
         fontFamily: "'Plus Jakarta Sans', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
         animation: "fade-in .4s ease both",
@@ -341,8 +341,8 @@ export default function TransactionHistory() {
 
           {/* ── Glass card ── */}
           <div style={{
-            background: "rgba(255,255,255,0.025)",
-            border: "1px solid rgba(255,255,255,0.07)",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
             borderRadius: 20,
             overflow: "hidden",
             backdropFilter: "blur(20px)",
@@ -351,7 +351,7 @@ export default function TransactionHistory() {
             {/* Top edge shimmer */}
             <div style={{
               position: "absolute", top: 0, left: "5%", right: "5%", height: 1,
-              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)",
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)",
             }} />
 
             {/* ── Toolbar ── */}

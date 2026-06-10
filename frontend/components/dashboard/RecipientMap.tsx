@@ -54,19 +54,9 @@ function RecipientMapContent({ recipients }: { recipients: Recipient[] }) {
     import('react-leaflet').then((mod) => ({ default: mod.Popup }))
   );
 
-  // Try to import MarkerClusterGroup, but provide fallback if not available
-  let MarkerClusterGroup: any = null;
-  try {
-    // This will be undefined if react-leaflet-markercluster is not installed
-    // In that case, we'll render markers without clustering
-    MarkerClusterGroup = React.lazy(() =>
-      import('react-leaflet-markercluster').then((mod) => ({
-        default: mod.MarkerClusterGroup,
-      }))
-    );
-  } catch {
-    // Clustering not available, will render markers directly
-  }
+  // Note: Marker clustering disabled - react-leaflet-markercluster export compatibility issue
+  // Markers will render without clustering for performance
+  const MarkerClusterGroup = null;
 
   // Calculate center of map based on recipient coordinates
   const coordinates = recipients.map((r) => getRecipientCoordinates(r));
@@ -98,48 +88,25 @@ function RecipientMapContent({ recipients }: { recipients: Recipient[] }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
 
-        {MarkerClusterGroup ? (
-          <MarkerClusterGroup>
-            {recipients.map((recipient) => {
-              const [lat, lng] = getRecipientCoordinates(recipient);
-              return (
-                <Marker key={recipient.id} position={[lat, lng]}>
-                  <Popup>
-                    <div className="text-sm">
-                      <div className="font-semibold">{recipient.label}</div>
-                      <div className="text-xs text-gray-600">
-                        {recipient.address.slice(0, 10)}...
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {recipient.amount} {recipient.token}
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              );
-            })}
-          </MarkerClusterGroup>
-        ) : (
-          // Fallback: render markers without clustering if MarkerClusterGroup not available
-          recipients.map((recipient) => {
-            const [lat, lng] = getRecipientCoordinates(recipient);
-            return (
-              <Marker key={recipient.id} position={[lat, lng]}>
-                <Popup>
-                  <div className="text-sm">
-                    <div className="font-semibold">{recipient.label}</div>
-                    <div className="text-xs text-gray-600">
-                      {recipient.address.slice(0, 10)}...
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {recipient.amount} {recipient.token}
-                    </div>
+        {/* Render markers directly without clustering for performance */}
+        {recipients.slice(0, 100).map((recipient) => {
+          const [lat, lng] = getRecipientCoordinates(recipient);
+          return (
+            <Marker key={recipient.id} position={[lat, lng]}>
+              <Popup>
+                <div className="text-sm">
+                  <div className="font-semibold">{recipient.label}</div>
+                  <div className="text-xs text-gray-600">
+                    {recipient.address.slice(0, 10)}...
                   </div>
-                </Popup>
-              </Marker>
-            );
-          })
-        )}
+                  <div className="text-xs text-gray-600">
+                    {recipient.amount} {recipient.token}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
       </MapContainer>
     </React.Suspense>
   );

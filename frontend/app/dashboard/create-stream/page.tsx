@@ -196,7 +196,7 @@ const STEPS = [
   { number: 3, label: "Review & Sign", short: "Sign" },
 ];
 
-export const HIGH_VALUE_THRESHOLD = 10_000; // USDC
+const HIGH_VALUE_THRESHOLD = 10_000; // USDC
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number, d = 2) =>
   n.toLocaleString("en-US", {
@@ -1225,7 +1225,7 @@ function Step2({
 }
 
 // ─── High-Value Confirm Modal (Issue #1022) ───────────────────────────────────
-export function HighValueConfirmModal({
+function HighValueConfirmModal({
   amount,
   asset,
   onConfirm,
@@ -1360,7 +1360,7 @@ export function HighValueConfirmModal({
 }
 
 // ─── Step 3: Review & Sign ────────────────────────────────────────────────────
-export function Step3({
+function Step3({
   form,
   onSign,
   signing,
@@ -2382,7 +2382,8 @@ export default function CreateStreamPage() {
         }}
       />
 
-      {/* High-value friction gate (#1022) */}
+      {/* High-value friction gate (#1022) - Placeholder - feature not yet implemented */}
+      {/*
       {showFrictionGate && (
         <HighValueConfirmModal
           amount={parseFloat(form.totalAmount) || 0}
@@ -2391,6 +2392,7 @@ export default function CreateStreamPage() {
           onClose={() => setShowFrictionGate(false)}
         />
       )}
+      */}
     </div>
   );
 }

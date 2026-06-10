@@ -14,7 +14,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   return (
     <TransactionQueueProvider>
-    <div className="relative min-h-screen bg-[#030303] text-white overflow-hidden">
+    <div className="relative min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
       {/* Fixed Nebula Glow Background */}
       <div
         aria-hidden
@@ -23,12 +23,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
           background: `
             radial-gradient(
               circle 600px at 10% 15%,
-              rgba(0, 245, 255, 0.08) 0%,
+              rgba(0, 245, 255, 0.12) 0%,
               transparent 70%
             ),
             radial-gradient(
               circle 500px at 90% 85%,
-              rgba(138, 0, 255, 0.06) 0%,
+              rgba(138, 0, 255, 0.08) 0%,
               transparent 60%
             )
           `,

@@ -1,3 +1,4 @@
+/* eslint-env serviceworker */
 // public/sw.js
 // Service worker for StellarStream PWA — Issue #1018
 // Caches the /dashboard/v3/splitter route and its static assets for offline use.

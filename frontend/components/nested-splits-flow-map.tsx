@@ -133,11 +133,11 @@ export function NestedSplitsFlowMap({ rootNode, className = "" }: NestedSplitsFl
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: \`\${child.share}%\` }}
+                          animate={{ width: `${child.share}%` }}
                           transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
-                          className={\`h-full rounded-full \${
+                          className={`h-full rounded-full ${
                             child.isStellarStreamV3 ? "bg-indigo-400" : "bg-cyan-400"
-                          }\`}
+                          }`}
                         />
                       </div>
 

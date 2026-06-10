@@ -2,7 +2,7 @@
 
 import { useTransactionFeed } from "@/lib/hooks/use-transaction-feed";
 import { 
-  ArrowRightFromArc, 
+  ArrowUpRight, 
   CheckCircle, 
   Clock, 
   DollarSign, 
@@ -160,7 +160,7 @@ export function TransactionFeed() {
 function getIconForType(type: string) {
   switch (type) {
     case 'stream_created':
-      return <ArrowRightFromArc className="h-4 w-4" />;
+      return <ArrowUpRight className="h-4 w-4" />;
     case 'recipient_added':
       return <Users className="h-4 w-4" />;
     case 'split_approved':

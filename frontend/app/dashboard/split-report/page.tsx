@@ -54,7 +54,7 @@ function parseRecipientParam(rawRecipients: string | null): SettlementCsvRecipie
                 : undefined,
             memo: typeof row.memo === "string" ? row.memo : undefined,
             operationId: typeof row.operationId === "string" ? row.operationId : undefined,
-          };
+          } as SettlementCsvRecipient;
         })
         .filter((entry): entry is SettlementCsvRecipient => entry !== null);
     }

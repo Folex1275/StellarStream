@@ -1,7 +1,7 @@
 'use client';
 
 import { HealthCard } from '@/components/dashboard/HealthCard';
-import { GlobalSearch } from '@/components/globalsearch';
+import GlobalSearch from '@/components/globalsearch';
 
 /**
  * Organization Health Command Center Page

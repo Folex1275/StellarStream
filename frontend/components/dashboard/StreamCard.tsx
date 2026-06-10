@@ -67,7 +67,7 @@ export function StreamCard({
 
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl"
+      className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl"
       style={{ x, opacity }}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
@@ -136,7 +136,7 @@ export function StreamCard({
         </div>
 
         {/* Live counter */}
-        <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-center">
+        <div className="mb-4 rounded-xl border border-white/10 bg-white/2 p-4 text-center">
           <p className="font-body text-[10px] uppercase tracking-wider text-white/40 mb-1">Streamed</p>
           <p className="font-heading text-2xl text-white tabular-nums">
             {liveStreamed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -146,11 +146,11 @@ export function StreamCard({
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+          <div className="rounded-lg border border-white/10 bg-white/2 p-3">
             <p className="font-body text-[9px] uppercase tracking-wider text-white/40 mb-1">Total</p>
             <p className="font-heading text-sm text-white">{totalAmount.toLocaleString()}</p>
           </div>
-          <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+          <div className="rounded-lg border border-white/10 bg-white/2 p-3">
             <p className="font-body text-[9px] uppercase tracking-wider text-white/40 mb-1">Remaining</p>
             <p className="font-heading text-sm text-white">{remaining.toLocaleString("en-US", { maximumFractionDigits: 2 })}</p>
           </div>
@@ -191,7 +191,7 @@ export function StreamCard({
         {onViewDetails && (
           <button
             onClick={onViewDetails}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-white/[0.02] px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.05]"
+            className="mt-2 w-full rounded-lg border border-white/10 bg-white/2 px-4 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.05]"
           >
             View Details
           </button>

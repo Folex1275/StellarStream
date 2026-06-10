@@ -20,7 +20,7 @@ import {
   Check,
   Loader2,
   Download,
-import { TransactionDetailsModal } from "./TransactionDetailsModal";
+} from "lucide-react";
 
 /**
  * Transaction event types

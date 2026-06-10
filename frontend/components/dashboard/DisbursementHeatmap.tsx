@@ -102,13 +102,13 @@ export function DisbursementHeatmap() {
             if (!value) return "heatmap-empty";
             return countClass(value.count);
           }}
-          tooltipDataAttrs={(value: { date: string; count: number } | null) => {
-            if (!value?.date) return { "data-tip": "No disbursements" };
+          tooltipDataAttrs={(value) => {
+            if (!value?.date) return { "data-tip": "No disbursements" } as any;
             const info = dayMap.get(value.date);
             const role = info?.role ?? "UNKNOWN";
             return {
               "data-tip": `${value.date}: ${value.count} disbursement${value.count !== 1 ? "s" : ""} (${role})`,
-            };
+            } as any;
           }}
           showWeekdayLabels
         />

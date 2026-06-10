@@ -54,7 +54,7 @@ export default function SettingsPage() {
       {tab === "General" && (
         <>
           <TeamManagementCard />
-          <OrganizationAvatarBrandingCard />
+          <BrandingPage />
           <CustomDomainsCard />
           <GasManagementTile />
           {/* Gas Ledger — transaction history (#1023) */}

@@ -26,7 +26,7 @@
 
 /* GlassCard Utility Class */
 @utility glass-card {
-  @apply bg-white/5 border border-white/[0.08] rounded-2xl;
+  @apply bg-white/5 border-white/8 rounded-2xl;
   /* Progressive enhancement: blur only when supported */
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
     @apply backdrop-blur-lg;

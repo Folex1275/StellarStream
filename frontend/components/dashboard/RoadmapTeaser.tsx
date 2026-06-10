@@ -111,7 +111,7 @@ function RoadmapTeaser() {
   };
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6">
+    <div className="rounded-3xl border border-white/10 bg-white/4 backdrop-blur-xl p-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -132,7 +132,7 @@ function RoadmapTeaser() {
 
       {/* Overall Progress Bar */}
       <div className="mb-6">
-        <div className="h-2 w-full rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-white/6 overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-1000"
             style={{
@@ -149,7 +149,7 @@ function RoadmapTeaser() {
         {features.map((feature) => (
           <div
             key={feature.id}
-            className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 hover:border-white/[0.15] hover:bg-white/[0.04] transition-all duration-300"
+            className="group rounded-2xl border border-white/8 bg-white/2 p-4 hover:border-white/15 hover:bg-white/4 transition-all duration-300"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
@@ -178,7 +178,7 @@ function RoadmapTeaser() {
                     rounded-xl border px-3 py-1.5 text-xs font-bold transition-all duration-200
                     ${feature.userVoted
                       ? "bg-emerald-400/20 border-emerald-400/50 text-emerald-400"
-                      : "bg-white/[0.04] border-white/10 text-white/70 hover:bg-white/[0.08] hover:border-white/20 hover:text-white/90"
+                      : "bg-white/4 border-white/10 text-white/70 hover:bg-white/8 hover:border-white/20 hover:text-white/90"
                     }
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
@@ -207,7 +207,7 @@ function RoadmapTeaser() {
       </div>
 
       {/* Footer */}
-      <div className="mt-6 pt-4 border-t border-white/[0.08]">
+      <div className="mt-6 pt-4 border-t border-white/8">
         <p className="font-body text-xs text-white/40 text-center">
           Your feedback helps us prioritize features that matter most to you
         </p>

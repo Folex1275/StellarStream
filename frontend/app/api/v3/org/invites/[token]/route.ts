@@ -12,9 +12,9 @@ import {
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  const token = params.token;
+  const { token } = await params;
 
   if (!token) {
     return NextResponse.json({ error: "Token is required" }, { status: 400 });
@@ -60,9 +60,9 @@ export async function GET(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
-  const token = params.token;
+  const { token } = await params;
 
   if (!token) {
     return NextResponse.json({ error: "Token is required" }, { status: 400 });

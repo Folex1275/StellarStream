@@ -88,13 +88,14 @@ export default function SplitterPage() {
       </header>
 
       {showRestorePrompt && (
-        <SessionRestorePrompt
-          onRestore={() => setShowRestorePrompt(false)}
-          onClear={() => {
-            reset();
-            setShowRestorePrompt(false);
-          }}
-        />
+        // SessionRestorePrompt component not implemented - feature placeholder
+        <div className="glass-card p-4">
+          <p className="text-white/70">Resume previous session?</p>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => setShowRestorePrompt(false)} className="btn-primary">Restore</button>
+            <button onClick={() => { reset(); setShowRestorePrompt(false); }} className="btn-secondary">Clear</button>
+          </div>
+        </div>
       )}
 
       {showResumeBanner && lastSuccessfulIndex !== null && (
